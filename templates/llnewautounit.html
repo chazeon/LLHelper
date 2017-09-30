@@ -1063,7 +1063,7 @@ function P_Matrix(){
 		P_up[i][3] = 0.16*(1.0  + Match_c[i])*attr[i];
 		P_up[i][4] = P_sumtri;
 		P_up[i][5] = P_sumfor;
-		P_up[i][6] = skillP[i];
+		P_up[i][6] = skillP[i]/additionrate;
 	}//书写宝石强度加成矩阵
 }
 function calc_MPM() {
@@ -1244,20 +1244,24 @@ function calc_bestarm(){
 	//先排序权重，随歌曲而动,从大到小
 	
 	function orderposbyweight(){
+		weightsum=0;
+		var songweight0=new Array()
 		for(var i=0;i<9;i++){
 			songweight[i]=parseFloat(document.getElementById("weight"+String(i)).value)
+			songweight0[i]=songweight[i]
+			weightsum+=songweight[i]
 		}
 		
 		for(var i=0;i<8;i++){
 			mweight=0
 			for(var j=0;j<9;j++){
 				if(j==4) continue
-				if(mweight<songweight[j]){
-					mweight=songweight[j]
+				if(mweight<songweight0[j]){
+					mweight=songweight0[j]
 					songweightsort[i]=j
 				}
 			}
-			songweight[songweightsort[i]]=0
+			songweight0[songweightsort[i]]=0
 		}
 	}
 	
@@ -1306,7 +1310,9 @@ function calc_bestarm(){
 		document.getElementById("cardid"+String(unitNO)).value=submember[subNO]["cardid"]
 		changeavatar(unitNO)
 	}
+	
 	function arrangepos(){
+		additionrate=0
 		var subcopyListstr=["main","cardid"]
 		var subcopyList=["smile","pure","cool","skilllevel","mezame","maxcost"]
 		for(var i=0;i<8;i++){
@@ -1319,8 +1325,11 @@ function calc_bestarm(){
 			document.getElementById("main"+String(posi)).value=submember[memi]["main"]
 			document.getElementById("cardid"+String(posi)).value=submember[memi]["cardid"]
 			changeavatar(posi)
+			additionrate+=(submember[memi]["addition"]*songweight[posi]/1.21)
 			//refreshsubmemberlist();/////=========delete
 		}
+		additionrate+=submember[submember.length-1]["addition"]*songweight[4]/1.21
+		additionrate/=weightsum
 	}
 	function swapmember(i,j){
 		k=subunitmembers[i]
@@ -2045,8 +2054,11 @@ function calc_bestarm(){
 	4、可以点击”保存队伍“将队伍配置文件保存到本地
 	5、第2、3步可以从保存的文件中读取队伍信息来代替：点击”选择文件“选择本地配置文件，再点击”读取队伍“
 	6、选择主唱技能和好友主唱技能 <font style='color:red'><b>计算SM得分时将好友主唱加成设为0%</b></font>
-	7、勾选或取消“自动配饰”选择是否在点击Calculate计算时自动计算最优策略 勾选后请填写每种偶像技能的拥有数量 <a href=https://tieba.baidu.com/p/5242588398><font color="#FF0000"><b>说明与反馈</b></font></a>
-	8、点击Calculate
+	7、勾选或取消“自动配饰”选择是否在点击Calculate计算时自动计算最优策略 勾选后请填写每种偶像技能的拥有数量，“保存仓库”与“读取仓库”可以存取宝石文件信息
+	8、选择卡片后点击“添加后备”可设为增加候补成员，其下方的选择文件与读取队伍可以将后备队伍文件或队伍文件作为后备成员添加到后备中
+	9、选择后备成员界面中的“保存全卡”可以保存所有成员，包括队伍与后备，点击“队伍填充”可将后备成员前8名填充至除主唱外的位置中
+	10、点击Calculate
+	11、更多详情，请访问<a href=https://tieba.baidu.com/p/5242588398><font color="#FF0000"><b>说明与反馈</b></font></a>
 
 当前版本：4.1及以上。</a>
 </pre>
