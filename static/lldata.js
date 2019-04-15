@@ -827,8 +827,10 @@ var LLConst = (function () {
       else if (combo <= 800) return 1.3;
       else return 1.35;
    };
-   ret.getComboFeverBonus = function(combo) {
-      return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
+   var COMBO_FEVER_PATTERN_2 = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 5, 6, 7, 8, 9, 10]
+   ret.getComboFeverBonus = function(combo, pattern) {
+      if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
+      return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
    };
    return ret;
 })();
@@ -1192,14 +1194,15 @@ var LLSkillContainer = (function() {
       LLComponentCollection.call(this);
       this.skillLevel = 0; // base 0, range 0-7
       this.cardData = undefined;
-      options = options || {
-         container: 'skillcontainer',
-         lvup: 'skilllvup',
-         lvdown: 'skilllvdown',
-         level: 'skilllevel',
-         text: 'skilltext'
-      };
+      options = options || {};
+      options.container = options.container || 'skillcontainer';
+      options.lvup = options.lvup || 'skilllvup';
+      options.lvdown = options.lvdown || 'skilllvdown';
+      options.level = options.level || 'skilllevel';
+      options.text = options.text || 'skilltext';
+      options.showall = options.showall || 0;
       var me = this;
+      this.showAll = (options.showall || 0);
       this.add('container', new LLComponentBase(options.container));
       this.add('lvup', new LLComponentBase(options.lvup));
       this.getComponent('lvup').on('click', function (e) {
@@ -1220,10 +1223,14 @@ var LLSkillContainer = (function() {
    var proto = cls.prototype;
    proto.setSkillLevel = function (lv) {
       if (lv == this.skillLevel) return;
-      if (lv > 7) {
+      var lvCap = 8;
+      if (this.showAll && this.cardData && this.cardData.skilldetail && this.cardData.skilldetail.length > lvCap) {
+         lvCap = this.cardData.skilldetail.length;
+      }
+      if (lv >= lvCap) {
          this.skillLevel = 0;
       } else if (lv < 0) {
-         this.skillLevel = 7;
+         this.skillLevel = lvCap-1;
       } else {
          this.skillLevel = lv;
       }
@@ -1877,6 +1884,9 @@ var LLSkill = (function () {
       } else if (this.triggerType == eTriggerType.STAR_PERFECT) {
          // TODO: star*perfect_rate?
          total = env.starperfect;
+      } else if (this.triggerType == eTriggerType.MEMBERS) {
+         // TODO: how to calculate it?
+         total = 0;
       }
       chance = Math.floor(total/this.require);
       if (chance > this.skillChance) {
@@ -1919,7 +1929,11 @@ var LLSkill = (function () {
       }
    };
    proto.calcSkillDist = function () {
-      if (!this.skillChance) return false;
+      if (this.skillChance === undefined) {
+         console.error("No skill chance");
+         return [1];
+      }
+      if (!this.skillChance) return [1]; // no chance or not supported, return 100% not active
       if (this.skillDist) return this.skillDist;
       this.skillDist = calcBiDist(this.skillChance, this.actualPossibility/100);
       return this.skillDist;
@@ -2101,7 +2115,7 @@ var LLMember = (function() {
          return this.card.skilldetail[this.skilllevel-1];
       }
       var lv = this.skilllevel + levelBoost;
-      if (lv > 8) lv = 8;
+      if (lv > this.card.skilldetail.length) lv = this.card.skilldetail.length;
       return this.card.skilldetail[lv-1];
    };
    return cls;
@@ -2132,6 +2146,8 @@ var LLSimulateContext = (function() {
       this.totalTime = maxTime;
       this.totalPerfect = mapdata.perfect;
       this.mapSkillPossibilityUp = (1 + parseInt(mapdata.skillup || 0)/100);
+      this.mapTapScoreUp = (1 + parseInt(mapdata.tapup || 0)/100);
+      this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
       this.currentTime = 0;
       this.currentNote = 0;
       this.currentCombo = 0;
@@ -2142,7 +2158,7 @@ var LLSimulateContext = (function() {
       this.totalPerfectScoreUp = 0; // capped at SKILL_LIMIT_PERFECT_SCORE_UP
       this.remainingPerfect = mapdata.perfect;
       // trigger_type: [[memberid, start_value, is_active, has_active_chance, require, base_possibility], ...]
-      // in SKILL_TRIGGER_MEMBERS case, start_value is members_bitset
+      // in SKILL_TRIGGER_MEMBERS case, start_value is members_bitset, require is trigger_condition_members_bitset
       this.triggers = {};
       this.syncTargets = []; // syncTargets[memberId] = [memberIds...]
       this.attributeUpBase = []; // attributeUpBonus[memberId] = sum{target_member.attrStrength}
@@ -2152,6 +2168,7 @@ var LLSimulateContext = (function() {
          var triggerType = curMember.card.triggertype;
          var effectType = curMember.card.skilleffect;
          var skillDetail = curMember.getSkillDetail();
+         var skillRequire = skillDetail.require;
          var targets;
          var neverTrigger = false;
          if (effectType == LLConst.SKILL_EFFECT_SYNC) {
@@ -2172,9 +2189,24 @@ var LLSimulateContext = (function() {
          } else {
             this.attributeUpBase.push(0);
          }
-         // TODO: chain trigger
+         // 连锁发动条件
+         if (triggerType == LLConst.SKILL_TRIGGER_MEMBERS) {
+            targets = getTargetMembers(this.members, curMember.card.triggertarget, i);
+            var conditionBitset = 0;
+            for (var j = 0; j < targets.length; j++) {
+               // 持有连锁技能的卡牌不计入连锁发动条件
+               if (members[targets[j]].card.triggertype  == LLConst.SKILL_TRIGGER_MEMBERS) continue;
+               conditionBitset |= (1 << targets[j]);
+            }
+            // 无连锁对象, 不会触发
+            if (conditionBitset == 0) {
+               neverTrigger = true;
+            } else {
+               skillRequire = conditionBitset;
+            }
+         }
          if (!neverTrigger) {
-            var triggerData = [i, 0, 0, 0, skillDetail.require, skillDetail.possibility];
+            var triggerData = [i, 0, 0, 0, skillRequire, skillDetail.possibility];
             if (this.triggers[triggerType] === undefined) {
                this.triggers[triggerType] = [triggerData];
             } else {
@@ -2854,7 +2886,7 @@ var LLTeam = (function() {
                      accuracyBonus *= LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
                   }
                   if (env.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] > 0) {
-                     comboFeverScore = LLConst.getComboFeverBonus(env.currentCombo) * env.effects[LLConst.SKILL_EFFECT_COMBO_FEVER];
+                     comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(env.currentCombo, env.comboFeverPattern) * env.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
                      if (comboFeverScore > LLConst.SKILL_LIMIT_COMBO_FEVER) {
                         comboFeverScore = LLConst.SKILL_LIMIT_COMBO_FEVER;
                      }
@@ -2865,7 +2897,7 @@ var LLTeam = (function() {
                   //}
                   var baseAttribute = this.finalAttr[mapdata.attribute] + env.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
                   // note position 数值1~9, 从右往左数
-                  var baseNoteScore = Math.ceil(baseAttribute/100 * curNote.factor * accuracyBonus * memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(env.currentCombo));
+                  var baseNoteScore = Math.ceil(baseAttribute/100 * curNote.factor * accuracyBonus * memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(env.currentCombo) * env.mapTapScoreUp);
                   env.currentScore += baseNoteScore + comboFeverScore + perfectScoreUp;
                   env.totalPerfectScoreUp += perfectScoreUp;
                }
@@ -2884,7 +2916,7 @@ var LLTeam = (function() {
          skillsActiveCount[i] /= simCount;
          skillsActiveChanceCount[i] /= simCount;
       }
-      var scoreValues = Object.keys(scores).sort();
+      var scoreValues = Object.keys(scores).sort(function(a,b){return parseInt(a) - parseInt(b);});
       var minScore = parseInt(scoreValues[0]);
       var scoreDistribution = new Array(scoreValues[scoreValues.length-1]-minScore+1);
       for (i = 0; i < scoreValues.length; i++) {
@@ -4372,10 +4404,14 @@ var LLScoreDistributionParameter = (function () {
       {'value': '9', 'text': '9速'},
       {'value': '10', 'text': '10速'}
    ];
+   var comboFeverPatternSelectOptions = [
+      {'value': '1', 'text': '技能加强前（300 combo达到最大加成）'},
+      {'value': '2', 'text': '技能加强后（220 combo达到最大加成）'}
+   ];
    var distTypeDetail = [
       ['#要素', '#计算理论分布/计算技能强度', '#计算模拟分布'],
       ['触发条件: 时间, 图标, 连击, perfect, star perfect, 分数', '支持', '支持'],
-      ['触发条件: 连锁', '不支持', '不支持'],
+      ['触发条件: 连锁', '不支持', '支持'],
       ['技能效果: 回血, 加分', '支持', '支持'],
       ['技能效果: 小判定, 大判定, 提升技能发动率, repeat, <br/>perfect分数提升, combo fever, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持'],
       ['宝石: 诡计', '不支持', '不支持'],
@@ -4403,6 +4439,9 @@ var LLScoreDistributionParameter = (function () {
       var simParamSpeedComponent = new LLSelectComponent(createElement('select', {'className': 'form-control', 'value': '8'}));
       simParamSpeedComponent.setOptions(speedSelectOptions);
       simParamSpeedComponent.set('8');
+      var simParamComboFeverPatternComponent = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
+      simParamComboFeverPatternComponent.setOptions(comboFeverPatternSelectOptions);
+      simParamComboFeverPatternComponent.set('2');
       var simParamContainer = createElement('div', {'className': 'form-inline'}, [
          createElement('div', {'className': 'form-group'}, [
             createElement('label', {'innerHTML': '模拟次数：'}),
@@ -4420,6 +4459,11 @@ var LLScoreDistributionParameter = (function () {
             createElement('label', {'innerHTML': '速度：'}),
             simParamSpeedComponent.element,
             createElement('span', {'innerHTML': '（图标下落速度，1速最慢，10速最快）'})
+         ]),
+         createElement('br'),
+         createElement('div', {'className': 'form-group'}, [
+            createElement('label', {'innerHTML': 'Combo Fever技能：'}),
+            simParamComboFeverPatternComponent.element
          ]),
          createElement('br'),
          createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'})
@@ -4452,7 +4496,8 @@ var LLScoreDistributionParameter = (function () {
             'type': selComp.get(),
             'count': simParamCount.value,
             'perfect_percent': simParamPerfectPercent.value,
-            'speed': simParamSpeedComponent.get()
+            'speed': simParamSpeedComponent.get(),
+            'combo_fever_pattern': simParamComboFeverPatternComponent.get()
          }
       };
       controller.setParameters = function (data) {
@@ -4461,6 +4506,7 @@ var LLScoreDistributionParameter = (function () {
          if (data.count !== undefined) simParamCount.value = data.count;
          if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent;
          if (data.speed) simParamSpeedComponent.set(data.speed);
+         if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern);
       };
       return container;
    }
@@ -4484,6 +4530,7 @@ var LLScoreDistributionParameter = (function () {
 })();
 
 var LLScoreDistributionChart = (function () {
+   var createElement = LLUnit.createElement;
    function makeCommonOptions() {
       return {
          title: {
@@ -4543,27 +4590,58 @@ var LLScoreDistributionChart = (function () {
    // {
    //    chart: Highcharts chart
    //    addSeries: function(data)
+   //    clearSeries: function()
    //    show: function()
    //    hide: function()
    // }
-   function LLScoreDistributionChart_cls(id, series) {
+   // options
+   // {
+   //    series: [series_data, ...]
+   //    width
+   //    height
+   // }
+   function LLScoreDistributionChart_cls(id, options) {
       var element = LLUnit.getElement(id);
       if (!Highcharts) {
          console.error('Not included Highcharts');
       }
+      var me = this;
       var baseComponent = new LLComponentBase(element);
       baseComponent.show(); // need show before create chart, otherwise the canvas size is wrong...
-      var options = makeCommonOptions();
+      var canvasDiv = createElement('div');
+      var clearButton = createElement('button', {'className': 'btn btn-danger', 'type': 'button', 'innerHTML': '清空曲线'}, undefined, {
+         'click': function() {
+            me.clearSeries && me.clearSeries();
+         }
+      });
+      element.appendChild(canvasDiv);
+      element.appendChild(clearButton);
+      var chartOptions = makeCommonOptions();
       var seriesOptions = [];
       var nameId = 1;
-      for (; nameId <= series.length; nameId++) {
-         seriesOptions.push(makeSeries(series[nameId-1], String(nameId)));
+      if (options) {
+         if (options.series) {
+            for (; nameId <= options.series.length; nameId++) {
+               seriesOptions.push(makeSeries(options.series[nameId-1], String(nameId)));
+            }
+         }
+         if (options.width) canvasDiv.style.width = options.width;
+         if (options.height) canvasDiv.style.height = options.height;
       }
-      options['series'] = seriesOptions;
-      this.chart = Highcharts.chart(element, options);
+      chartOptions['series'] = seriesOptions;
+      this.chart = Highcharts.chart(canvasDiv, chartOptions);
       this.addSeries = function(data) {
+         this.show();
          this.chart.addSeries(makeSeries(data, String(nameId)));
          nameId++;
+      };
+      this.clearSeries = function() {
+         if ((!this.chart.series) || (this.chart.series.length == 0)) return;
+         while (this.chart.series.length > 0) {
+            this.chart.series[0].remove(false);
+         }
+         this.chart.redraw();
+         this.hide();
       };
       this.show = function() { baseComponent.show(); }
       this.hide = function() { baseComponent.hide(); }
