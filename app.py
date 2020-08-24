@@ -21,6 +21,8 @@ g_llsongdata = LLData('newsongsjson.txt', 60)
 # snapshot for older card data, should have much less chance to update
 g_llcarddata_cn = LLData('newcardsjson-20181021.txt', 3600)
 g_llcarddata_mix = LLDataMix([g_llcarddata_cn, g_llcarddata], 'cn-mix', 60)
+# metadata
+g_llmetadata = LLData('metadata.txt', 60)
 
 
 ### activity ###
@@ -112,6 +114,10 @@ def lldata_songbrief():
 def lldata_songdetail(index):
     return json.dumps(g_llsongdata.queryByIndex(index))
 
+@app.route("/lldata/metadata", methods=['GET'])
+def lldata_metadata():
+    return json.dumps(g_llmetadata.queryByIndexes(request.args['keys']))
+
 ### data api ###
 @app.route("/llcardapiwiki")
 def llcardapi():
@@ -121,9 +127,15 @@ def llcardapi():
 def llmapapi():
        return open("songsjson.txt").read()
 
-@app.route("/document")
-def document():
-    return send_file("document.txt")
+### documents ###
+
+def render_document(md_file, doc_title):
+    md_content = open(md_file, 'rb').read()
+    return render_template('docs.html', md_content = md_content, doc_title = doc_title)
+
+@app.route("/document/score_calculation.md", methods=['GET'])
+def document_score_calculation():
+    return render_document('docs/score_calculation.md', '得分计算概述')
 
 ### species ###
 @app.route("/llspecies", methods=['GET', 'POST'])
