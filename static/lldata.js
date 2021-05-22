@@ -944,6 +944,7 @@ var LLConst = (function () {
       'GROUP_ELI_NOZOMI2': 83,
       'GROUP_RIN_HANAYO': 99,
       'GROUP_YOSHIKO_HANAMARU': 137,
+      'GROUP_LIELLA': 143,
 
       'NOTE_TYPE_NORMAL': 1,
       'NOTE_TYPE_EVENT': 2,
@@ -992,6 +993,7 @@ var LLConst = (function () {
       'SONG_GROUP_MUSE': 1,
       'SONG_GROUP_AQOURS': 2,
       'SONG_GROUP_NIJIGASAKI': 3,
+      'SONG_GROUP_LIELLA': 4,
 
       'SONG_DIFFICULTY_EASY': 1,
       'SONG_DIFFICULTY_NORMAL': 2,
@@ -1417,6 +1419,7 @@ var LLConst = (function () {
    SONG_GROUP_NAME[KEYS.SONG_GROUP_MUSE] = '缪';
    SONG_GROUP_NAME[KEYS.SONG_GROUP_AQOURS] = '水';
    SONG_GROUP_NAME[KEYS.SONG_GROUP_NIJIGASAKI] = '虹';
+   SONG_GROUP_NAME[KEYS.SONG_GROUP_LIELLA] = '星';
 
    var SONG_DIFFICULTY_NAME = {};
    SONG_DIFFICULTY_NAME[KEYS.SONG_DIFFICULTY_EASY] = {'cn': '简单', 'en': 'Easy'};
@@ -1430,12 +1433,13 @@ var LLConst = (function () {
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_MUSE] = KEYS.GROUP_MUSE;
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_AQOURS] = KEYS.GROUP_AQOURS;
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_NIJIGASAKI] = KEYS.GROUP_NIJIGASAKI;
+   SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_LIELLA] = KEYS.GROUP_LIELLA;
 
    ret.getSongGroupShortName = function (song_group) {
       return SONG_GROUP_NAME[parseInt(song_group)] || '?';
    };
    ret.getSongGroupIds = function () {
-      return [KEYS.SONG_GROUP_MUSE, KEYS.SONG_GROUP_AQOURS, KEYS.SONG_GROUP_NIJIGASAKI];
+      return [KEYS.SONG_GROUP_MUSE, KEYS.SONG_GROUP_AQOURS, KEYS.SONG_GROUP_NIJIGASAKI, KEYS.SONG_GROUP_LIELLA];
    };
    ret.getGroupForSongGroup = function (song_group) {
       if (SONG_GROUP_TO_GROUP[parseInt(song_group)] !== undefined) {
@@ -2582,7 +2586,8 @@ var LLSongSelector = (function() {
          {'value': '',  'text': '组合'},
          {'value': '1', 'text': "μ's"},
          {'value': '2', 'text': 'Aqours'},
-         {'value': '3', 'text': '虹咲'}
+         {'value': '3', 'text': '虹咲'},
+         {'value': '4', 'text': 'Liella!'}
       ]);
       this.getComponent('songswing').setOptions([
          {'value': '',  'text': '是否滑键谱面'},
