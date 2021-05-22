@@ -27,6 +27,7 @@
 
    var defer_onload = $.Deferred();
    var comp_skill = 0;
+   data_mapnote = new LLMapNoteData();
    var comp_cardselector = 0;
    var comp_songselector = 0;
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
