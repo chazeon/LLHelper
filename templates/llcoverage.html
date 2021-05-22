@@ -27,6 +27,7 @@
 
    var defer_onload = $.Deferred();
    var comp_skill = 0;
+   var data_mapnote = 0;
    var comp_cardselector = 0;
    var comp_songselector = 0;
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
@@ -34,6 +35,7 @@
       LLConst.initMetadata(metaData);
       comp_songselector = new LLSongSelector(songData);
       comp_songselector.onSongSettingChange = applysongdata;
+      data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
       comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
       comp_cardselector.getComponent('rarity').filterOptions(function (opt) {
