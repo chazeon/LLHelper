@@ -551,6 +551,9 @@ var LLComponentBase = (function () {
       if ((!e) || (!callback)) return;
       this.element.addEventListener(e, callback);
    };
+   proto.isInDocument = function () {
+      return (this.element && this.element.ownerDocument);
+   };
    return cls;
 })();
 
@@ -1656,16 +1659,19 @@ var LLUnit = {
       }
       var ret = [];
       var isHttp = ('http:' == document.location.protocol);
+      var curServer = LLImageServerSwitch.getImageServer();
       if (type == 'avatar' || type == 'card') {
          var f = (type == 'avatar' ? 'icon' : 'unit');
          var m = (mezame ? 'rankup' : 'normal');
-         if (isHttp) {
-            for (var i = 0; i < 4; i++) {
-               ret.push(((i>=2) ? 'https' : 'http') + '://gitcdn.' + (i%2==0 ? 'xyz' : 'link') + '/repo/iebb/SIFStatic/master/' + f + '/' + m + '/' + cardid + '.png');
-            }
-         } else {
-            for (var i = 0; i < 2; i++) {
-               ret.push('https://gitcdn.' + (i%2==0 ? 'xyz' : 'link') + '/repo/iebb/SIFStatic/master/' + f + '/' + m + '/' + cardid + '.png');
+         if (!(type == 'avatar' && curServer === LLImageServerSwitch.AVATAR_SERVER_LOCAL)) {
+            if (isHttp) {
+               for (var i = 0; i < 4; i++) {
+                  ret.push(((i>=2) ? 'https' : 'http') + '://gitcdn.' + (i%2==0 ? 'xyz' : 'link') + '/repo/iebb/SIFStatic/master/' + f + '/' + m + '/' + cardid + '.png');
+               }
+            } else {
+               for (var i = 0; i < 2; i++) {
+                  ret.push('https://gitcdn.' + (i%2==0 ? 'xyz' : 'link') + '/repo/iebb/SIFStatic/master/' + f + '/' + m + '/' + cardid + '.png');
+               }
             }
          }
          if (type == 'avatar') {
@@ -1956,8 +1962,94 @@ var LLUnit = {
       } else {
          imgComp.element.title = '';
       }
+      LLImageServerSwitch.registerCallback(imgComp, function () {
+         imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
+      });
    }
 };
+
+var LLImageServerSwitch = (function () {
+   var ret = {
+      'AVATAR_SERVER_GIT': 0,
+      'AVATAR_SERVER_LOCAL': 1
+   };
+
+   var IMAGE_SERVER_KEY = 'llhelper_image_server__';
+   function getImageServer() {
+      var server = ret.AVATAR_SERVER_GIT;
+      try {
+         server = parseInt(localStorage.getItem(IMAGE_SERVER_KEY) || 0);
+      } catch (e) {
+         console.error(e);
+      }
+      return server;
+   }
+
+   var curServer = getImageServer();
+
+   function updateImageServer() {
+      try {
+         localStorage.setItem(IMAGE_SERVER_KEY, curServer);
+      } catch (e) {
+         console.error(e);
+      }
+   }
+
+   function getServerName(server) {
+      return '线路' + (server+1);
+   }
+
+   var callbacks = [];
+   var lastCleanupSize = 0;
+
+   function checkCallbacks(doCallback) {
+      for (var i = 0; i < callbacks.length; i++) {
+         var key = callbacks[i][0];
+         if (key && key.isInDocument && !key.isInDocument()) {
+            callbacks.splice(i, 1);
+            i--;
+         } else if (doCallback) {
+            callbacks[i][1]();
+         }
+      }
+      lastCleanupSize = callbacks.length;
+   }
+
+   ret.getImageServer = function () {
+      return curServer;
+   };
+   ret.changeImageServer = function () {
+      curServer = (curServer + 1) % 2;
+      updateImageServer();
+      checkCallbacks(true);
+   };
+   ret.registerCallback = function (key, callback) {
+      for (var i = 0; i < callbacks.length; i++) {
+         if (callbacks[i][0] === key) {
+            callbacks[i][1] = callback;
+            return;
+         }
+      }
+      callbacks.push([key, callback]);
+      if (callbacks.length - lastCleanupSize > 30) {
+         checkCallbacks(false);
+      }
+   };
+
+   ret.initImageServerSwitch = function (id) {
+      var element = LLUnit.getElement(id);
+      var switchLink = LLUnit.createElement('a', {'href': 'javascript:;', 'title': '点击切换头像线路'}, [getServerName(curServer)], {
+         'click': function () {
+            ret.changeImageServer();
+            LLUnit.updateSubElements(switchLink, [getServerName(curServer)], true);
+         }
+      });
+      LLUnit.updateSubElements(element, [switchLink], true);
+      element.style.display = '';
+   };
+
+   return ret;
+})();
 
 /*
  * componsed components

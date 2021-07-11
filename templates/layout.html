@@ -58,7 +58,7 @@
             {% endif %}
           </ol>
           <ul class="nav navbar-nav navbar-right">
-            <li><a href="/legacy{{request.full_path if request.args else request.path}}">旧版入口</a></li>
+            <li id="change-avatar-server" style="display: none"></li>
             <li><a href="/releasenotes" id="recent_updates">近期更新</a></li>
             <li><a href="/about">关于</a></li>
           </ul>
@@ -98,6 +98,7 @@
   {% endif %}
   <script>
     LLSiteVersion && LLSiteVersion.check();
+    LLImageServerSwitch && LLImageServerSwitch.initImageServerSwitch('change-avatar-server');
   {% if useMasonry %}
     $('.row').masonry()
   {% endif %}
