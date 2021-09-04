@@ -653,7 +653,10 @@ var LLSelectComponent = (function() {
          this.element[this.valueKey] = v;
       }
       if (this.element.selectedIndex >= 0) {
-         this.element.style.color = this.element.options[this.element.selectedIndex].style.color;
+         var curOption = this.element.options[this.element.selectedIndex];
+         var curBackground = curOption.style['background-color'];
+         this.element.style.color = curOption.style.color;
+         this.element.style['background-color'] = (curBackground == '#fff' ? '' : curBackground);
       }
       if (v != this.value) {
          this.value = v;
@@ -676,7 +679,7 @@ var LLSelectComponent = (function() {
          if (filter && !filter(option)) continue;
          var newOption = new Option(option.text, option.value);
          newOption.style.color = option.color || '';
-         newOption.style['background-color'] = option.background || '';
+         newOption.style['background-color'] = option.background || '#fff';
          this.element.options.add(newOption);
          if (oldValue == option.value) foundOldValue = true;
       }
@@ -893,6 +896,7 @@ var LLConst = (function () {
       '優木せつ菜': 207,
       'エマ・ヴェルデ': 208,
       '天王寺璃奈': 209,
+      '三船栞子': 212,
       'MEMBER_AYUMU': 201,
       'MEMBER_KASUMI': 202,
       'MEMBER_SHIZUKU': 203,
@@ -902,6 +906,18 @@ var LLConst = (function () {
       'MEMBER_SETSUNA': 207,
       'MEMBER_EMMA': 208,
       'MEMBER_RINA': 209,
+      'MEMBER_SHIORIKO': 212,
+
+      '澁谷かのん': 301,
+      '唐可可': 302,
+      '嵐千砂都': 303,
+      '平安名すみれ': 304,
+      '葉月恋': 305,
+      'MEMBER_KANON': 301,
+      'MEMBER_KEKE': 302,
+      'MEMBER_CHISATO': 303,
+      'MEMBER_SUMIRE': 304,
+      'MEMBER_REN': 305,
 
       'GROUP_UNKNOWN': 0,
       'GROUP_GRADE1': 1,
@@ -1013,35 +1029,35 @@ var LLConst = (function () {
    var COLOR_ID_TO_NAME = ['', 'smile', 'pure', 'cool'];
    var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple'};
    var MEMBER_DATA = {};
-   MEMBER_DATA[KEYS.MEMBER_HONOKA] = {'name': '高坂穂乃果', 'color': 'smile', 'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE2, KEYS.GROUP_PRINTEMPS], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_ELI] =    {'name': '絢瀬絵里',   'color': 'cool',  'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE3, KEYS.GROUP_BIBI], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_KOTORI] = {'name': '南ことり',   'color': 'pure',  'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE2, KEYS.GROUP_PRINTEMPS], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_UMI] =    {'name': '園田海未',   'color': 'cool',  'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE2, KEYS.GROUP_LILYWHITE], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RIN] =    {'name': '星空凛',     'color': 'smile', 'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE1, KEYS.GROUP_LILYWHITE], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_MAKI] =   {'name': '西木野真姫', 'color': 'cool',  'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE1, KEYS.GROUP_BIBI], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_NOZOMI] = {'name': '東條希',     'color': 'pure',  'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE3, KEYS.GROUP_LILYWHITE], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_HANAYO] = {'name': '小泉花陽',   'color': 'pure',  'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE1, KEYS.GROUP_PRINTEMPS], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_NICO] =   {'name': '矢澤にこ',   'color': 'smile', 'types': [KEYS.GROUP_MUSE, KEYS.GROUP_GRADE3, KEYS.GROUP_BIBI], 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_HONOKA] = {'name': '高坂穂乃果', 'color': 'smile', 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_ELI] =    {'name': '絢瀬絵里',   'color': 'cool',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_KOTORI] = {'name': '南ことり',   'color': 'pure',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_UMI] =    {'name': '園田海未',   'color': 'cool',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_RIN] =    {'name': '星空凛',     'color': 'smile', 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_MAKI] =   {'name': '西木野真姫', 'color': 'cool',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_NOZOMI] = {'name': '東條希',     'color': 'pure',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_HANAYO] = {'name': '小泉花陽',   'color': 'pure',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_NICO] =   {'name': '矢澤にこ',   'color': 'smile', 'member_gem': 1};
 
-   MEMBER_DATA[KEYS.MEMBER_CHIKA] =    {'name': '高海千歌',   'color': 'smile', 'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE2, KEYS.GROUP_CYARON], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RIKO] =     {'name': '桜内梨子',   'color': 'cool',  'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE2, KEYS.GROUP_GUILTYKISS], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_KANAN] =    {'name': '松浦果南',   'color': 'pure',  'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE3, KEYS.GROUP_AZALEA], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_DIA] =      {'name': '黒澤ダイヤ', 'color': 'cool',  'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE3, KEYS.GROUP_AZALEA], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_YOU] =      {'name': '渡辺曜',     'color': 'pure',  'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE2, KEYS.GROUP_CYARON], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_YOSHIKO] =  {'name': '津島善子',   'color': 'cool',  'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE1, KEYS.GROUP_GUILTYKISS], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_HANAMARU] = {'name': '国木田花丸', 'color': 'smile', 'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE1, KEYS.GROUP_AZALEA], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_MARI] =     {'name': '小原鞠莉',   'color': 'smile', 'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE3, KEYS.GROUP_GUILTYKISS], 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RUBY] =     {'name': '黒澤ルビィ', 'color': 'pure',  'types': [KEYS.GROUP_AQOURS, KEYS.GROUP_GRADE1, KEYS.GROUP_CYARON], 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_CHIKA] =    {'name': '高海千歌',   'color': 'smile', 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_RIKO] =     {'name': '桜内梨子',   'color': 'cool',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_KANAN] =    {'name': '松浦果南',   'color': 'pure',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_DIA] =      {'name': '黒澤ダイヤ', 'color': 'cool',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_YOU] =      {'name': '渡辺曜',     'color': 'pure',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_YOSHIKO] =  {'name': '津島善子',   'color': 'cool',  'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_HANAMARU] = {'name': '国木田花丸', 'color': 'smile', 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_MARI] =     {'name': '小原鞠莉',   'color': 'smile', 'member_gem': 1};
+   MEMBER_DATA[KEYS.MEMBER_RUBY] =     {'name': '黒澤ルビィ', 'color': 'pure',  'member_gem': 1};
 
-   MEMBER_DATA[KEYS.MEMBER_AYUMU] =   {'name': '上原歩夢',       'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_KASUMI] =  {'name': '中須かすみ',     'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_SHIZUKU] = {'name': '桜坂しずく',     'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_KARIN] =   {'name': '朝香果林',       'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_AI] =      {'name': '宮下愛',         'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_KANATA] =  {'name': '近江彼方',       'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_SETSUNA] = {'name': '優木せつ菜',     'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_EMMA] =    {'name': 'エマ・ヴェルデ', 'types': [KEYS.GROUP_NIJIGASAKI]};
-   MEMBER_DATA[KEYS.MEMBER_RINA] =    {'name': '天王寺璃奈',     'types': [KEYS.GROUP_NIJIGASAKI]};
+   MEMBER_DATA[KEYS.MEMBER_AYUMU] =   {'name': '上原歩夢'};
+   MEMBER_DATA[KEYS.MEMBER_KASUMI] =  {'name': '中須かすみ'};
+   MEMBER_DATA[KEYS.MEMBER_SHIZUKU] = {'name': '桜坂しずく'};
+   MEMBER_DATA[KEYS.MEMBER_KARIN] =   {'name': '朝香果林'};
+   MEMBER_DATA[KEYS.MEMBER_AI] =      {'name': '宮下愛'};
+   MEMBER_DATA[KEYS.MEMBER_KANATA] =  {'name': '近江彼方'};
+   MEMBER_DATA[KEYS.MEMBER_SETSUNA] = {'name': '優木せつ菜'};
+   MEMBER_DATA[KEYS.MEMBER_EMMA] =    {'name': 'エマ・ヴェルデ'};
+   MEMBER_DATA[KEYS.MEMBER_RINA] =    {'name': '天王寺璃奈'};
 
    var GROUP_DATA = {};
    var MEMBER_GEM_LIST = [];
@@ -1139,6 +1155,22 @@ var LLConst = (function () {
             curMemberData.background_color = '#' + curMember.background_color;
          }
       }
+      for (var grade = 1; grade <= 3; grade++) {
+         var curGroupData = mGetGroupData(grade);
+         var gradeMembers = curGroupData && curGroupData.members;
+         if (!gradeMembers) {
+            console.error('Not found members for grade ' + grade);
+            continue;
+         }
+         for (var i = 0; i < gradeMembers.length; i++) {
+            var curMemberId = gradeMembers[i];
+            if (!MEMBER_DATA[curMemberId]) {
+               console.warn('Not found member ' + curMemberId + ' for grade ' + grade);
+               continue;
+            }
+            MEMBER_DATA[curMemberId].grade = grade;
+         }
+      }
    };
 
    var normalizeAlbumName = function (name) {
@@ -1207,14 +1239,10 @@ var LLConst = (function () {
       return false;
    };
    ret.getMemberGrade = function (member) {
+      mCheckInited('unit_type');
       var memberData = mGetMemberData(member);
       if (!memberData) return undefined;
-      if (!memberData.types) return undefined;
-      var groups = memberData.types;
-      for (var i = 0; i < groups.length; i++) {
-         if (groups[i] >= 1 && groups[i] <= 3) return groups[i];
-      }
-      return undefined;
+      return memberData.grade;
    };
    ret.getMemberColor = function (member) {
       var memberData = mGetMemberData(member);
@@ -1236,25 +1264,30 @@ var LLConst = (function () {
       mCheckInited('unit_type');
       if (groups === undefined) return [];
       if (typeof(groups) == 'number') groups = [groups];
-      var ret = [];
-      for (var mkey in MEMBER_DATA) {
-         var types = MEMBER_DATA[mkey].types;
-         if (!types) continue;
-         var matched = true;
-         for (var i = 0; i < groups.length; i++) {
-            var found = false;
-            for (var j = 0; j < types.length; j++) {
-               if (groups[i] == types[j]) {
-                  found = true;
-                  break;
-               }
-            }
-            if (!found) {
-               matched = false;
-               break;
+      var memberInGroupCount = {};
+      var expectedCount = groups.length;
+      var i, j;
+      for (i = 0; i < groups.length; i++) {
+         var groupData = mGetGroupData(groups[i]);
+         var groupMembers = groupData && groupData.members;
+         if ((!groupMembers) || groupMembers.length == 0) {
+            console.warn('Group ' + groups[i] + ' has no member!');
+            expectedCount -= 1;
+            continue;
+         }
+         for (j = 0; j < groupMembers.length; j++) {
+            if (memberInGroupCount[groupMembers[j]] !== undefined) {
+               memberInGroupCount[groupMembers[j]] += 1;
+            } else {
+               memberInGroupCount[groupMembers[j]] = 1;
             }
          }
-         if (matched) ret.push(MEMBER_DATA[mkey].name);
+      }
+      var ret = [];
+      for (i in memberInGroupCount) {
+         if (memberInGroupCount[i] == expectedCount) {
+            ret.push(MEMBER_DATA[i].name);
+         }
       }
       return ret;
    };
@@ -1513,10 +1546,11 @@ var LLConst = (function () {
       if (mezame !== undefined) {
          desc += (mezame ? '觉醒' : '未觉') + ' ';
       }
+      var albumGroupJpName = (albumGroup.name ? "("+albumGroup.name+")" : '');
       if (isJp) {
-         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.getMemberName(curTypeId) + ' ' + (albumGroup.name ? "("+albumGroup.name+")" : '');
+         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.getMemberName(curTypeId) + ' ' + albumGroupJpName;
       } else {
-        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : '');
+        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
       }
       return desc;
    };
@@ -2202,8 +2236,13 @@ var LLCardSelector = (function() {
       var me = this;
       var addSelect = function (name, element, cardFilter, extraCallback) {
          var comp = new LLSelectComponent(element);
-         var filters = {};
-         filters[SEL_ID_CARD_CHOICE] = cardFilter;
+         var filters;
+         if (typeof(cardFilter) == 'function') {
+            filters = {};
+            filters[SEL_ID_CARD_CHOICE] = cardFilter;
+         } else {
+            filters = cardFilter;
+         }
          me.addComponentAsFilter(name, comp, filters, extraCallback);
       };
       me.add(SEL_ID_CARD_CHOICE, new LLSelectComponent(SEL_ID_CARD_CHOICE));
@@ -2217,8 +2256,34 @@ var LLCardSelector = (function() {
       };
 
       addSelect(SEL_ID_RARITY, selRarity, function (card, v) { return (v == '' || card.rarity == v); });
-      addSelect(SEL_ID_CHARA, selChara, function (card, v) { return (v == '' || LLConst.getMemberName(card.typeid) == v); });
-      addSelect(SEL_ID_UNIT_GRADE, selUnitGrade, function (card, v) { return (v == '' || LLConst.isMemberInGroup(parseInt(card.typeid), v)); });
+
+      var charaFilters = {};
+      charaFilters[SEL_ID_CARD_CHOICE] = function (card, v) { return (v == '' || LLConst.getMemberName(card.typeid) == v); };
+      charaFilters[SEL_ID_SET_NAME] = function (opt, v) {
+         if (v == '' || opt.value === '') return true;
+         var members = me.albumGroupMemberCache[opt.value];
+         if (!members) return false;
+         for (var i = 0; i < members.length; i++) {
+            if (LLConst.getMemberName(members[i]) == v) return true;
+         }
+         return false;
+      };
+      addSelect(SEL_ID_CHARA, selChara, charaFilters);
+
+      var unitGradeFilters = {};
+      unitGradeFilters[SEL_ID_CARD_CHOICE] = function (card, v) { return (v == '' || LLConst.isMemberInGroup(parseInt(card.typeid), v)); };
+      unitGradeFilters[SEL_ID_CHARA] = function (opt, v) { return (v == '' || opt.value == '' || LLConst.isMemberInGroup(opt.value, v)); };
+      unitGradeFilters[SEL_ID_SET_NAME] = function (opt, v) {
+         if (v == '' || opt.value === '') return true;
+         var members = me.albumGroupMemberCache[opt.value];
+         if (!members) return false;
+         for (var i = 0; i < members.length; i++) {
+            if (LLConst.isMemberInGroup(members[i], v)) return true;
+         }
+         return false;
+      };
+      addSelect(SEL_ID_UNIT_GRADE, selUnitGrade, unitGradeFilters);
+
       addSelect(SEL_ID_ATTRIBUTE, selAttribute, function (card, v) { return (v == '' || card.attribute == v); });
       addSelect(SEL_ID_TRIGGER_TYPE, selTriggerType,
          function (card, v) { return (v == '' || card.triggertype == v); },
@@ -2331,6 +2396,7 @@ var LLCardSelector = (function() {
       var cardOptionsJP = [{'value': '', 'text': ''}];
       var cardKeys = Object.keys(cards).sort(function(a,b){return parseInt(a) - parseInt(b);});
       var i;
+      var albumGroupMemberCache = {};
       for (i = 0; i < cardKeys.length; i++) {
          var index = cardKeys[i];
          if (index == "0") continue;
@@ -2351,8 +2417,18 @@ var LLCardSelector = (function() {
             }
             foundTriggerRequires[curCard.triggertype][curCard.triggerrequire] = 1;
          }
+
+         if (curCard.album) {
+            var albumGroup = LLConst.getAlbumGroupByAlbumId(parseInt(curCard.album));
+            if (albumGroupMemberCache[albumGroup.id]) {
+               albumGroupMemberCache[albumGroup.id].push(curTypeId);
+            } else {
+               albumGroupMemberCache[albumGroup.id] = [curTypeId];
+            }
+         }
       }
       this.cardOptions = [cardOptionsCN, cardOptionsJP];
+      this.albumGroupMemberCache = albumGroupMemberCache;
       this.getComponent(SEL_ID_CARD_CHOICE).setOptions(this.cardOptions[this.language]);
       if (resetSelection) this.getComponent(SEL_ID_CARD_CHOICE).set('');
 
@@ -2428,6 +2504,8 @@ var LLCardSelector = (function() {
          {'value': '', 'text': '年级小队'},
          {'value': LLConst.GROUP_MUSE,   'text': "μ's"},
          {'value': LLConst.GROUP_AQOURS, 'text': 'Aqours'},
+         {'value': LLConst.GROUP_NIJIGASAKI, 'text': '虹咲'},
+         {'value': LLConst.GROUP_LIELLA, 'text': 'Liella!'},
          {'value': LLConst.GROUP_GRADE1, 'text': '一年级'},
          {'value': LLConst.GROUP_GRADE2, 'text': '二年级'},
          {'value': LLConst.GROUP_GRADE3, 'text': '三年级'},
@@ -2436,8 +2514,7 @@ var LLCardSelector = (function() {
          {'value': LLConst.GROUP_BIBI,   'text': 'BiBi'},
          {'value': LLConst.GROUP_CYARON, 'text': 'CYaRon!'},
          {'value': LLConst.GROUP_AZALEA, 'text': 'AZALEA'},
-         {'value': LLConst.GROUP_GUILTYKISS, 'text': 'Guilty Kiss'},
-         {'value': LLConst.GROUP_NIJIGASAKI, 'text': '虹咲'}
+         {'value': LLConst.GROUP_GUILTYKISS, 'text': 'Guilty Kiss'}
       ]);
       this.getComponent(SEL_ID_ATTRIBUTE).setOptions([
          {'value': '',      'text': '属性',  'color': 'black'},
