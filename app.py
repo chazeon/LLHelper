@@ -8,8 +8,9 @@ import json
 import sys
 from lldata import LLData, LLDataMix
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.version[0] == '2':
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
 
 app = Flask(__name__)
 app.secret_key = "hatsune miku"
@@ -85,7 +86,10 @@ def llnewcarddata():
 
 @app.route("/llurcardrank")
 def llurcardrank():
-    cardsjson = open('newcardsjson.txt', 'rb').read()
+    if sys.version[0] == '2':
+        cardsjson = open('newcardsjson.txt', 'rb').read()
+    else:
+        cardsjson = open('newcardsjson.txt', 'r', encoding='utf-8').read()
     return render_template('llurcardrank.html', cardsjson = cardsjson)
 
 @app.route("/lldata/cardbrief", methods=['GET'])
@@ -130,7 +134,10 @@ def llmapapi():
 ### documents ###
 
 def render_document(md_file, doc_title):
-    md_content = open(md_file, 'rb').read()
+    if sys.version[0] == '2':
+        md_content = open(md_file, 'rb').read()
+    else:
+        md_content = open(md_file, 'r', encoding='utf-8').read()
     return render_template('docs.html', md_content = md_content, doc_title = doc_title)
 
 @app.route("/document/score_calculation.md", methods=['GET'])
@@ -164,10 +171,6 @@ def about():
 @app.route("/releasenotes")
 def releasenotes():
     return render_template('releasenotes.html')
-
-from legacy_app import legacy_app
-
-app.register_blueprint(legacy_app, url_prefix="/legacy")
 
 from llunit import *
 from lldatamodify import *

@@ -7016,7 +7016,7 @@ var LLCSkillComponent = (function () {
    //    setMapColor: function(color)
    // }
    function createTextDisplay(controller, title) {
-      var textElement = createElement('span', {'innerHTML': 'N/A'});
+      var textElement = createElement('span', {'innerHTML': title + 'N/A'});
       var cskill = {};
       copyCSkill(defaultCSkill, cskill);
       controller.setCSkill = function(cs) {

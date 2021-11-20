@@ -6,8 +6,9 @@ import sqlite3
 import re
 import sys
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.version[0] == '2':
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
 
 json_file = 'metadata.txt'
 translate_cn_file = 'translate-cn.txt'
@@ -17,11 +18,11 @@ jpdbpath = 'unitnewjp.db_'
 def translateCn(cur_data, key, translate_cn_data):
     cur_data[key] = cur_data[key].replace('<br>', ' ')
     jp_text = cur_data[key]
-    if jp_text and translate_cn_data.has_key(jp_text):
+    if jp_text and (jp_text in translate_cn_data):
         cur_data['cn' + key] = translate_cn_data[jp_text]
 
 def commonHandleMetadataArray(dbconn, metadata, json_key, main_query):
-    if not metadata.has_key(json_key):
+    if json_key not in metadata:
         count_before = 0
     else:
         count_before = len(metadata[json_key])
@@ -37,12 +38,12 @@ def commonHandleMetadataArray(dbconn, metadata, json_key, main_query):
 
     metadata[json_key] = new_arr
 
-    print '%s : before %d, after %d' % (json_key, count_before, len(metadata[json_key]))
+    print('%s : before %d, after %d' % (json_key, count_before, len(metadata[json_key])))
 
 def commonHandleMetadataTable(dbconn, metadata, json_key, main_query, row_handler, translate_cn_data):
     count_new = 0
     count_row = 0
-    if not metadata.has_key(json_key):
+    if json_key not in metadata:
         metadata[json_key] = {}
     mdata = metadata[json_key]
     count_before = len(mdata)
@@ -53,8 +54,8 @@ def commonHandleMetadataTable(dbconn, metadata, json_key, main_query, row_handle
         count_row += 1
         cur_id = row[0]
         cur_name = row[1]
-        if not mdata.has_key(str(cur_id)):
-            print 'New %s %d : %s' % (json_key, cur_id, cur_name)
+        if str(cur_id) not in mdata:
+            print('New %s %d : %s' % (json_key, cur_id, cur_name))
             count_new += 1
             mdata[str(cur_id)] = {}
         cur_data = mdata[str(cur_id)]
@@ -62,7 +63,7 @@ def commonHandleMetadataTable(dbconn, metadata, json_key, main_query, row_handle
 
         row = query.fetchone()
 
-    print '%s : before %d, after %d, db %d, new %d' % (json_key, count_before, len(mdata), count_row, count_new)
+    print('%s : before %d, after %d, db %d, new %d' % (json_key, count_before, len(mdata), count_row, count_new))
 
 def handleAlbum(dbconn, cur_data, row, translate_cn_data):
     cur_data['name'] = row[1]
@@ -89,15 +90,15 @@ def handleUnitType(dbconn, cur_data, row, translate_cn_data):
 
 if __name__ == "__main__":
     if not os.path.exists(json_file):
-        print 'Creating metadata json: %s ...' % json_file
+        print('Creating metadata json: %s ...' % json_file)
         metadata = {}
     else:
-        print 'Updating metadata json: %s ...' % json_file
+        print('Updating metadata json: %s ...' % json_file)
         metadata = json.loads(open(json_file, 'rb').read())
 
     translate_cn_data = {}
     if os.path.exists(translate_cn_file):
-        print 'Found translate cn file: %s' % translate_cn_file
+        print('Found translate cn file: %s' % translate_cn_file)
         translate_cn_data = json.loads(open(translate_cn_file, 'rb').read())
 
     jpdbconn = sqlite3.connect(jpdbpath)
@@ -115,9 +116,8 @@ if __name__ == "__main__":
     commonHandleMetadataArray(jpdbconn, metadata, 'cskill_groups', 'SELECT member_tag_id FROM unit_leader_skill_extra_m GROUP BY member_tag_id;')
 
 
-    output = open(json_file, 'wb')
-    output.write(json.dumps(metadata, sort_keys=True))
-    output.close()
+    with open(json_file, 'w') as f:
+        json.dump(metadata, f, sort_keys=True)
 
-    print 'Updated %s' % json_file
+    print('Updated %s' % json_file)
 

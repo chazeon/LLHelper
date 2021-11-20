@@ -59,7 +59,7 @@ def namechange(name):
         return name
 
 if __name__ == "__main__":
-    print 'Updating cards json: %s ...' % json_file
+    print('Updating cards json: %s ...' % json_file)
     jpdbconn = sqlite3.connect(jpdbpath)
     has_cndb = os.path.exists(cndbpath)
     if has_cndb:
@@ -70,8 +70,8 @@ if __name__ == "__main__":
         card_count_in_db += 1
         card_id = jptmp[0]
         card_key = str(card_id)
-        if not cards.has_key(card_key):
-            print 'New card %d' % card_id
+        if card_key not in cards:
+            print('New card %d' % card_id)
             card_count_new += 1
             cards[card_key] = {}
             card = cards[card_key]
@@ -91,9 +91,9 @@ if __name__ == "__main__":
         card['jpeponym'] = jptmp[2]
         card['jpname'] = jptmp[3]
         # do not overwrite old data
-        if not card.has_key('eponym'):
+        if 'eponym' not in card:
             card['eponym'] = jptmp[2]
-        if not card.has_key('name'):
+        if 'name' not in card:
             card['name'] = jptmp[3]
         card['hp'] =  jptmp[15]-1
         card['smile2'] = jptmp[16]
@@ -134,7 +134,7 @@ if __name__ == "__main__":
             jpskill = jpskilltmp.fetchone()
             card['jpskillname'] = jpskill[0]
             # do not overwrite old data
-            if not card.has_key('skillname'):
+            if 'skillname' not in card:
                 card['skillname'] = jpskill[0]
             card['skilleffect'] = jpskill[1]
             card['triggertype'] = jpskill[2]
@@ -192,7 +192,7 @@ if __name__ == "__main__":
             base =['','smile','pure','cool']
             card['Cskillpercentage'] = cskill[1]
             if cskill[0] >= 100:
-                card['Cskillattribute'] = base[(cskill[0]/10)%10]
+                card['Cskillattribute'] = base[(cskill[0]//10)%10]
             else:
                 card['Cskillattribute'] = base[cskill[0]%10]
             Csecondskilldetail = jpdbconn.execute('SELECT member_tag_id, effect_value FROM unit_leader_skill_extra_m WHERE unit_leader_skill_id = %d;' % jptmp[9])
@@ -201,22 +201,22 @@ if __name__ == "__main__":
                 card['Csecondskillattribute'] = csecondskill[1]
                 card['Csecondskilllimit'] = csecondskill[0]
             else:
-                if card.has_key('Csecondskillattribute'):
+                if 'Csecondskillattribute' in card:
                     del card['Csecondskillattribute']
-                if card.has_key('Csecondskilllimit'):
+                if 'Csecondskilllimit' in card:
                     del card['Csecondskilllimit']
 
         for delkey in ['cardpath','avatarpath','smallcardpath','navipath','cardpluspath','avatarpluspath','smallcardpluspath','navipluspath']:
-            if card.has_key(delkey):
+            if delkey in card:
                 del card[delkey]
 
         jptmp = jptc.fetchone()
 
 
-    output = open(json_file, 'wb')
-    output.write(json.dumps(cards, sort_keys=True))
+    output = open(json_file, 'w')
+    json.dump(cards, output, sort_keys=True)
     output.close()
 
-    print 'Updated %s , card count = %d (old %d, new %d, db %d)' % (json_file, len(cards), card_count_in_json, card_count_new, card_count_in_db)
+    print('Updated %s , card count = %d (old %d, new %d, db %d)' % (json_file, len(cards), card_count_in_json, card_count_new, card_count_in_db))
 
 

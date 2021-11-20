@@ -1,12 +1,16 @@
-import urllib2
 import os
 import os.path
-import urlparse
 import json
 import threading
-import Queue
 import sys
 import ctypes
+
+if sys.version[0] == '2':
+    from urllib2 import urlopen
+    import Queue
+else:
+    from urllib.request import urlopen
+    import queue as Queue
 
 LLSIF_WIN_API_DOMAIN = 'http://a.llsif.win/'
 LLSIF_WIN_API_ENDPOINT = 'live/json/'
@@ -140,11 +144,14 @@ class SyncPrinter:
         self.lock = threading.Lock()
     def myPrint(self, message):
         self.lock.acquire()
-        print message
+        print(message)
         self.lock.release()
 
 def getLiveMapJsonUrl(liveId):
-    return LLSIF_WIN_API_DOMAIN + LLSIF_WIN_API_ENDPOINT + str(liveId)
+    if liveId > 1500:
+        raise Exception('llsif no longer updating new live maps')
+    else:
+        return LLSIF_WIN_API_DOMAIN + LLSIF_WIN_API_ENDPOINT + str(liveId)
 def getLiveMapJsonPath(liveId):
     return LIVE_MAP_LOCAL_CACHE_DIR + str(liveId) + '.json'
 
@@ -156,7 +163,7 @@ def getLiveMap(liveId):
     else:
         liveJsonUrl = getLiveMapJsonUrl(liveId)
         # timeout for 10 seconds
-        liveJsonFp = urllib2.urlopen(liveJsonUrl, None, 10)
+        liveJsonFp = urlopen(liveJsonUrl, None, 10)
         liveJson = json.load(liveJsonFp)
         with open(liveJsonPath, 'w') as f:
             json.dump(liveJson, f, sort_keys=True)
@@ -164,7 +171,7 @@ def getLiveMap(liveId):
 
 def isLiveDataComplete(live):
     for positionKey in liveDataKeysForPosition:
-        if not live.has_key(positionKey):
+        if positionKey not in live:
             return False
         positionValue = live[positionKey]
         if len(positionValue) != 9:
@@ -172,7 +179,7 @@ def isLiveDataComplete(live):
         if len(str(positionValue[0])) == 0:
             return False
     for numberKey in liveDataKeysForNumber:
-        if not live.has_key(numberKey):
+        if numberKey not in live:
             return False
         numberValue = live[numberKey]
         if len(str(numberValue)) == 0:
@@ -194,11 +201,11 @@ class positionWeightUpdateThread (threading.Thread):
                 self.messageQueue.put(self.processLive(live))
             except Queue.Empty:
                 self.printer.myPrint('* Queue is empty, exiting... *')
-                break;
+                break
             except Exception as e:
                 self.printer.myPrint('* Unknown exception *')
                 self.printer.myPrint(e)
-                break;
+                break
     def processLive(self, live):
         liveId = int(live['liveid'])
         try:
@@ -306,7 +313,7 @@ def main(threadCount):
         curThread.join()
 
 if __name__ == '__main__':
-    print TITLE_WELCOME
+    print(TITLE_WELCOME)
     threadCount = NUMBER_OF_THREAD
     if len(sys.argv) > 1:
         threadCount = int(sys.argv[1])

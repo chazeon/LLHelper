@@ -381,27 +381,32 @@
 <form action="" id="unitform" name="unitform" method="POST" enctype=multipart/form-data>
 <h3>歌曲信息</h3>
 搜索：<input type="text" id="songsearch" value=""></input><br>
-筛选：
-<select id="songdiff"></select>
-<select id="songatt"></select>
-<select id="songunit"></select>
-<select id="songswing"></select>
-<select id="songac"></select>
-<select id="songstardiff"></select>
-<br>
-歌曲：
-<select id="songchoice">
-   <option value="">载入中...</option>
-</select>
-<input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
-<br>
-谱面：
-<select id="diffchoice">
-   <option value="">载入中...</option>
-</select>
-<br>
-图属性：
-<select id="map"></select>
+<div class="form-inline">
+   筛选：
+   <select id="songdiff" class="form-control"></select>
+   <select id="songatt" class="form-control"></select>
+   <select id="songunit" class="form-control"></select>
+   <select id="songswing" class="form-control"></select>
+   <select id="songac" class="form-control"></select>
+   <select id="songstardiff" class="form-control"></select>
+</div>
+<div class="form-inline">
+   歌曲：
+   <select id="songchoice" class="form-control">
+      <option value="">载入中...</option>
+   </select>
+   <input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
+</div>
+<div class="form-inline">
+   谱面：
+   <select id="diffchoice" class="form-control">
+      <option value="">载入中...</option>
+   </select>
+</div>
+<div class="form-inline">
+   图属性：
+   <select id="map" class="form-control"></select>
+</div>
 <br>
 	总combo数 :<input type="number" id="combo" name="combo" value="300" autocomplete="off" style="width:50px"><br>
 	perfect数:<input type="number" id="perfect" name="perfect" value="285" autocomplete="off" style="width:50px"><br>
