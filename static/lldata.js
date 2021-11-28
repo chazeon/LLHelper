@@ -408,7 +408,6 @@ var LLMapNoteData = (function () {
    function handleLocalCache(me, jsonPath, liveId, defer) {
       if (!jsonPath) {
          console.error('No json path found for liveSetting id : ' + liveId);
-         console.error(song);
          defer.reject();
          return true;
       }
@@ -1898,23 +1897,54 @@ var LLUnit = {
       return true;
    },
 
-   updateSubElements: function (ele, subElements, isReplace) {
-     if (isReplace) {
-       ele.innerHTML = '';
-     }
-     if (subElements) {
-       for (var i = 0; i < subElements.length; i++) {
-         var curSubElement = subElements[i];
-         if (typeof (curSubElement) == 'string') {
-           ele.appendChild(document.createTextNode(curSubElement));
-         } else {
-           ele.appendChild(curSubElement);
-         }
-       }
-     }
-     return ele;
+   /**
+    * @param {HTMLElement} element 
+    * @param {string | HTMLElement} subElement 
+    */
+   appendSubElement: function (element, subElement) {
+      if (typeof (subElement) == 'string') {
+         element.appendChild(document.createTextNode(subElement));
+      } else {
+         element.appendChild(subElement);
+      }
    },
 
+   /**
+    * @param {HTMLElement} ele 
+    * @param {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} subElements 
+    * @param {boolean} [isReplace]
+    * @returns {HTMLElement} ele
+    */
+   updateSubElements: function (ele, subElements, isReplace) {
+      if (isReplace) {
+         ele.innerHTML = '';
+      }
+      if (subElements) {
+         if (Array.isArray(subElements)) {
+            for (var i = 0; i < subElements.length; i++) {
+                var element = subElements[i];
+                if (Array.isArray(element)) {
+                    for (var j = 0; j < element.length; j++) {
+                        LLUnit.appendSubElement(ele, element[j]);
+                    }
+                } else {
+                  LLUnit.appendSubElement(ele, element);
+                }
+            }
+         } else {
+            LLUnit.appendSubElement(ele, subElements);
+         }
+      }
+      return ele;
+   },
+
+   /**
+    * @param {string} tag 
+    * @param {*} [options]
+    * @param {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} [subElements]
+    * @param {{[x: string] : Function}} [eventHandlers]
+    * @returns {HTMLElement}
+    */
    createElement: function (tag, options, subElements, eventHandlers) {
       var ret = document.createElement(tag);
       if (options) {
@@ -1939,6 +1969,10 @@ var LLUnit = {
       return ret;
    },
 
+   /**
+    * @param {string | HTMLElement} id 
+    * @returns {HTMLElement}
+    */
    getElement: function (id) {
       if (typeof(id) == 'string') {
          return document.getElementById(id);
@@ -5772,7 +5806,7 @@ var LLMicDisplayComponent = (function () {
       var resultMic = createElement('span');
       var resultURLevel = createElement('span');
       var resultContainer = createElement('div', undefined, [
-         '卡组援力:',
+         '卡组筒数：',
          resultMic,
          ' (',
          detailLink,
@@ -6153,6 +6187,7 @@ var LLScoreDistributionParameter = (function () {
          }
       };
       selComp.set('no');
+      simParamContainerComponent.hide();
       var container = createElement('div', undefined, [
          createElement('div', {'className': 'form-inline'}, [
             createElement('div', {'className': 'form-group'}, [
@@ -6939,7 +6974,16 @@ var LLTeamComponent = (function () {
       controller.setHeal = function(i, heal) { controllers.heal.cells[i].set(heal); };
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
-      controller.getSwapper = function(sw) { return swapper; };
+      controller.getSwapper = function() { return swapper; };
+      /** @returns {boolean} */
+      controller.isAllMembersPresent = function () {
+         var cardIds = controller.getCardIds();
+         for (var i = 0; i < cardIds.length; i++) {
+            if (!cardIds[i]) return false;
+         }
+         return true;
+      };
+
       controller.saveData = controller.getMembers;
       controller.loadData = controller.setMembers;
       return createElement('table', {'className': 'table table-bordered table-hover table-condensed team-table'}, [
@@ -7122,3 +7166,153 @@ var LLCSkillComponent = (function () {
    return cls;
 })();
 
+var LLUnitResultComponent = (function () {
+   var createElement = LLUnit.createElement;
+   var updateSubElements = LLUnit.updateSubElements;
+
+   /**
+    * @typedef {Object} LLUnitResultComponent_ResultController
+    * @property {function(LLTeam): void} update
+    * @property {function(any): void} updateError
+    */
+
+   /**
+    * @param {LLUnitResultComponent_ResultController} controller
+    * @returns {HTMLElement}
+    */
+   function createAttributeResult(controller) {
+      var resultSmile = createElement('td');
+      var resultPure = createElement('td');
+      var resultCool = createElement('td');
+
+      controller.update = function (team) {
+         resultSmile.innerHTML = team.finalAttr.smile + ' (+' + team.bonusAttr.smile + ')';
+         resultPure.innerHTML = team.finalAttr.pure + ' (+' + team.bonusAttr.pure + ')';
+         resultCool.innerHTML = team.finalAttr.cool + ' (+' + team.bonusAttr.cool + ')';
+      };
+
+      controller.updateError = function (e) {
+         resultSmile.innerHTML = 'error';
+         resultPure.innerHTML = 'error';
+         resultCool.innerHTML = 'error';
+      };
+
+      return createElement('table', {'border': '1'},
+         createElement('tbody', undefined, [
+            createElement('tr', undefined, [
+               createElement('td', undefined, 'smile'),
+               createElement('td', undefined, 'pure'),
+               createElement('td', undefined, 'cool')
+            ]),
+            createElement('tr', undefined, [
+               resultSmile,
+               resultPure,
+               resultCool
+            ])
+         ])
+      );
+   }
+
+   /**
+    * 
+    * @param {LLUnitResultComponent_ResultController} controller 
+    * @param {string} label 
+    * @param {function(LLTeam): (string|HTMLElement)} callback Callback to fetch result from team
+    * @returns {HTMLElement}
+    */
+   function createScalarResult(controller, label, callback) {
+      var resultElement = createElement('nospan');
+      controller.update = function (team) {
+         updateSubElements(resultElement, callback(team), true);
+      };
+      controller.updateError = function (e) {
+         updateSubElements(resultElement, 'error: ' + e, true);
+      };
+
+      return createElement('div', undefined, [
+         label + '：',
+         resultElement
+      ]);
+   }
+
+   /**
+    * @param {LLUnitResultComponent_ResultController} controller 
+    * @returns {HTMLElement}
+    */
+   function createMicResult(controller) {
+      var resultElement = createElement('div');
+      var comp = new LLMicDisplayComponent(resultElement);
+      controller.update = function (team) {
+         team.calculateMic();
+         comp.set(team.micNumber, team.equivalentURLevel);
+      };
+      controller.updateError = function (e) {
+         comp.set(0, 0);
+      };
+
+      return resultElement;
+   }
+
+   /**
+    * @constructor
+    * @param {string | HTMLElement} id 
+    */
+   function LLUnitResultComponent_cls(id) {
+      /** @type {LLUnitResultComponent_ResultController[]} */
+      var resultsController = [];
+      /** @type {HTMLElement[]} */
+      var resultsElement = [];
+      var container = LLUnit.getElement(id);
+      var resultContainer = createElement('div', {'style': {'display': 'none'}});
+      var errorContainer = createElement('div', {'style': {'display': 'none', 'color': 'red'}});
+
+      /** @returns {LLUnitResultComponent_ResultController} */
+      function addResultController() {
+         /** @type {LLUnitResultComponent_ResultController} */
+         var controller = {};
+         resultsController.push(controller);
+         return controller;
+      }
+      resultsElement.push(createAttributeResult(addResultController()));
+      resultsElement.push(createScalarResult(addResultController(), '卡组HP', (team) => team.totalHP.toFixed()));
+      resultsElement.push(createScalarResult(addResultController(), '卡组强度', (team) => team.totalStrength + ' (属性 ' + team.totalAttrStrength + ' + 技能 ' + team.totalSkillStrength + ')'));
+      resultsElement.push(createMicResult(addResultController()));
+      resultsElement.push(createScalarResult(addResultController(), '期望得分', (team) => team.naiveExpection !== undefined ? team.naiveExpection.toFixed() : team.averageScore.toFixed()));
+      resultsElement.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.averageHeal)));
+      resultsElement.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.averageAccuracyNCoverage)));
+
+      /**
+       * @param {function(LLTeam): void} team 
+       */
+      this.showResult = function (team) {
+         for (var i = 0; i < resultsController.length; i++) {
+            try {
+               resultsController[i].update(team);
+            } catch (e) {
+               resultsController[i].updateError(e);
+               console.error(e);
+            }
+         }
+         resultContainer.style.display = '';
+         resultContainer.scrollIntoView();
+      };
+
+      /**
+       * @param {string} errorMessage
+       */
+      this.showError = function (errorMessage) {
+         updateSubElements(errorContainer, errorMessage, true);
+         errorContainer.style.display = '';
+         errorContainer.scrollIntoView();
+      };
+
+      this.hideError = function () {
+         errorContainer.style.display = 'none';
+      };
+
+      updateSubElements(resultContainer, resultsElement);
+      updateSubElements(container, [errorContainer, resultContainer]);
+   }
+   
+   return LLUnitResultComponent_cls;
+})();

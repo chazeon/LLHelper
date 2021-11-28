@@ -32,12 +32,12 @@
    var comp_gemstock = 0;
    var comp_submember = 0;
    var comp_swapper = 0;
-   var comp_resultmic = 0;
    var comp_distribution_chart = 0;
    var comp_distribution_param = 0;
    var comp_team = 0;
    var comp_cskill_team = 0;
    var comp_cskill_friend = 0;
+   var comp_result = 0;
 
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
@@ -50,11 +50,11 @@
       comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
       comp_cardselector.onCardChange = LLUnit.applycarddata;
       comp_cardavatar = new LLImageComponent('imageselect');
-      comp_resultmic = new LLMicDisplayComponent('resultmic');
       comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
       comp_distribution_param.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageDistParamKey));
       comp_cskill_team = new LLCSkillComponent('cskill_team');
       comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
+      comp_result = new LLUnitResultComponent('unit_result');
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
          LoadingUtil.startSingle(LLCardData.getAllBriefData().then(function (cards) {
@@ -331,21 +331,22 @@
    }
 
    function showErrorResult(text) {
-      document.getElementById('errorresult').innerHTML = text;
-      document.getElementById('errorresult').style.display = '';
-      document.getElementById("errorresult").scrollIntoView();
+      comp_result.showError(text);
    }
    function hideErrorResult() {
-      document.getElementById('errorresult').style.display = 'none';
+      comp_result.hideError();
    }
 
    function check(){
       if (!comp_songselector.getSelectedSongSetting()) {
          showErrorResult('请选择谱面');
          return;
-      } else {
-         hideErrorResult();
       }
+      if (!comp_team.isAllMembersPresent()) {
+         showErrorResult('队伍中仍有空位');
+         return;
+      }
+      hideErrorResult();
       saveToCookie();
       localStorage.setItem('llnewautounit_gemstock', comp_gemstock.saveJson());
       localStorage.setItem('llnewautounit_submember', comp_submember.saveJson());
@@ -419,10 +420,6 @@
       llteam.calculateAttributeStrength(llmap);
       llteam.calculateSkillStrength(llmap);
 
-      document.getElementById('resultsmile').innerHTML = llteam.finalAttr.smile + ' (+' + llteam.bonusAttr.smile + ')';
-      document.getElementById('resultpure').innerHTML = llteam.finalAttr.pure + ' (+' + llteam.bonusAttr.pure + ')';
-      document.getElementById('resultcool').innerHTML = llteam.finalAttr.cool + ' (+' + llteam.bonusAttr.cool + ')';
-
       comp_team.setStrengthAttributes(llteam.attrStrength);
       comp_team.setStrengthDebuffs(llteam.attrDebuff);
 
@@ -453,7 +450,6 @@
          console.debug(llteam);
 
          console.debug('Elapesd time (ms): ' + (t1 - t0).toFixed(3));
-         document.getElementById('averagescore').innerHTML = llteam.naiveExpection;
          for (var i in percentiles){
             document.getElementById('simresult'+(100-percentiles[i]).toString()).innerHTML = llteam.naivePercentile[percentiles[i]];
          }
@@ -468,14 +464,9 @@
             comp_distribution_chart.addSeries(llteam.naivePercentile);
          }
       } else {
-         document.getElementById('averagescore').innerHTML = llteam.averageScore;
          document.getElementById('distributionresult').style.display = 'none';
          hideErrorResult();
       }
-
-      document.getElementById('averageheal').innerHTML = LLUnit.healNumberToString(llteam.averageHeal);
-      document.getElementById('averageaccuracyncoverage').innerHTML = LLUnit.numberToPercentString(llteam.averageAccuracyNCoverage);
-      document.getElementById('totalhp').innerHTML = llteam.totalHP;
 
       var cardStrengthList = [], totalStrengthList = [];
       for (var i=0;i<9;i++){
@@ -486,8 +477,6 @@
          comp_team.setStrengthSkillTheory(i, llteam.avgSkills[i].strength, LLUnit.isStrengthSupported(llteam.members[i].card));
          comp_team.setHeal(i, LLUnit.healNumberToString(llteam.avgSkills[i].averageHeal));
       }
-      document.getElementById('resultstrength').innerHTML = llteam.totalStrength + ' (属性 ' + llteam.totalAttrStrength + ' + 技能 ' + llteam.totalSkillStrength + ')';
-      //document.getElementById('averageaccuracy').innerHTML = (totalaccuracy*100).toFixed(1).toString()+'%'
 
       comp_team.setStrengthCardTheories(cardStrengthList);
       comp_team.setStrengthTotalTheories(totalStrengthList);
@@ -495,12 +484,7 @@
       comp_team.setSkillActiveChanceSims(llteam.averageSkillsActiveChanceCount);
       comp_team.setSkillActiveNoEffectSims(llteam.averageSkillsActiveNoEffectCount);
 
-      llteam.calculateMic();
-      comp_resultmic.set(llteam.micNumber, llteam.equivalentURLevel);
-
-      document.getElementById('result').style.display = ""
-      document.getElementById("result").scrollIntoView()
-
+      comp_result.showResult(llteam);
    }
 
    </script>
@@ -614,27 +598,7 @@
 
 <div style="clear:both"></div>
 
-<div id="result" style="display:none">
-<table border="1">
-<tr>
-	<td>smile</td>
-	<td>pure</td>
-	<td>cool</td>
-</tr>
-<tr>
-	<td id="resultsmile"></td>
-	<td id="resultpure"></td>
-	<td id="resultcool"></td>
-</tr>
-</table>
-卡组HP:<nospan id="totalhp"></nospan><br>
-卡组强度:<nospan id="resultstrength"></nospan><br>
-<div id="resultmic"></div>
-期望得分:<nospan id="averagescore"></nospan><br>
-期望回复:<nospan id="averageheal"></nospan><br>
-期望判定覆盖率(模拟):<nospan id="averageaccuracyncoverage"></nospan><br>
-</div>
-<div id="errorresult" style="display:none;color:red"></div>
+<div id="unit_result"></div>
 <div id='distributionresult' style='display:none'>
 <h3>得分分布</h3>
 最高分：<span id='simresult0'></span>&nbsp;概率：<span id='maxscoreprobability'></span><br/>

@@ -4,6 +4,8 @@ import json
 
 def unescapeJsonStr(json_str):
     # TODO: prevent xss
+    if not isinstance(json_str, str):
+        json_str = str(json_str, encoding='utf-8')
     return json_str.replace('%7B', '{').replace('%22', '"').replace('%7D', '}').replace('%5B', '[').replace('%5D', ']')
 
 @app.route("/llsaveunit/<content>", methods=['GET', 'POST'])
