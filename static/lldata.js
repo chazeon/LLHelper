@@ -38,8 +38,10 @@
  *   LLScoreDistributionChart
  *   LLTeamComponent
  *   LLCSkillComponent
+ *   LLUnitResultComponent
+ *   LLSongSelectorComponent
  *
- * v1.6.0
+ * v2.0
  * By ben1222
  */
 "use strict";
@@ -377,6 +379,14 @@ var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
+/**
+ * @typedef NoteDataType
+ * @property {number} timing_sec float
+ * @property {number} notes_level
+ * @property {number} effect LLConst.NOTE_TYPE_*
+ * @property {number} effect_value float, hold time
+ * @property {number} position 1~9, 1 for right most, 9 for left most
+ */
 var LLMapNoteData = (function () {
    function LLMapNoteData_cls(base_url) {
       this.baseUrl = (base_url || 'https://rawfile.loveliv.es/livejson/');
@@ -1802,7 +1812,7 @@ var LLUnit = {
       }
    },
 
-   getSkillText: function (effect_type, trigger_type, effect_value, discharge_time, trigger_value, activation_rate, trigger_target, effect_target) {
+   getSkillText: function (effect_type, trigger_type, effect_value, discharge_time, trigger_value, activation_rate, trigger_target, effect_target, trigger_limit) {
       var trigger_text = '(未知条件)';
       if (trigger_type == LLConst.SKILL_TRIGGER_TIME)
         trigger_text = '每' + trigger_value + '秒';
@@ -1842,7 +1852,10 @@ var LLUnit = {
         effect_text = '使下一个发动的技能等级提升' + effect_value + '级';
       else if (effect_type == LLConst.SKILL_EFFECT_ATTRIBUTE_UP)
         effect_text = discharge_time + '秒内' + effect_target + '的成员的属性P提高到' + effect_value + '倍';
-      return trigger_text + rate_text + effect_text;
+      var limit_text = '';
+      if (trigger_limit) 
+         limit_text = '（最多' + trigger_limit + '次）';
+      return trigger_text + rate_text + effect_text + limit_text;
    },
 
    getTriggerTarget: function (targets) {
@@ -1871,7 +1884,7 @@ var LLUnit = {
       }
       var trigger_target = LLUnit.getTriggerTarget(card.triggertarget);
       var effect_target = LLUnit.getTriggerTarget(card.effecttarget);
-      var text = LLUnit.getSkillText(effect_type, card.triggertype, effect_value, discharge_time, level_detail.require, level_detail.possibility, trigger_target, effect_target);
+      var text = LLUnit.getSkillText(effect_type, card.triggertype, effect_value, discharge_time, level_detail.require, level_detail.possibility, trigger_target, effect_target, level_detail.limit);
       if (!LLUnit.isStrengthSupported(card)) text = text + '(该技能暂不支持理论强度计算，仅支持模拟)';
       return text;
    },
@@ -1996,6 +2009,19 @@ var LLUnit = {
       } else {
          return id;
       }
+   },
+
+   /**
+    * @param {string} label 
+    * @param {SubElements} subElements 
+    * @returns {HTMLElement}
+    */
+   createFormInlineGroup: function (label, subElements) {
+      var group = LLUnit.createElement('div', {'className': 'form-group'}, [
+         LLUnit.createElement('label', undefined, label)
+      ]);
+      LLUnit.updateSubElements(group, subElements);
+      return LLUnit.createElement('div', {'className': 'form-inline'}, group);
    },
 
    createSimpleTable: function (data) {
@@ -2215,6 +2241,56 @@ var LLSkillContainer = (function() {
    return cls;
 })();
 
+/**
+ * @typedef SkillDetailDataType
+ * @property {number} score effect value
+ * @property {number} time discharge time
+ * @property {number} require trigger value
+ * @property {number} possibility trigger rate
+ * @property {number} [limit] trigger limit
+ */
+/** @typedef {'smile'|'pure'|'cool'} AttributeType */
+/**
+ * @typedef CardDataType
+ * @property {number} id
+ * @property {'N'|'R'|'SR'|'SSR'|'UR'} rarity
+ * @property {AttributeType|'all'} attribute
+ * @property {number} typeid unit type id
+ * @property {string} jpeponym
+ * @property {string} eponym
+ * @property {string} jpname
+ * @property {string} name
+ * @property {number} hp
+ * @property {number} smile
+ * @property {number} pure
+ * @property {number} cool
+ * @property {number} smile2
+ * @property {number} pure2
+ * @property {number} cool2
+ * @property {number} skill skill id
+ * @property {number} Cskill leader skill id
+ * @property {0|1} support
+ * @property {0|1} special
+ * @property {number} minslot
+ * @property {number} maxslot
+ * @property {number} album album id
+ * @property {AttributeType} Cskillattribute add from
+ * @property {number} Cskillpercentage
+ * @property {number} [Csecondskillattribute] effect value
+ * @property {number} [Csecondskilllimit] target
+ * @property {string} jpskillname
+ * @property {string} skillname
+ * @property {number} skilleffect
+ * @property {number} triggertype
+ * @property {number} skillleveluppattern
+ * @property {SkillDetailDataType[]} skilldetail
+ * @property {number | string} triggerrequire <require> | <min>~<max>
+ * @property {number[]} [triggertarget]
+ * @property {number[]} [effecttarget]
+ */
+/**
+ * @typedef {{[id: string]: CardDataType}} CardsDataType
+ */
 var LLCardSelector = (function() {
    var createElement = LLUnit.createElement;
    var SEL_ID_CARD_CHOICE = 'cardchoice';
@@ -2248,6 +2324,11 @@ var LLCardSelector = (function() {
     *    deserialize(v) (override)
     * Callbacks:
     *    onCardChange(cardid)
+    */
+   /**
+    * @constructor
+    * @param {CardsDataType} cards 
+    * @param {string | HTMLElement} container 
     */
    function LLCardSelector_cls(cards, container) {
       LLComponentCollection.call(this);
@@ -2356,8 +2437,7 @@ var LLCardSelector = (function() {
       me.setCardData(cards);
    };
    var cls = LLCardSelector_cls;
-   cls.prototype = new LLComponentCollection();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLComponentCollection);
 
    var makeTriggerTypeOption = function (triggerId) {
       return {'value': triggerId, 'text': LLConst.getSkillTriggerText(parseInt(triggerId))};
@@ -2672,7 +2752,7 @@ var LLCardSelector = (function() {
  * @property {string} jpname
  * @property {string} name
  * @property {number} group 1(muse)|2(aqours)|3(niji)|4(liella)
- * @property {string} attribute smile|pure|cool|all
+ * @property {AttributeType|'all'} attribute 
  * @property {{[id: string]: SongSettingDataType}} settings
  */
 /**
@@ -3024,6 +3104,35 @@ var LLSongSelector = (function() {
  *   LLSimulateContext
  *   LLTeam
  */
+/**
+ * @typedef CSkillDataType
+ * @property {AttributeType} attribute add to
+ * @property {AttributeType} Cskillattribute add from
+ * @property {number} Cskillpercentage percentage
+ * @property {number} [Csecondskillattribute] effect value, percentage
+ * @property {number} [Csecondskilllimit] target group
+ */
+/**
+ * @typedef LLMap
+ * @property {AttributeType} attribute
+ * @property {number[]} weights
+ * @property {number} totalWeight sum(weights)
+ * @property {CSkillDataType} friendCSkill
+ * @property {number} combo int
+ * @property {number} star int
+ * @property {number} time float
+ * @property {number} perfect int
+ * @property {number} starPerfect int
+ * @property {number} tapup percentage
+ * @property {number} skillup percentage
+ * @property {number} songUnit group id
+ * @property {number} speed
+ * @property {1|2} combo_fever_pattern
+ * @property {0|1} over_heal_pattern
+ * @property {0|1} perfect_accuracy_pattern
+ * @property {0|1} trigger_limit_pattern
+ * @property {function(LLScoreDistributionParameter_SaveDataType): void} setDistParam
+ */
 var LLMap = (function () {
    var DEFAULT_SONG_MUSE = LLConst.getDefaultSong(LLConst.SONG_GROUP_MUSE, LLConst.SONG_DEFAULT_SET_1);
    var DEFAULT_SONG_SETTING = (function (s) {
@@ -3035,24 +3144,11 @@ var LLMap = (function () {
       console.error('failed to find default song setting');
       return undefined;
    })(DEFAULT_SONG_MUSE);
-   // properties:
-   //   attribute: {'smile'|'pure'|'cool'}
-   //   weights: [w1, w2, ..., w9]
-   //   totalWeight: sum(weights)
-   //   friendCSkill:
-   //     attribute: {'smile'|'pure'|'cool'} (add to)
-   //     Cskillattribute: {'smile'|'pure'|'cool'} (add from)
-   //     Cskillpercentage: percentage
-   //     Csecondskilllimit: {GROUP_}
-   //     Csecondskillattribute: percentage
-   //   combo: int
-   //   star: int
-   //   time: float
-   //   perfect: int
-   //   starPerfect: int
-   //   tapup: percentage
-   //   skillup: percentage
-   //   songUnit: {GROUP_MUSE|GROUP_AQOURS|GROUP_NIJIGASAKI|GROUP_UNKNOWN}
+
+   /**
+    * @constructor
+    * @param {{song?: SongDataType, songSetting?: SongSettingDataType, friendCSkill?: CSkillDataType}} options 
+    */
    function LLMap_cls(options) {
       if (options.song) {
          this.setSong(options.song, options.songSetting);
@@ -3119,6 +3215,15 @@ var LLMap = (function () {
    proto.setMapBuff = function (tapup, skillup) {
       this.tapup = parseFloat(tapup || 0);
       this.skillup = parseFloat(skillup || 0);
+   };
+   /** @param {LLScoreDistributionParameter_SaveDataType} distParam */
+   proto.setDistParam = function (distParam) {
+      this.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.combo);
+      this.speed = distParam.speed;
+      this.combo_fever_pattern = distParam.combo_fever_pattern;
+      this.over_heal_pattern = distParam.over_heal_pattern;
+      this.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
+      this.trigger_limit_pattern = distParam.trigger_limit_pattern;
    };
    return cls;
 })();
@@ -3313,10 +3418,18 @@ var LLSisGem = (function () {
 })();
 
 var LLSkill = (function () {
+   /**
+    * @constructor
+    * @param {CardDataType} card 
+    * @param {number} level base 0
+    * @param {{gemskill?: number, skillup?: number}} [buff] 
+    */
    function LLSkill_cls(card, level, buff) {
       this.card = card;
       this.level = level;
+      /** @type {SkillDetailDataType[]} */
       var skilldetails = card.skilldetail || [];
+      /** @type {SkillDetailDataType} */
       var skilldetail = skilldetails[level]  || {};
       this.hasSkill = (card.skilldetail && skilldetail.possibility);
       this.require = skilldetail.require || 1;
@@ -3640,6 +3753,10 @@ var LLMember = (function() {
       this.grade = LLConst.getMemberGrade(this.card.jpname) || 0;
       return this.grade;
    };
+   /**
+    * @param {number} [levelBoost]
+    * @returns {SkillDetailDataType}
+    */
    proto.getSkillDetail = function(levelBoost) {
       if (!levelBoost) {
          return this.card.skilldetail[this.skilllevel-1];
@@ -3651,6 +3768,13 @@ var LLMember = (function() {
    return cls;
 })();
 
+/**
+ * @typedef NoteTriggerDataType
+ * @property {1|2|3|4} type 1 for enter, 2 for hit, 3 for hold, 4 for release
+ * @property {number} time float
+ * @property {NoteDataType} note
+ * @property {number} factor 0.5 for swing, 1 for other
+ */
 var LLSimulateContext = (function() {
    function getTargetMembers(members, targets, excludeId) {
       var ret = [];
@@ -3675,6 +3799,7 @@ var LLSimulateContext = (function() {
    var IDX_TRIGGER_IS_ACTIVE = 2;
    var IDX_TRIGGER_REQUIRE_VALUE = 3;
    var IDX_TRIGGER_BASE_POSSIBILITY = 4;
+   var IDX_TRIGGER_LIMIT = 5;
    var IDX_ACTIVE_END_TIME = 0;
    var IDX_ACTIVE_MEMBER_ID = 1;
    var IDX_ACTIVE_REAL_MEMMBER_ID = 2;
@@ -3684,6 +3809,18 @@ var LLSimulateContext = (function() {
    var IDX_LAST_LEVEL_BOOST = 1;
    var IDX_LAST_FRAME = 2;
    var IDX_LAST_REPEAT_FRAME = 3;
+
+   var SIM_NOTE_ENTER = 1;
+   var SIM_NOTE_HIT = 2;
+   var SIM_NOTE_HOLD = 3;
+   var SIM_NOTE_RELEASE = 4;
+
+   /**
+    * @constructor
+    * @param {LLMap} mapdata 
+    * @param {*} members 
+    * @param {*} maxTime 
+    */
    function LLSimulateContext_cls(mapdata, members, maxTime) {
       this.members = members;
       this.totalNote = mapdata.combo;
@@ -3694,6 +3831,7 @@ var LLSimulateContext = (function() {
       this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
       this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
       this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
+      this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
       this.currentTime = 0;
       this.currentFrame = 0;
       this.currentNote = 0;
@@ -3702,10 +3840,15 @@ var LLSimulateContext = (function() {
       this.currentPerfect = 0;
       this.currentStarPerfect = 0;
       this.currentHeal = 0;
+      this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.currentAccuracyCoverNote = 0;
       this.totalPerfectScoreUp = 0; // capped at SKILL_LIMIT_PERFECT_SCORE_UP
       this.remainingPerfect = mapdata.perfect;
-      // trigger_type: [[memberid, start_value, is_active, has_active_chance, require, base_possibility], ...]
+      // trigger_type: [[memberid, start_value, is_active, require, base_possibility, limit], ...]
       // in SKILL_TRIGGER_MEMBERS case, start_value is members_bitset, require is trigger_condition_members_bitset
+      // limit 0 means no limit, otherwise limited
       this.triggers = {};
       this.memberToTrigger = [];
       this.memberSkillOrder = [];
@@ -3716,6 +3859,7 @@ var LLSimulateContext = (function() {
       this.chainNameBit = []; // chainNameBit[memberId][jpname] = bit
       this.lastFrameForLevelUp = -1;
       this.hasRepeatSkill = false;
+
       var skillOrder = []; // [ [i, priority], ...]
       var lvupSkillPriority = 1;
       var otherSkillPriority = 2;
@@ -3730,6 +3874,7 @@ var LLSimulateContext = (function() {
          if ((!curMember.card.skill) || (curMember.skilleffect == 0)) continue;
          var triggerType = curMember.card.triggertype;
          var effectType = curMember.card.skilleffect;
+         /** @type {SkillDetailDataType} */
          var skillDetail = curMember.getSkillDetail();
          var skillRequire = skillDetail.require;
          var targets;
@@ -3790,7 +3935,9 @@ var LLSimulateContext = (function() {
             this.chainNameBit[i] = nameBits;
          }
          if (!neverTrigger) {
-            var triggerData = [i, 0, 0, skillRequire, skillDetail.possibility];
+            var triggerLimit = (this.triggerLimitPattern ? (skillDetail.limit || 0) : 0);
+            // [member_id, start_value, is_active, require, possibility, limit]
+            var triggerData = [i, 0, 0, skillRequire, skillDetail.possibility, triggerLimit];
             if (this.triggers[triggerType] === undefined) {
                this.triggers[triggerType] = [triggerData];
             } else {
@@ -3966,7 +4113,7 @@ var LLSimulateContext = (function() {
       return false;
    };
    proto.getSkillPossibility = function(memberId) {
-      return this.members[memberId].getSkillDetail().possibility * this.mapSkillPossibilityUp * this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP];
+      return this.memberToTrigger[memberId][IDX_TRIGGER_BASE_POSSIBILITY] * this.mapSkillPossibilityUp * this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP];
    };
    proto.onSkillActive = function(memberId) {
       var levelBoost = this.effects[LLConst.SKILL_EFFECT_LEVEL_UP];
@@ -4128,6 +4275,10 @@ var LLSimulateContext = (function() {
             }
             continue;
          }
+         // trigger limit
+         if (curTrigger[IDX_TRIGGER_LIMIT] > 0 && this.skillsActiveCount[memberId] >= curTrigger[IDX_TRIGGER_LIMIT]) {
+            continue;
+         }
          // inactive skill, check trigger chance
          if (triggerChecks[curTriggerType](this, curTrigger)) {
             ret.push(curTrigger[IDX_TRIGGER_MEMBER_ID]);
@@ -4146,6 +4297,126 @@ var LLSimulateContext = (function() {
          }
       }
       return minNextTime;
+   };
+   /**
+    * @param {NoteTriggerDataType[]} noteTriggerData
+    * @param {LLTeam} teamData
+    */
+   proto.simulate = function (noteTriggerData, teamData) {
+      // 1. 1速下如果有note时间点<1.8秒的情况下,歌曲会开头留白吗? 不留白的话瞬间出现的note会触发note系技能吗? 数量超过触发条件2倍的能触发多次吗?
+      //   A1. 似乎不留白, note一帧出一个, 不会瞬间全出
+      // 2. repeat技能如果repeat的是一个经过技能等级提升加成过的技能, 会repeat加成前的还是加成后的?
+      //   A2. 加成后的
+      // 3. repeat技能如果repeat了一个奶转分, 会加分吗?
+      // 4. repeat了一个持续系技能的话, 在该技能持续时间内再次触发repeat的话, 会发生什么? 加分技能能发动吗? 持续系的技能能发动吗? 会延后到持续时间结束点上发动吗?
+      //   A4. 被复读的持续系技能结束前, repeat技能再次发动会似乎没效果, 也不会延后到持续时间结束点发动
+      // 5. 属性同步是同步的宝石加成前的还是后的?
+      //   A5. 同步的是宝石加成以及C技加成后的
+      // 6. 属性同步状态下的卡受到能力强化技能加成时是什么效果? 受到能力强化技能加成的卡被属性同步是什么效果?
+      //   A6. 属性同步状态下受到属性强化, 则强化的效果是同步前的属性; 但是同步目标受到属性强化加成的话, 会同步属性强化加成后的属性, 而且如果自身也受到属性强化加成的话, 自己那份属性强化也依然存在
+      // 7. repeat的是属性同步技能的话, 同步对象会重新选择吗? 如果重新选择, 会选到当初发动同步的卡吗? 如果不重新选择, 同步对象是自身的话是什么效果?
+      //   A7. 似乎会重新选择, 不会选到自己但有可能选到之前发动同步的卡
+
+      var noteTriggerIndex = 0;
+      while (noteTriggerIndex < noteTriggerData.length || this.currentTime < this.totalTime) {
+         // 1, check if any active skill need deactive
+         this.processDeactiveSkills();
+         // 2. check if any skill can be activated
+         var nextActiveChances = this.getNextTriggerChances();
+         var quickSkip = !nextActiveChances.length;
+         if (nextActiveChances.length) {
+            for (var iChance = 0; iChance < nextActiveChances.length; iChance++) {
+               var nextActiveChance = nextActiveChances[iChance];
+               this.skillsActiveChanceCount[nextActiveChance]++;
+               // validate and check possibility
+               if (this.isSkillNoEffect(nextActiveChance)) {
+                  this.skillsActiveNoEffectCount[nextActiveChance]++;
+                  continue;
+               }
+               var possibility = this.getSkillPossibility(nextActiveChance);
+               if (Math.random() < possibility/100) {
+                  // activate
+                  this.skillsActiveCount[nextActiveChance]++;
+                  this.onSkillActive(nextActiveChance);
+               }
+            }
+         }
+         // 3. move to min next time
+         var minNoteTime = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex].time : undefined);
+         var minNextTime = this.currentTime;
+         if (quickSkip) {
+            minNextTime = this.totalTime;
+            var minDeactiveTime = this.getMinDeactiveTime();
+            var minTriggerTime = this.getMinTriggerChanceTime();
+            if (minDeactiveTime !== undefined && minTriggerTime < minNextTime) {
+               minNextTime = minDeactiveTime;
+            }
+            if (minTriggerTime !== undefined && minTriggerTime < minNextTime) {
+               minNextTime = minTriggerTime;
+            }
+            if (minNoteTime !== undefined && minNoteTime <= minNextTime) {
+               minNextTime = minNoteTime;
+            }
+         }
+         this.updateNextFrameByMinTime(minNextTime);
+         var handleNote = (minNoteTime !== undefined && minNoteTime <= this.currentTime);
+         // process at most one note per frame
+         // need update time before process note so that the time-related skills uses correct current time
+         if (handleNote) {
+            var curNote = noteTriggerData[noteTriggerIndex];
+            if (curNote.type == SIM_NOTE_ENTER) {
+               this.currentNote++;
+            } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
+               var isPerfect = (Math.random() * (this.totalNote - this.currentCombo) < this.remainingPerfect);
+               var accuracyBonus = LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
+               var isAccuracyState = this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] || this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL];
+               var comboFeverScore = 0;
+               var perfectScoreUp = 0;
+               var healBonus = (this.overHealPattern ? LLConst.getHealBonus(teamData.totalHP, this.currentHeal + teamData.totalHP) : 1);
+               this.currentCombo++;
+               if (isPerfect) {
+                  this.currentPerfect++;
+                  this.remainingPerfect--;
+                  perfectScoreUp = this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
+                  if (isAccuracyState && this.perfectAccuracyPattern) {
+                     accuracyBonus = LLConst.NOTE_WEIGHT_ACC_PERFECT_FACTOR;
+                  }
+               } else {
+                  if (isAccuracyState) {
+                     this.currentPerfect++;
+                     perfectScoreUp = this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
+                  } else {
+                     accuracyBonus = LLConst.NOTE_WEIGHT_GREAT_FACTOR;
+                  }
+               }
+               if (isAccuracyState) {
+                  this.currentAccuracyCoverNote++;
+               }
+               if (curNote.type == SIM_NOTE_RELEASE) {
+                  accuracyBonus *= LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
+                  //TODO: 如果被完美判覆盖到长条开头呢?
+               }
+               if (this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] > 0) {
+                  comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.comboFeverPattern) * this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
+                  if (comboFeverScore > LLConst.SKILL_LIMIT_COMBO_FEVER) {
+                     comboFeverScore = LLConst.SKILL_LIMIT_COMBO_FEVER;
+                  }
+               }
+               // seems not really take effect
+               //if (perfectScoreUp + this.totalPerfectScoreUp > LLConst.SKILL_LIMIT_PERFECT_SCORE_UP) {
+               //   perfectScoreUp = LLConst.SKILL_LIMIT_PERFECT_SCORE_UP - this.totalPerfectScoreUp;
+               //}
+               var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
+               // note position 数值1~9, 从右往左数
+               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * healBonus * teamData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
+               // 点击得分加成对PP分也有加成效果
+               // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
+               this.currentScore += Math.ceil(baseNoteScore * this.mapTapScoreUp);
+               this.totalPerfectScoreUp += perfectScoreUp;
+            }
+            noteTriggerIndex++;
+         }
+      }
    };
    return cls;
 })();
@@ -4289,6 +4560,7 @@ var LLTeam = (function() {
       this.attrDebuff = attrDebuff;
       this.finalAttr = finalAttr;
       this.bonusAttr = bonusAttr;
+      this.totalAttrNoAccuracy = finalAttr[mapcolor];
       this.totalAttrWithAccuracy = totalAttrWithAccuracy;
       // total
       this.totalWeight = mapdata.totalWeight;
@@ -4502,21 +4774,8 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
       }
-      // simulate
-      // TODO:
-      // 1. 1速下如果有note时间点<1.8秒的情况下,歌曲会开头留白吗? 不留白的话瞬间出现的note会触发note系技能吗? 数量超过触发条件2倍的能触发多次吗?
-      //   A1. 似乎不留白, note一帧出一个, 不会瞬间全出
-      // 2. repeat技能如果repeat的是一个经过技能等级提升加成过的技能, 会repeat加成前的还是加成后的?
-      //   A2. 加成后的
-      // 3. repeat技能如果repeat了一个奶转分, 会加分吗?
-      // 4. repeat了一个持续系技能的话, 在该技能持续时间内再次触发repeat的话, 会发生什么? 加分技能能发动吗? 持续系的技能能发动吗? 会延后到持续时间结束点上发动吗?
-      //   A4. 被复读的持续系技能结束前, repeat技能再次发动会似乎没效果, 也不会延后到持续时间结束点发动
-      // 5. 属性同步是同步的宝石加成前的还是后的?
-      //   A5. 同步的是宝石加成以及C技加成后的
-      // 6. 属性同步状态下的卡受到能力强化技能加成时是什么效果? 受到能力强化技能加成的卡被属性同步是什么效果?
-      //   A6. 属性同步状态下受到属性强化, 则强化的效果是同步前的属性; 但是同步目标受到属性强化加成的话, 会同步属性强化加成后的属性, 而且如果自身也受到属性强化加成的话, 自己那份属性强化也依然存在
-      // 7. repeat的是属性同步技能的话, 同步对象会重新选择吗? 如果重新选择, 会选到当初发动同步的卡吗? 如果不重新选择, 同步对象是自身的话是什么效果?
-      //   A7. 似乎会重新选择, 不会选到自己但有可能选到之前发动同步的卡
+      this.memberBonusFactor = memberBonusFactor;
+
       var scores = {};
       var skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -4525,111 +4784,20 @@ var LLTeam = (function() {
       var totalAccuracyCoverNote = 0;
       for (i = 0; i < simCount; i++) {
          var env = new LLSimulateContext(mapdata, this.members, maxTime);
-         var noteTriggerIndex = 0;
-         // simulate start
-         while (noteTriggerIndex < noteTriggerData.length || env.currentTime < env.totalTime) {
-            // 1, check if any active skill need deactive
-            env.processDeactiveSkills();
-            // 2. check if any skill can be activated
-            var nextActiveChances = env.getNextTriggerChances();
-            var quickSkip = !nextActiveChances.length;
-            if (nextActiveChances.length) {
-               for (var iChance = 0; iChance < nextActiveChances.length; iChance++) {
-                  var nextActiveChance = nextActiveChances[iChance];
-                  skillsActiveChanceCount[nextActiveChance]++;
-                  // validate and check possibility
-                  if (env.isSkillNoEffect(nextActiveChance)) {
-                     skillsActiveNoEffectCount[nextActiveChance]++;
-                     continue;
-                  }
-                  var possibility = env.getSkillPossibility(nextActiveChance);
-                  if (Math.random() < possibility/100) {
-                     // activate
-                     skillsActiveCount[nextActiveChance]++;
-                     env.onSkillActive(nextActiveChance);
-                  }
-               }
-            }
-            // 3. move to min next time
-            var minNoteTime = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex].time : undefined);
-            var minNextTime = env.currentTime;
-            if (quickSkip) {
-               minNextTime = env.totalTime;
-               var minDeactiveTime = env.getMinDeactiveTime();
-               var minTriggerTime = env.getMinTriggerChanceTime();
-               if (minTriggerTime !== undefined && minTriggerTime < minNextTime) {
-                  minNextTime = minTriggerTime;
-               }
-               if (minNoteTime !== undefined && minNoteTime <= minNextTime) {
-                  minNextTime = minNoteTime;
-               }
-            }
-            env.updateNextFrameByMinTime(minNextTime);
-            var handleNote = (minNoteTime !== undefined && minNoteTime <= env.currentTime);
-            // process at most one note per frame
-            // need update time before process note so that the time-related skills uses correct current time
-            if (handleNote) {
-               var curNote = noteTriggerData[noteTriggerIndex];
-               if (curNote.type == SIM_NOTE_ENTER) {
-                  env.currentNote++;
-               } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
-                  var isPerfect = (Math.random() * (env.totalNote - env.currentCombo) < env.remainingPerfect);
-                  var accuracyBonus = LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
-                  var isAccuracyState = env.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] || env.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL];
-                  var comboFeverScore = 0;
-                  var perfectScoreUp = 0;
-                  var healBonus = (env.overHealPattern ? LLConst.getHealBonus(this.totalHP, env.currentHeal + this.totalHP) : 1);
-                  env.currentCombo++;
-                  if (isPerfect) {
-                     env.currentPerfect++;
-                     env.remainingPerfect--;
-                     perfectScoreUp = env.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
-                     if (isAccuracyState && env.perfectAccuracyPattern) {
-                        accuracyBonus = LLConst.NOTE_WEIGHT_ACC_PERFECT_FACTOR;
-                     }
-                  } else {
-                     if (isAccuracyState) {
-                        env.currentPerfect++;
-                        perfectScoreUp = env.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
-                     } else {
-                        accuracyBonus = LLConst.NOTE_WEIGHT_GREAT_FACTOR;
-                     }
-                  }
-                  if (isAccuracyState) {
-                     totalAccuracyCoverNote++;
-                  }
-                  if (curNote.type == SIM_NOTE_RELEASE) {
-                     accuracyBonus *= LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
-                     //TODO: 如果被完美判覆盖到长条开头呢?
-                  }
-                  if (env.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] > 0) {
-                     comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(env.currentCombo, env.comboFeverPattern) * env.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
-                     if (comboFeverScore > LLConst.SKILL_LIMIT_COMBO_FEVER) {
-                        comboFeverScore = LLConst.SKILL_LIMIT_COMBO_FEVER;
-                     }
-                  }
-                  // seems not really take effect
-                  //if (perfectScoreUp + env.totalPerfectScoreUp > LLConst.SKILL_LIMIT_PERFECT_SCORE_UP) {
-                  //   perfectScoreUp = LLConst.SKILL_LIMIT_PERFECT_SCORE_UP - env.totalPerfectScoreUp;
-                  //}
-                  var baseAttribute = (isAccuracyState ? this.totalAttrWithAccuracy : this.finalAttr[mapdata.attribute]) + env.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
-                  // note position 数值1~9, 从右往左数
-                  var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * healBonus * memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(env.currentCombo) + comboFeverScore + perfectScoreUp;
-                  // 点击得分加成对PP分也有加成效果
-                  // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
-                  env.currentScore += Math.ceil(baseNoteScore * env.mapTapScoreUp);
-                  env.totalPerfectScoreUp += perfectScoreUp;
-               }
-               noteTriggerIndex++;
-            }
-         }
-         // simulate end
+         env.simulate(noteTriggerData, this);
+
          if (scores[env.currentScore] !== undefined) {
             scores[env.currentScore]++;
          } else {
             scores[env.currentScore] = 1;
          }
          totalHeal += env.currentHeal;
+         totalAccuracyCoverNote += env.currentAccuracyCoverNote;
+         for (var j = 0; j < 9; j++) {
+            skillsActiveCount[j] += env.skillsActiveCount[j];
+            skillsActiveChanceCount[j] += env.skillsActiveChanceCount[j];
+            skillsActiveNoEffectCount[j] += env.skillsActiveNoEffectCount[j];
+         }
       }
       for (i = 0; i < 9; i++) {
          skillsActiveCount[i] /= simCount;
@@ -6167,8 +6335,21 @@ var LLDataVersionSelectorComponent = (function () {
    return cls;
 })();
 
+/**
+ * @typedef LLScoreDistributionParameter_SaveDataType
+ * @property {'no'|'v1'|'sim'} type
+ * @property {number} count int, simulate count
+ * @property {number} perfect_percent float 0~100
+ * @property {number} speed int 1~10
+ * @property {1|2} combo_fever_pattern 1 for 300 combo, 2 for 220 combo
+ * @property {0|1} over_heal_pattern 0 for disabled, 1 for enabled
+ * @property {0|1} perfect_accuracy_pattern 0 for disabled, 1 for enabled
+ * @property {0|1} trigger_limit_pattern 0 for disabled, 1 for enabled
+ */
 var LLScoreDistributionParameter = (function () {
    var createElement = LLUnit.createElement;
+   var createFormInlineGroup = LLUnit.createFormInlineGroup;
+
    var distTypeSelectOptions = [
       {'value': 'no', 'text': '不计算分布'},
       {'value': 'v1', 'text': '计算理论分布'},
@@ -6201,13 +6382,27 @@ var LLScoreDistributionParameter = (function () {
       ['技能效果: 回血, 加分', '支持', '支持'],
       ['技能效果: 小判定, 大判定, 提升技能发动率, repeat, <br/>perfect分数提升, combo fever, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持'],
       ['宝石: 诡计', '不支持', '支持'],
-      ['溢出奶, 完美判', '不支持', '支持']
+      ['溢出奶, 完美判', '不支持', '支持'],
+      ['爆分发动次数限制', '不支持', '支持']
    ];
-   // controller
-   // {
-   //    getParameters: function()
-   //    setParameters: function(data)
-   // }
+
+   /** @returns {LLSelectComponent} */
+   function createEnableDisableComponent() {
+      var ret = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
+      ret.setOptions(enableDisableSelectOptions);
+      ret.set('0');
+      return ret;
+   }
+
+   /**
+    * @typedef LLScoreDistributionParameter_Controller
+    * @property {function(): LLScoreDistributionParameter_SaveDataType} getParameters
+    * @property {function(LLScoreDistributionParameter_SaveDataType): void} setParameters
+    */
+   /**
+    * @param {LLScoreDistributionParameter_Controller} controller 
+    * @returns {HTMLElement}
+    */
    function createDistributionTypeSelector(controller) {
       var detailContainer = createElement('div');
       var detailContainerComponent = 0;
@@ -6228,46 +6423,17 @@ var LLScoreDistributionParameter = (function () {
       var simParamComboFeverPatternComponent = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
       simParamComboFeverPatternComponent.setOptions(comboFeverPatternSelectOptions);
       simParamComboFeverPatternComponent.set('2');
-      var simParamOverHealComponent = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
-      simParamOverHealComponent.setOptions(enableDisableSelectOptions);
-      simParamOverHealComponent.set('0');
-      var simParamPerfectAccuracyComponent = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
-      simParamPerfectAccuracyComponent.setOptions(enableDisableSelectOptions);
-      simParamPerfectAccuracyComponent.set('0');
-      var simParamContainer = createElement('div', {'className': 'form-inline'}, [
-         createElement('div', {'className': 'form-group'}, [
-            createElement('label', {'innerHTML': '模拟次数：'}),
-            simParamCount,
-            createElement('span', {'innerHTML': '（模拟次数越多越接近实际分布，但是也越慢）'})
-         ]),
-         createElement('br'),
-         createElement('div', {'className': 'form-group'}, [
-            createElement('label', {'innerHTML': '无判perfect率：'}),
-            simParamPerfectPercent,
-            createElement('span', {'innerHTML': '%'})
-         ]),
-         createElement('br'),
-         createElement('div', {'className': 'form-group'}, [
-            createElement('label', {'innerHTML': '速度：'}),
-            simParamSpeedComponent.element,
-            createElement('span', {'innerHTML': '（图标下落速度，1速最慢，10速最快）'})
-         ]),
-         createElement('br'),
-         createElement('div', {'className': 'form-group'}, [
-            createElement('label', {'innerHTML': 'Combo Fever技能：'}),
-            simParamComboFeverPatternComponent.element
-         ]),
-         createElement('br'),
-         createElement('div', {'className': 'form-group'}, [
-            createElement('label', {'innerHTML': '溢出奶：'}),
-            simParamOverHealComponent.element
-         ]),
-         createElement('br'),
-         createElement('div', {'className': 'form-group'}, [
-            createElement('label', {'innerHTML': '完美判：'}),
-            simParamPerfectAccuracyComponent.element
-         ]),
-         createElement('br'),
+      var simParamOverHealComponent = createEnableDisableComponent();
+      var simParamPerfectAccuracyComponent = createEnableDisableComponent();
+      var simParamTriggerLimitComponent = createEnableDisableComponent();
+      var simParamContainer = createElement('div', {'className': 'filter-form'}, [
+         createFormInlineGroup('模拟次数：', [simParamCount, '（模拟次数越多越接近实际分布，但是也越慢）']),
+         createFormInlineGroup('无判perfect率：', [simParamPerfectPercent, '%']),
+         createFormInlineGroup('速度：', [simParamSpeedComponent.element, '（图标下落速度，1速最慢，10速最快）']),
+         createFormInlineGroup('Combo Fever技能：', simParamComboFeverPatternComponent.element),
+         createFormInlineGroup('溢出奶：', simParamOverHealComponent.element),
+         createFormInlineGroup('完美判：', simParamPerfectAccuracyComponent.element),
+         createFormInlineGroup('爆分发动次数限制：', simParamTriggerLimitComponent.element),
          createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'})
       ]);
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
@@ -6284,25 +6450,20 @@ var LLScoreDistributionParameter = (function () {
       selComp.set('no');
       simParamContainerComponent.hide();
       var container = createElement('div', undefined, [
-         createElement('div', {'className': 'form-inline'}, [
-            createElement('div', {'className': 'form-group'}, [
-               createElement('label', {'innerHTML': '选择分数分布计算模式：'}),
-               sel,
-               detailLink
-            ]),
-         ]),
+         createFormInlineGroup('选择分数分布计算模式：', [sel, detailLink]),
          detailContainer,
          simParamContainer
       ]);
       controller.getParameters = function () {
          return {
             'type': selComp.get(),
-            'count': simParamCount.value,
-            'perfect_percent': simParamPerfectPercent.value,
-            'speed': simParamSpeedComponent.get(),
-            'combo_fever_pattern': simParamComboFeverPatternComponent.get(),
-            'over_heal_pattern': simParamOverHealComponent.get(),
-            'perfect_accuracy_pattern': simParamPerfectAccuracyComponent.get()
+            'count': parseInt(simParamCount.value),
+            'perfect_percent': parseFloat(simParamPerfectPercent.value),
+            'speed': parseInt(simParamSpeedComponent.get()),
+            'combo_fever_pattern': parseInt(simParamComboFeverPatternComponent.get()),
+            'over_heal_pattern': parseInt(simParamOverHealComponent.get()),
+            'perfect_accuracy_pattern': parseInt(simParamPerfectAccuracyComponent.get()),
+            'trigger_limit_pattern': parseInt(simParamTriggerLimitComponent.get())
          }
       };
       controller.setParameters = function (data) {
@@ -6314,6 +6475,7 @@ var LLScoreDistributionParameter = (function () {
          if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern);
          if (data.over_heal_pattern !== undefined) simParamOverHealComponent.set(data.over_heal_pattern);
          if (data.perfect_accuracy_pattern !== undefined) simParamPerfectAccuracyComponent.set(data.perfect_accuracy_pattern);
+         if (data.trigger_limit_pattern !== undefined) simParamTriggerLimitComponent.set(data.trigger_limit_pattern);
       };
       return container;
    }
@@ -7419,19 +7581,7 @@ var LLUnitResultComponent = (function () {
 var LLSongSelectorComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
-
-   /**
-    * @param {string} label 
-    * @param {SubElements} subElements 
-    * @returns {HTMLElement}
-    */
-   function createFormGroup(label, subElements) {
-      var group = createElement('div', {'className': 'form-group'}, [
-         createElement('label', undefined, label)
-      ]);
-      updateSubElements(group, subElements);
-      return createElement('div', {'className': 'form-inline'}, group);
-   }
+   var createFormInlineGroup = LLUnit.createFormInlineGroup;
 
    /** @returns {HTMLElement} */
    function createFormSelect() {
@@ -7478,17 +7628,17 @@ var LLSongSelectorComponent = (function () {
       };
 
       updateSubElements(container, [
-         createFormGroup('搜索', songSearch),
-         createFormGroup('筛选', [compMapping.songdiff, compMapping.songatt, compMapping.songunit, compMapping.songswing, compMapping.songac, compMapping.songstardiff]),
-         createFormGroup('歌曲', compMapping.songchoice),
-         createFormGroup('谱面', compMapping.diffchoice),
-         createFormGroup('图属性', compMapping.map),
-         createFormGroup('总combo数', mapCombo),
-         createFormGroup('perfect数', mapPerfect),
-         createFormGroup('时间', [mapTime, '秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）']),
-         createFormGroup('星星perfect数', mapStarPerfect),
-         createFormGroup('点击得分增加', [buffTapUp, '%']),
-         createFormGroup('技能发动率增加', [buffSkillUp, '%'])
+         createFormInlineGroup('搜索', songSearch),
+         createFormInlineGroup('筛选', [compMapping.songdiff, compMapping.songatt, compMapping.songunit, compMapping.songswing, compMapping.songac, compMapping.songstardiff]),
+         createFormInlineGroup('歌曲', compMapping.songchoice),
+         createFormInlineGroup('谱面', compMapping.diffchoice),
+         createFormInlineGroup('图属性', compMapping.map),
+         createFormInlineGroup('总combo数', mapCombo),
+         createFormInlineGroup('perfect数', mapPerfect),
+         createFormInlineGroup('时间', [mapTime, '秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）']),
+         createFormInlineGroup('星星perfect数', mapStarPerfect),
+         createFormInlineGroup('点击得分增加', [buffTapUp, '%']),
+         createFormInlineGroup('技能发动率增加', [buffSkillUp, '%'])
       ], true);
 
       /** @type {LLCSkillComponent} */

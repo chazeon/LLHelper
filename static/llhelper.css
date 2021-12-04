@@ -175,6 +175,6 @@ img.avatar {
    margin-bottom: 2px;
    margin-right: 2px;
 }
-.filter-form label {
+.filter-form.label-size-9 label {
    width: 120px;
 }

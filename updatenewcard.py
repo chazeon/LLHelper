@@ -144,7 +144,7 @@ if __name__ == "__main__":
                 cnskill = cnskilltmp.fetchone()
                 card['skillname'] = cnskill[1]
             # skill detailed effect for each level
-            skilldetail = jpdbconn.execute('SELECT effect_value,discharge_time,trigger_value,activation_rate FROM unit_skill_level_m WHERE unit_skill_id = '+str(skillid)+' ORDER BY skill_level ASC;')
+            skilldetail = jpdbconn.execute('SELECT effect_value,discharge_time,trigger_value,activation_rate,trigger_limit FROM unit_skill_level_m WHERE unit_skill_id = '+str(skillid)+' ORDER BY skill_level ASC;')
             card['skilldetail'] = []
             tmp = skilldetail.fetchone()
             i = 0
@@ -156,6 +156,8 @@ if __name__ == "__main__":
                 card['skilldetail'][i]['time'] = tmp[1]
                 card['skilldetail'][i]['require'] = tmp[2]
                 card['skilldetail'][i]['possibility'] = tmp[3]
+                if tmp[4]:
+                    card['skilldetail'][i]['limit'] = tmp[4]
                 if 0 == i:
                     trigger_require_min = tmp[2]
                     trigger_require_max = tmp[2]
@@ -168,9 +170,9 @@ if __name__ == "__main__":
                 tmp = skilldetail.fetchone()
             if trigger_require_min:
                 if trigger_require_min == trigger_require_max:
-                    card['triggerrequire'] = trigger_require_min;
+                    card['triggerrequire'] = trigger_require_min
                 else:
-                    card['triggerrequire'] = str(trigger_require_min) + '~' + str(trigger_require_max);
+                    card['triggerrequire'] = str(trigger_require_min) + '~' + str(trigger_require_max)
             triggertarget = jpdbconn.execute('SELECT trigger_target FROM unit_skill_trigger_target_m WHERE unit_skill_id = '+str(skillid)+' ORDER BY trigger_target DESC;')
             tmp = triggertarget.fetchone()
             if tmp:

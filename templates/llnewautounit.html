@@ -378,11 +378,7 @@
          if (distParam.type == 'v1') {
             err = llteam.calculateScoreDistribution();
          } else if (distParam.type == 'sim') {
-            llmap.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * llmap.combo);
-            llmap.speed = distParam.speed;
-            llmap.combo_fever_pattern = distParam.combo_fever_pattern;
-            llmap.over_heal_pattern = distParam.over_heal_pattern;
-            llmap.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
+            llmap.setDistParam(distParam);
             err = llteam.simulateScoreDistribution(llmap, extraData[0], parseInt(distParam.count));
          } else {
             err = '未知的得分分布';
@@ -464,7 +460,7 @@
 <input type="submit" name="clear" value="清空输入" onclick="clearall()"><br>
 <form action="" id="unitform" name="unitform" method="POST" enctype=multipart/form-data>
 <h3>歌曲信息</h3>
-<div id="song_filter" class="filter-form">载入中...</div>
+<div id="song_filter" class="filter-form label-size-9">载入中...</div>
 
 {% include 'components/card-selector.html' %}
 
