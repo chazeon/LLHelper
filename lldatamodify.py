@@ -8,7 +8,7 @@ def llsongmodify():
     openfile.close()
     songs = json.loads(songsjson)
     if request.form.has_key('submit'):
-        print request.form
+        print(request.form)
         if request.form.get('passwd') == 'prpr' or True:
             pre = request.form.get('previoussong')
             if pre == "":
@@ -55,7 +55,7 @@ def llcardmodify():
     inputfile.close()
     cards = json.loads(cardsjson)
     if request.form.has_key('submit'):
-        print request.form
+        print(request.form)
         if request.form.get('passwd') == 'prpr' or True:
             now = request.form.get('cardchoice')
             element = ['type' , 'series', 'jpseries']
@@ -79,7 +79,7 @@ def llnewsongmodify():
     openfile.close()
     songs = json.loads(songsjson)
     if request.form.has_key('submit'):
-        print request.form
+        print(request.form)
         if request.form.get('passwd') == 'prpr' or True:
             now = request.form.get('songchoice')
             diff = request.form.get('diffchoice')

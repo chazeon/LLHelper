@@ -56,7 +56,7 @@ class LLData:
     def mergeDataTo(self, data):
         self.lock.acquireRead()
         for i in self.data:
-            if not data.has_key(i):
+            if i not in data:
                 data[i] = self.data[i]
         self.lock.releaseRead()
 
@@ -64,7 +64,7 @@ class LLData:
         # assume write lock acquired
         filestat = os.stat(self.json_file)
         if filestat.st_mtime != self.last_update_time:
-            print 'Loading %s ...' % self.json_file
+            print('Loading %s ...' % self.json_file)
             jsonstr = open(self.json_file, 'rb').read()
             self.data = json.loads(jsonstr)
             self.last_update_time = filestat.st_mtime
@@ -94,7 +94,7 @@ class LLData:
         self.reloadJson()
         self.lock.acquireRead()
         try:
-            for index, data in self.data.iteritems():
+            for index, data in self.data.items():
                 outdata = {}
                 for key in keylist:
                     if key in data:
@@ -109,10 +109,10 @@ class LLData:
         self.lock.acquireRead()
         try:
             if index in self.data:
-                ret = self.data[index];
+                ret = self.data[index]
         finally:
             self.lock.releaseRead()
-        return ret;
+        return ret
 
     def queryByIndexes(self, indexes):
         ret = {}
@@ -125,7 +125,7 @@ class LLData:
                     ret[index] = self.data[index]
         finally:
             self.lock.releaseRead()
-        return ret;
+        return ret
 
 class LLDataMix(LLData):
     def __init__(self, lldataList, name, check_interval):
@@ -144,7 +144,7 @@ class LLDataMix(LLData):
         if max_update_time == self.last_update_time:
             return
 
-        print 'Loading mix %s ...' % self.json_file
+        print('Loading mix %s ...' % self.json_file)
         new_data = {}
         for lldata in self.lldataList:
             lldata.mergeDataTo(new_data)

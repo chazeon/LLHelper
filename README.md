@@ -10,14 +10,29 @@ pip install -r requirements.txt
 
 ### Run on Development Environment
 
+shell:
 ```sh
 FLASK_APP=app.py FLASK_ENV=development python2 -m flask run
+```
+or
+```sh
+./run.sh
+```
+
+powershell:
+```ps1
+.\run-dev.ps1
 ```
 
 ### Run on Production Environment
 
+shell:
 ```sh
 FLASK_APP=app.py FLASK_RUN_PORT={PORT} python2 -m flask run
+```
+or
+```sh
+./run.sh {PORT}
 ```
 
 ### PM2 Script Example

@@ -99,9 +99,11 @@
   <script>
     LLSiteVersion && LLSiteVersion.check();
     LLImageServerSwitch && LLImageServerSwitch.initImageServerSwitch('change-avatar-server');
-  {% if useMasonry %}
-    $('.row').masonry()
-  {% endif %}
   </script>
+  {% if useMasonry %}
+  <script>
+    $('.row').masonry()
+  </script>
+  {% endif %}
   {% include "footer.html" %}
 </html>

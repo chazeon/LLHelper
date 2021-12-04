@@ -30,3 +30,6 @@ newsongsjson.txt
 
 *.db_
 live
+venv
+static/live
+static/avatar

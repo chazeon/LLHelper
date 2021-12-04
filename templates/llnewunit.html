@@ -9,21 +9,6 @@
    <script type="text/javascript" src="{{ url_for('static', filename='lldata.js') }}"></script>
    <script type="text/javascript" src="/static/js/highcharts/highcharts.js"></script>
    <link rel="shortcut icon" href="/static/shortcuticon.png" />
-   <style type="text/css">
-      input[type="number"][size="3"] {
-         width: 60px;
-      }
-      input[type="number"][size="2"] {
-         width: 50px;
-      }
-      input[type="number"][size="1"] {
-         width: 40px;
-      }
-      input::-webkit-inner-spin-button {
-         -webkit-appearance: none;
-         margin: 0;
-      }
-   </style>
 {% endblock %}
 
 {% block script %}
@@ -38,29 +23,30 @@
    var comp_cardselector = 0;
    var comp_songselector = 0;
    var comp_cardavatar = 0;
-   var comp_resultmic = 0;
    var comp_distribution_param = 0;
    var comp_distribution_chart = 0;
    var comp_team = 0;
    var comp_cskill_team = 0;
    var comp_cskill_friend = 0;
+   var comp_result = 0;
 
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
       LLConst.initMetadata(metaData);
-      comp_songselector = new LLSongSelector(songData);
-      comp_songselector.onSongSettingChange = applysongdata;
-      comp_songselector.onSongColorChange = changemapcolor;
+      comp_songselector = new LLSongSelectorComponent('song_filter', songData);
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
       comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
       comp_cardselector.onCardChange = LLUnit.applycarddata;
       comp_cardavatar = new LLImageComponent('imageselect');
-      comp_resultmic = new LLMicDisplayComponent('resultmic');
       comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
       comp_distribution_param.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageDistParamKey));
       comp_cskill_team = new LLCSkillComponent('cskill_team');
       comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
+      comp_result = new LLUnitResultComponent('unit_result');
+
+      comp_songselector.onSongSettingChange = (songSettingId, songSetting) => songSetting && comp_team.setWeights(songSetting.positionweight);
+      comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
          LoadingUtil.startSingle(LLCardData.getAllBriefData().then(function (cards) {
@@ -98,7 +84,7 @@
 
       // load
       comp_cardselector.loadLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
-      comp_songselector.loadLocalStorage(LLHelperLocalStorage.localStorageSongSelectKey);
+      comp_songselector.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageSongSelectKey));
 
       // addition script
       {{additional_script|safe}}
@@ -106,21 +92,6 @@
       // done
       document.getElementById('loadingbox').style.display = 'none';
    }, defaultHandleFailedRequest);
-
-   function changemapcolor(attr) {
-      // do not update comp_cskill_team, because it is set by center
-      comp_cskill_friend.setMapColor(attr);
-   }
-
-   function applysongdata(songSettingId) {
-      if (!songSettingId) return;
-      var songSetting = comp_songselector.songSettings[songSettingId];
-      document.getElementById('combo').value = songSetting.combo;
-      document.getElementById('perfect').value = parseInt(songSetting.combo * 19/20);
-      document.getElementById('time').value = (songSetting.time || 110);
-      document.getElementById('starperfect').value = 0;
-      comp_team.setWeights(songSetting.positionweight);
-   }
 
    function changeLanguage(){
       language = 1-language
@@ -184,47 +155,27 @@
       if (language == "")
          language = 0
 
-      var inputs = document.getElementsByTagName("input");
-      for (var i=0; i<inputs.length; i++) {
-         if (inputs[i].type == "text" && inputs[i].name) {
-            var curCookie = getCookie(inputs[i].name+"unit");
-            if (curCookie != "") inputs[i].value = curCookie;
-         }
-      }
       document.getElementById("mezame").checked = mezame
-
-      //document.getElementById("songsearch").value = ""
    }
 
    function saveToCookie(){
-   	var inputs = document.getElementsByTagName("input");
-   	for (var i=0; i<inputs.length; i++){
-   		if (inputs[i].type == "text" && inputs[i].name)
-   			setCookie(inputs[i].name+"unit", inputs[i].value, 1);
-   	}
       setCookie("mezame"+"unit", mezame, 1)
       setCookie("language"+"unit", language, 1)
    }
 
-   function showErrorResult(text) {
-      document.getElementById('errorresult').innerHTML = text;
-      document.getElementById('errorresult').style.display = '';
-      document.getElementById("errorresult").scrollIntoView();
-   }
-   function hideErrorResult() {
-      document.getElementById('errorresult').style.display = 'none';
-   }
-
    function check(){
       if (!comp_songselector.getSelectedSongSetting()) {
-         showErrorResult('请选择谱面');
+         comp_result.showError('请选择谱面');
          return;
-      } else {
-         hideErrorResult();
       }
+      if (!comp_team.isAllMembersPresent()) {
+         comp_result.showError('队伍中仍有空位');
+         return;
+      }
+      comp_result.hideError();
       saveToCookie();
       comp_cardselector.saveLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
-      comp_songselector.saveLocalStorage(LLHelperLocalStorage.localStorageSongSelectKey);
+      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageSongSelectKey, comp_songselector.saveJson());
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamKey, comp_distribution_param.saveJson());
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey, comp_team.saveJson());
       var distParam = comp_distribution_param.saveData();
@@ -237,17 +188,10 @@
    }
 
    function docalculate(cards, extraData) {
-      var sel_int = ['combo', 'perfect', 'starperfect', 'time', 'skillup', 'tapup'];
       var member = comp_team.getMembers();
-      var mapcenter = {};
       var llmembers = [];
-      var weights = comp_team.getWeights();
 
-      for (var i = 0; i < sel_int.length; i++) {
-         mapcenter[sel_int[i]] = parseInt(document.getElementById(sel_int[i]).value);
-      }
-
-      var mainatt = document.getElementById('map').value;
+      var mainatt = comp_songselector.getSongAttribute();
 
       for (var i = 0; i < 9; i++) {
          member[i].card = cards[member[i].cardid];
@@ -256,23 +200,11 @@
       }
 
       var distParam = comp_distribution_param.saveData();
-      var llmap = new LLMap({
-         'song': comp_songselector.getSelectedSong(),
-         'songSetting': comp_songselector.getSelectedSongSetting(),
-         'friendCSkill': comp_cskill_friend.getCSkill()
-      });
-      llmap.attribute = mainatt;
-      llmap.setSongDifficultyData(mapcenter.combo, mapcenter.starperfect, mapcenter.time, mapcenter.perfect, mapcenter.starperfect);
-      llmap.setMapBuff(mapcenter.tapup, mapcenter.skillup);
-      llmap.setWeights(weights);
+      var llmap = comp_songselector.getMap(comp_team.getWeights());
 
       var llteam = new LLTeam(llmembers);
       llteam.calculateAttributeStrength(llmap);
       llteam.calculateSkillStrength(llmap);
-
-      document.getElementById('resultsmile').innerHTML = llteam.finalAttr.smile + ' (+' + llteam.bonusAttr.smile + ')';
-      document.getElementById('resultpure').innerHTML = llteam.finalAttr.pure + ' (+' + llteam.bonusAttr.pure + ')';
-      document.getElementById('resultcool').innerHTML = llteam.finalAttr.cool + ' (+' + llteam.bonusAttr.cool + ')';
 
       comp_team.setStrengthAttributes(llteam.attrStrength);
       comp_team.setStrengthDebuffs(llteam.attrDebuff);
@@ -285,26 +217,21 @@
          if (distParam.type == 'v1') {
             err = llteam.calculateScoreDistribution();
          } else if (distParam.type == 'sim') {
-            llmap.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * llmap.combo);
-            llmap.speed = distParam.speed;
-            llmap.combo_fever_pattern = distParam.combo_fever_pattern;
-            llmap.over_heal_pattern = distParam.over_heal_pattern;
-            llmap.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
+            llmap.setDistParam(distParam);
             err = llteam.simulateScoreDistribution(llmap, extraData[0], parseInt(distParam.count));
          } else {
             err = '未知的得分分布';
          }
          if (err) {
-            showErrorResult(err);
+            comp_result.showError(err);
          } else {
             llteam.calculatePercentileNaive();
-            hideErrorResult();
+            comp_result.hideError();
          }
          var t1 = window.performance.now();
          console.debug(llteam);
 
          console.debug('Elapesd time (ms): ' + (t1 - t0).toFixed(3));
-         document.getElementById('averagescore').innerHTML = llteam.naiveExpection;
          for (var i in percentiles){
             document.getElementById('simresult'+(100-percentiles[i]).toString()).innerHTML = llteam.naivePercentile[percentiles[i]];
          }
@@ -319,14 +246,9 @@
             comp_distribution_chart.addSeries(llteam.naivePercentile);
          }
       } else {
-         document.getElementById('averagescore').innerHTML = llteam.averageScore;
          document.getElementById('distributionresult').style.display = 'none';
-         hideErrorResult();
+         comp_result.hideError();
       }
-
-      document.getElementById('averageheal').innerHTML = LLUnit.healNumberToString(llteam.averageHeal);
-      document.getElementById('averageaccuracyncoverage').innerHTML = LLUnit.numberToPercentString(llteam.averageAccuracyNCoverage);
-      document.getElementById('totalhp').innerHTML = llteam.totalHP;
 
       var cardStrengthList = [], totalStrengthList = [];
       for (var i=0;i<9;i++){
@@ -337,8 +259,6 @@
          comp_team.setStrengthSkillTheory(i, llteam.avgSkills[i].strength, LLUnit.isStrengthSupported(llteam.members[i].card));
          comp_team.setHeal(i, LLUnit.healNumberToString(llteam.avgSkills[i].averageHeal));
       }
-      document.getElementById('resultstrength').innerHTML = llteam.totalStrength + ' (属性 ' + llteam.totalAttrStrength + ' + 技能 ' + llteam.totalSkillStrength + ')';
-      //document.getElementById('averageaccuracy').innerHTML = (totalaccuracy*100).toFixed(1).toString()+'%'
 
       comp_team.setStrengthCardTheories(cardStrengthList);
       comp_team.setStrengthTotalTheories(totalStrengthList);
@@ -346,11 +266,7 @@
       comp_team.setSkillActiveChanceSims(llteam.averageSkillsActiveChanceCount);
       comp_team.setSkillActiveNoEffectSims(llteam.averageSkillsActiveNoEffectCount);
 
-      llteam.calculateMic();
-      comp_resultmic.set(llteam.micNumber, llteam.equivalentURLevel);
-
-      document.getElementById('result').style.display = ""
-      document.getElementById("result").scrollIntoView()
+      comp_result.showResult(llteam);
    }
 
    </script>
@@ -380,34 +296,7 @@
 <input type="submit" name="clear" value="清空输入" onclick="clearall()"><br>
 <form action="" id="unitform" name="unitform" method="POST" enctype=multipart/form-data>
 <h3>歌曲信息</h3>
-搜索：<input type="text" id="songsearch" value=""></input><br>
-筛选：
-<select id="songdiff"></select>
-<select id="songatt"></select>
-<select id="songunit"></select>
-<select id="songswing"></select>
-<select id="songac"></select>
-<select id="songstardiff"></select>
-<br>
-歌曲：
-<select id="songchoice">
-   <option value="">载入中...</option>
-</select>
-<input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
-<br>
-谱面：
-<select id="diffchoice">
-   <option value="">载入中...</option>
-</select>
-<br>
-图属性：
-<select id="map"></select>
-<br>
-	总combo数 :<input type="number" id="combo" name="combo" value="300" autocomplete="off" style="width:50px"><br>
-	perfect数:<input type="number" id="perfect" name="perfect" value="285" autocomplete="off" style="width:50px"><br>
-	时间:<input type="number" step="any" id="time" name="time" value="100" autocomplete="off" style="width:50px">秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）<br>
-	星星perfect数:<input type="number" id="starperfect" name="starperfect" value="47" autocomplete="off" style="width:50px">（只有星星系加分需要填写）<br>
-<br>
+<div id="song_filter" class="filter-form label-size-9">载入中...</div>
 
 {% include 'components/card-selector.html' %}
 
@@ -425,8 +314,8 @@
 
 <div id='cskill_team'></div>
 <div id='cskill_friend'></div>
-点击得分增加：<input type="number" step="any" id="tapup" name="tapup" value="0" size=2 />%<br>
-技能发动率增加：<input type="number" step="any" id="skillup" name="skillup" value="0" size=2 />%<br>
+
+<br/>
 <div id="distribution_param"></div>
 <input type="button" value="calculate" onclick="check()" />
    <br><br><br>
@@ -436,27 +325,7 @@
 
 {% include 'components/loadingbox.html' %}
 
-<div id="result" style="display:none">
-<table border="1">
-<tr>
-	<td>smile</td>
-	<td>pure</td>
-	<td>cool</td>
-</tr>
-<tr>
-	<td id="resultsmile"></td>
-	<td id="resultpure"></td>
-	<td id="resultcool"></td>
-</tr>
-</table>
-卡组HP:<nospan id="totalhp"></nospan><br>
-卡组强度:<nospan id="resultstrength"></nospan><br>
-<div id="resultmic"></div>
-期望得分:<nospan id="averagescore"></nospan><br>
-期望回复:<nospan id="averageheal"></nospan><br>
-期望判定覆盖率(模拟):<nospan id="averageaccuracyncoverage"></nospan><br>
-</div>
-<div id="errorresult" style="display:none;color:red"></div>
+<div id="unit_result"></div>
 <div id='distributionresult' style='display:none'>
 <h3>得分分布</h3>
 最高分：<span id='simresult0'></span>&nbsp;概率：<span id='maxscoreprobability'></span><br/>

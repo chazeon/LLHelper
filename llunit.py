@@ -4,6 +4,8 @@ import json
 
 def unescapeJsonStr(json_str):
     # TODO: prevent xss
+    if not isinstance(json_str, str):
+        json_str = str(json_str, encoding='utf-8')
     return json_str.replace('%7B', '{').replace('%22', '"').replace('%7D', '}').replace('%5B', '[').replace('%5D', ']')
 
 @app.route("/llsaveunit/<content>", methods=['GET', 'POST'])
@@ -46,146 +48,15 @@ def llsaveallmembers(content):
 
 @app.route("/llload/<callback>", methods=['GET', 'POST'])
 def llload(callback):
-    print request.files, callback
+    print(request.files, callback)
     for f in request.files['file']:
         return '<script>' + callback + '(' + unescapeJsonStr(f) + ');</script>'
 
 @app.route("/llloadex/<formid>/<callback>", methods=['POST'])
 def llloadex(formid, callback):
-    print request.files, formid, callback
+    print(request.files, formid, callback)
     for f in request.files[formid]:
         return '<script>' + callback + '(' + unescapeJsonStr(f) + ');</script>'
-
-@app.route("/llloadnewsubmemberssis", methods=['GET', 'POST']) # DEPRECATED
-def llnewsubmembersload():
-    print request.files
-    for f in request.files['filesub']:
-        f = f.replace('%7B', '{').replace('%22', '"').replace('%7D', '}').replace('%5B', '[').replace('%5D', ']')
-        #print f
-        memberinfo = json.loads(f)
-        print memberinfo[0]
-        script = 'parent.submember=[];\n'
-        attlist = ['cardid','mezame','skilllevel','maxcost']
-        for i in range(0, len(memberinfo)):
-            if len(memberinfo[i])==15:
-                continue
-            script = script+'parent.submember['+str(i)+']={}\n'
-            for j in attlist:
-                script = script+'parent.submember['+str(i)+']["'+j+'"]='+memberinfo[i][j]+';\n'
-        script = script+'parent.getsubmembersdata();\n'
-        return '<script>'+script+'</script>'
-
-
-@app.route("/llloadunit", methods=['GET', 'POST']) # DEPRECATED
-def llunitload():
-    print request.files
-    for f in request.files['file']:
-        f = f.replace('%7B', '{').replace('%22', '"').replace('%7D', '}').replace('%5B', '[').replace('%5D', ']')
-        # print f
-        memberinfo = json.loads(f)
-        print memberinfo[0]
-        script = ''
-        attlist = ['smile', 'pure', 'cool', 'kizuna', 'skill', \
-                   'require', 'possibility', 'score', 'cardid', 'mezame']
-        for i in range(0, 9):
-            for j in attlist:
-                script = script + 'parent.document.getElementById("' + j + str(i) + '").value="' + str(
-                    memberinfo[i][j]) + '";\n'
-            script = script + 'parent.document.getElementById("main' + str(
-                i) + '").value= parent.cards[parent.cardidtoindex("' + str(memberinfo[i]['cardid']) + '")].attribute;\n'
-            script = script + 'parent.changeskilltext(' + str(i) + ');parent.changeavatar(' + str(i) + ');\n'
-            script = script + 'parent.document.getElementById("skilllevel' + str(
-                i) + '").value= parent.getskilllevel(' + str(i) + ');\n'
-        script = script + 'parent.changecenter();parent.precalcu();\n'
-        return '<script>' + script + '</script>'
-
-
-@app.route("/llloadnewunit-api", methods=['POST']) # DEPRECATED
-def llnewunitload_api():
-    memberinfo = request.json
-    script = ''
-    attlist = ['smile', 'pure', 'cool', 'skilllevel', 'cardid', 'mezame',
-               'gemnum', 'gemsinglepercent', 'gemallpercent', 'gemskill', 'gemacc']
-    for i in range(0, 9):
-        for j in attlist:
-            script = script + 'document.getElementById("' + j + str(i) + '").value="' + str(
-                memberinfo[i][j]) + '";\n'
-        script = script + 'document.getElementById("main' + str(
-            i) + '").value= cards[parent.cardidtoindex("' + str(memberinfo[i]['cardid']) + '")].attribute;\n'
-        script = script + 'changeavatar(' + str(i) + ');calslot(' + str(i) + ');\n'
-    script = script + 'changecenter();precalcu();\n'
-    return script
-
-
-def genllunitloadscript(json_str, sis=False):
-    json_str = json_str.replace('%7B', '{').replace('%22', '"').replace('%7D', '}').replace('%5B', '[').replace('%5D', ']')
-    memberinfo = json.loads(json_str)
-    script = ''
-    attlist = ['smile', 'pure', 'cool', 'skilllevel', 'cardid', 'mezame', \
-               'gemnum', 'gemsinglepercent', 'gemallpercent', 'gemskill', 'gemacc','maxcost']
-    sisattset = {'maxcost'}
-    for i in range(0, 9):
-        for j in attlist:
-            if not sis and j in sisattset:
-                continue
-            if j in memberinfo[i]:
-                script = script+'parent.document.getElementById("'+j+str(i)+'").value="'+str(memberinfo[i][j])+'";\n'
-            else:
-                script = script+'parent.document.getElementById("'+j+str(i)+'").value="'+str(0)+'";\n'
-        script = script+'parent.document.getElementById("main'+str(i)+'").value= parent.cards[parent.cardidtoindex("'+str(memberinfo[i]['cardid'])+'")].attribute;\n'
-        script = script+'parent.changeavatar('+str(i)+');parent.calslot('+str(i)+');\n'
-    script = script+'parent.changecenter();parent.precalcu();\n'
-    if sis and len(memberinfo)>9:
-        for i in range(1,16):
-            if str(i) in memberinfo[9]:
-                script = script+'parent.sisrecord['+str(i)+']='+str(memberinfo[9][str(i)])+';\n'
-                print memberinfo[9][str(i)]
-            else:
-                script = script+'parent.sisrecord['+str(i)+']='+str(0)+';\n'
-        script =script+'parent.autoarm();\n'
-    return script
-
-@app.route("/llloadnewunit", methods=['GET', 'POST']) # DEPRECATED
-def llnewunitload():
-    print request.files
-    for f in request.files['file']:
-        return '<script>'+genllunitloadscript(f)+'</script>'
-
-
-@app.route("/llloadnewunitsis", methods=['GET', 'POST']) # DEPRECATED
-def llnewunitloadsis():
-    print request.files
-    for f in request.files['file']:
-        return '<script>'+genllunitloadscript(f, sis=True)+'</script>'
-
-@app.route("/llloadsis", methods=['GET', 'POST']) # DEPRECATED
-def llnewsis():
-    print("=====!==")
-    print request.files
-    for f in request.files['filesis']:
-        f = f.replace('%7B', '{').replace('%22', '"').replace('%7D', '}').replace('%5B', '[').replace('%5D', ']')
-        
-        print("=====!==")
-
-        memberinfo = json.loads(f)
-        print memberinfo
-        script = ''
-        attlist = ['smile', 'pure', 'cool', 'skilllevel', 'cardid', 'mezame', \
-                   'gemnum', 'gemsinglepercent', 'gemallpercent', 'gemskill', 'gemacc', 'maxcost']
-        for i in range(0, 9):
-            for j in attlist:
-                if j in memberinfo[i]:
-                    script = script + 'parent.document.getElementById("' + j + str(i) + '").value="' + str(
-                        memberinfo[i][j]) + '";\n'
-                else:
-                    script = script + 'parent.document.getElementById("' + j + str(i) + '").value="' + str(0) + '";\n'
-            script = script + 'parent.document.getElementById("main' + str(
-                i) + '").value= parent.cards[parent.cardidtoindex("' + str(memberinfo[i]['cardid']) + '")].attribute;\n'
-            script = script + 'parent.changeavatar(' + str(i) + ');parent.calslot(' + str(i) + ');\n'
-            # script = script+'parent.changeskilltext('+str(i)+');parent.changeavatar('+str(i)+');\n'
-            # script = script+'parent.document.getElementById("skilllevel'+str(i)+'").value= parent.getskilllevel('+str(i)+');\n'
-        script = script + 'parent.changecenter();parent.precalcu();\n'
-        return '<script>' + script + '</script>'
 
 @app.route("/llunit", methods=['GET', 'POST'])
 def llunit():
