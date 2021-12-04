@@ -149,6 +149,13 @@
    padding: 0;
    height: auto;
 }
+.small-padding {
+   padding: 2px 6px;
+   height: auto;
+}
+input.num-size-4, input.form-control.num-size-4 {
+   width: 70px;
+}
 input.num-size-3 {
    width: 60px;
 }
@@ -164,4 +171,10 @@ img.avatar {
    display: inline-block;
    overflow: hidden;
 }
-
+.filter-form select.form-control, .filter-form input.form-control {
+   margin-bottom: 2px;
+   margin-right: 2px;
+}
+.filter-form label {
+   width: 120px;
+}

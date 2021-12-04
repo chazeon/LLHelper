@@ -33,9 +33,7 @@
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
       LLConst.initMetadata(metaData);
-      comp_songselector = new LLSongSelector(songData);
-      comp_songselector.onSongSettingChange = applysongdata;
-      comp_songselector.onSongColorChange = changemapcolor;
+      comp_songselector = new LLSongSelectorComponent('song_filter', songData);
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
       comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
@@ -46,6 +44,9 @@
       comp_cskill_team = new LLCSkillComponent('cskill_team');
       comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
       comp_result = new LLUnitResultComponent('unit_result');
+
+      comp_songselector.onSongSettingChange = (songSettingId, songSetting) => songSetting && comp_team.setWeights(songSetting.positionweight);
+      comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
          LoadingUtil.startSingle(LLCardData.getAllBriefData().then(function (cards) {
@@ -84,7 +85,7 @@
 
       // load
       comp_cardselector.loadLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
-      comp_songselector.loadLocalStorage(LLHelperLocalStorage.localStorageSongSelectKey);
+      comp_songselector.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageSongSelectKey));
 
       comp_gemstock = new LLGemStockComponent('sisreserves');
       comp_gemstock.loadJson(localStorage.getItem('llnewunitsis_gemstock'));
@@ -95,21 +96,6 @@
       // done
       document.getElementById('loadingbox').style.display = 'none';
    }, defaultHandleFailedRequest);
-
-   function changemapcolor(attr) {
-      // do not update comp_cskill_team, because it is set by center
-      comp_cskill_friend.setMapColor(attr);
-   }
-
-   function applysongdata(songSettingId) {
-      if (!songSettingId) return;
-      var songSetting = comp_songselector.songSettings[songSettingId];
-      document.getElementById('combo').value = songSetting.combo;
-      document.getElementById('perfect').value = parseInt(songSetting.combo * 19/20);
-      document.getElementById('time').value = (songSetting.time || 110);
-      document.getElementById('starperfect').value = 0;
-      comp_team.setWeights(songSetting.positionweight);
-   }
 
    function changeLanguage(){
       language = 1-language
@@ -178,23 +164,10 @@
       if (language == "")
          language = 0
 
-   	var inputs = document.getElementsByTagName("input");
-   	for (var i=0; i<inputs.length; i++){
-   		if (inputs[i].type == "text" && inputs[i].name)
-   			if (getCookie(inputs[i].name+"unit") != "")
-   				inputs[i].value = getCookie(inputs[i].name+"unit");
-   	}
       document.getElementById("mezame").checked = mezame
-
-      //document.getElementById("songsearch").value = ""
    }
 
    function saveToCookie(){
-      var inputs = document.getElementsByTagName("input");
-      for (var i=0; i<inputs.length; i++){
-         if (inputs[i].type == "text" && inputs[i].name)
-            setCookie(inputs[i].name+"unit", inputs[i].value, 1);
-      }
       setCookie("mezame"+"unit", mezame, 1)
       setCookie("language"+"unit", language, 1)
    }
@@ -209,27 +182,20 @@
       }
    }
 
-   function showErrorResult(text) {
-      comp_result.showError(text);
-   }
-   function hideErrorResult() {
-      comp_result.hideError();
-   }
-
    function check(){
       if (!comp_songselector.getSelectedSongSetting()) {
-         showErrorResult('请选择谱面');
+         comp_result.showError('请选择谱面');
          return;
       }
       if (!comp_team.isAllMembersPresent()) {
-         showErrorResult('队伍中仍有空位');
+         comp_result.showError('队伍中仍有空位');
          return;
       }
-      hideErrorResult();
+      comp_result.hideError();
       saveToCookie();
       localStorage.setItem('llnewunitsis_gemstock', comp_gemstock.saveJson());
       comp_cardselector.saveLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
-      comp_songselector.saveLocalStorage(LLHelperLocalStorage.localStorageSongSelectKey);
+      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageSongSelectKey, comp_songselector.saveJson());
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamKey, comp_distribution_param.saveJson());
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitSisTeamKey, comp_team.saveJson());
       var distParam = comp_distribution_param.saveData();
@@ -242,17 +208,10 @@
    }
 
    function docalculate(cards, extraData) {
-      var sel_int = ['combo', 'perfect', 'starperfect', 'time', 'skillup', 'tapup'];
       var member = comp_team.getMembers();
-      var mapcenter = {};
       var llmembers = [];
-      var weights = comp_team.getWeights();
 
-      for (var i = 0; i < sel_int.length; i++) {
-         mapcenter[sel_int[i]] = parseInt(document.getElementById(sel_int[i]).value);
-      }
-
-      var mainatt = document.getElementById('map').value;
+      var mainatt = comp_songselector.getSongAttribute();
 
       for (var i = 0; i < 9; i++) {
          member[i].card = cards[member[i].cardid];
@@ -261,15 +220,7 @@
       }
 
       var distParam = comp_distribution_param.saveData();
-      var llmap = new LLMap({
-         'song': comp_songselector.getSelectedSong(),
-         'songSetting': comp_songselector.getSelectedSongSetting(),
-         'friendCSkill': comp_cskill_friend.getCSkill()
-      });
-      llmap.attribute = mainatt;
-      llmap.setSongDifficultyData(mapcenter.combo, mapcenter.starperfect, mapcenter.time, mapcenter.perfect, mapcenter.starperfect);
-      llmap.setMapBuff(mapcenter.tapup, mapcenter.skillup);
-      llmap.setWeights(weights);
+      var llmap = comp_songselector.getMap(comp_team.getWeights());
 
       var llteam = new LLTeam(llmembers);
       if (document.getElementById('autoarm0').checked){
@@ -303,10 +254,10 @@
             err = '未知的得分分布';
          }
          if (err) {
-            showErrorResult(err);
+            comp_result.showError(err);
          } else {
             llteam.calculatePercentileNaive();
-            hideErrorResult();
+            comp_result.hideError();
          }
          var t1 = window.performance.now();
          console.debug(llteam);
@@ -327,7 +278,7 @@
          }
       } else {
          document.getElementById('distributionresult').style.display = 'none';
-         hideErrorResult();
+         comp_result.hideError();
       }
 
       var cardStrengthList = [], totalStrengthList = [];
@@ -377,34 +328,7 @@
 <input type="submit" name="clear" value="清空输入" onclick="clearall()"><br>
 <form action="" id="unitform" name="unitform" method="POST" enctype=multipart/form-data>
 <h3>歌曲信息</h3>
-搜索：<input type="text" id="songsearch" value=""></input><br>
-筛选：
-<select id="songdiff"></select>
-<select id="songatt"></select>
-<select id="songunit"></select>
-<select id="songswing"></select>
-<select id="songac"></select>
-<select id="songstardiff"></select>
-<br>
-歌曲：
-<select id="songchoice">
-   <option value="">载入中...</option>
-</select>
-<input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
-<br>
-谱面：
-<select id="diffchoice">
-   <option value="">载入中...</option>
-</select>
-<br>
-图属性：
-<select id="map"></select>
-<br>
-	总combo数 :<input type="text" id="combo" name="combo" value="300" autocomplete="off" style="width:50px"><br>
-	perfect数:<input type="text" id="perfect" name="perfect" value="285" autocomplete="off" style="width:50px"><br>
-	时间:<input type="text" id="time" name="time" value="100" autocomplete="off" style="width:50px">秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）<br>
-	星星perfect数:<input type="text" id="starperfect" name="starperfect" value="47" autocomplete="off" style="width:50px">（只有星星系加分需要填写）<br>
-<br>
+<div id="song_filter" class="filter-form">载入中...</div>
 
 {% include 'components/card-selector.html' %}
 
@@ -427,8 +351,8 @@
 <div class="col-xs-12 col-md-9">
 <div id='cskill_team'></div>
 <div id='cskill_friend'></div>
-点击得分增加：<input id="tapup" name="tapup" value="0" size=2></input>%<br>
-技能发动率增加：<input id="skillup" name="skillup" value="0" size=2></input>%<br>
+
+<br/>
 <div id="distribution_param"></div>
 <input type="button" value="calculate" onclick="check()" />
 <input type="checkbox" id="autoarm0" name="autoarm0" onclick="autoarm()">自动配饰</input>

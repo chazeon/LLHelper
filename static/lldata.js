@@ -115,6 +115,20 @@ var LoadingUtil = {
    }
 };
 
+var LLClassUtil = {
+   /**
+    * Set super class
+    * @param {class} cls 
+    * @param {class} superCls 
+    */
+   'setSuper': function (cls, superCls) {
+      var s = function () {};
+      s.prototype = superCls.prototype;
+      cls.prototype = new s();
+      cls.prototype.constructor = cls;
+  }
+};
+
 var LLHelperLocalStorage = {
    'localStorageDataVersionKey': 'llhelper_data_version__',
    'localStorageDistParamKey': 'llhelper_dist_param__',
@@ -1910,8 +1924,11 @@ var LLUnit = {
    },
 
    /**
+    * @typedef {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} SubElements
+    */
+   /**
     * @param {HTMLElement} ele 
-    * @param {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} subElements 
+    * @param {SubElements} subElements 
     * @param {boolean} [isReplace]
     * @returns {HTMLElement} ele
     */
@@ -1941,7 +1958,7 @@ var LLUnit = {
    /**
     * @param {string} tag 
     * @param {*} [options]
-    * @param {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} [subElements]
+    * @param {SubElements} [subElements]
     * @param {{[x: string] : Function}} [eventHandlers]
     * @returns {HTMLElement}
     */
@@ -2612,11 +2629,71 @@ var LLCardSelector = (function() {
    return cls;
 })();
 
+/**
+ * @typedef LLSongSelector_CompMapping
+ * @property {string | HTMLElement} [diffchoice]
+ * @property {string | HTMLElement} [songchoice]
+ * @property {string | HTMLElement} [songatt]
+ * @property {string | HTMLElement} [songunit]
+ * @property {string | HTMLElement} [songsearch]
+ * @property {string | HTMLElement} [songdiff]
+ * @property {string | HTMLElement} [songac]
+ * @property {string | HTMLElement} [songswing]
+ * @property {string | HTMLElement} [songstardiff]
+ * @property {string | HTMLElement} [map]
+ */
+/**
+ * @typedef SongSettingDataType
+ * @property {string} liveid
+ * @property {number} difficulty
+ * @property {number} stardifficulty
+ * @property {number} combo
+ * @property {number} cscore
+ * @property {number} bscore
+ * @property {number} ascore
+ * @property {number} sscore
+ * @property {string} jsonpath
+ * @property {0 | 1} isac
+ * @property {0 | 1} isswing
+ * @property {string[9]} positionweight Float
+ * @property {string[9]} positionnote Integer
+ * @property {string[9]} positionslider Integer
+ * @property {string[9]} positionswing Integer
+ * @property {string[9]} positionswingslider Integer
+ * @property {string} star Integer
+ * @property {string} slider Integer
+ * @property {string} swing Integer
+ * @property {string} swingslider Integer
+ * @property {string} time Float
+ */
+/**
+ * @typedef SongDataType
+ * @property {string} id
+ * @property {string} jpname
+ * @property {string} name
+ * @property {number} group 1(muse)|2(aqours)|3(niji)|4(liella)
+ * @property {string} attribute smile|pure|cool|all
+ * @property {{[id: string]: SongSettingDataType}} settings
+ */
+/**
+ * @typedef {{[id: string]: SongDataType}} SongsDataType
+ */
 var LLSongSelector = (function() {
 //  removed difficulty (easy, normal, hard, expert, master, arcade, expert_swing)
 //  added live settings (settings: {"<liveid>": {<similar to old difficulty>, difficulty: <difficulty id>, isac: <isac>, isswing: <isswing>}, ...})
 //  removed separate group (muse, aqours, niji)
 //  added group (group: <1(muse)|2(aqours)|3(niji)>
+
+   var COMP_DIFF_CHOICE = 'diffchoice';
+   var COMP_SONG_CHOICE = 'songchoice';
+   var COMP_SONG_ATT = 'songatt';
+   var COMP_SONG_UNIT = 'songunit';
+   var COMP_SONG_SEARCH = 'songsearch';
+   var COMP_SONG_DIFF = 'songdiff';
+   var COMP_SONG_AC = 'songac';
+   var COMP_SONG_SWING = 'songswing';
+   var COMP_SONG_STAR_DIFF = 'songstardiff';
+   var COMP_MAP_ATT = 'map';
    /* Properties:
     *    songs
     *    songSettings
@@ -2640,12 +2717,22 @@ var LLSongSelector = (function() {
     *    onSongSettingChange(songSettingId)
     *    onSongColorChange(attribute)
     */
-   function LLSong_cls(songjson, includeDefaultSong) {
+   /**
+    * @constructor
+    * @param {string | SongsDataType} songjson 
+    * @param {boolean} includeDefaultSong 
+    * @param {LLSongSelector_CompMapping} compMapping
+    */
+   function LLSong_cls(songjson, includeDefaultSong, compMapping) {
       LLComponentCollection.call(this);
 
       this.language = 0;
       this.songFilters = {};
       this.songSettingFilters = {};
+
+      if (!compMapping) {
+         compMapping = {};
+      }
 
       var me = this;
       var addComp = function (name, comp, sf, ssf) {
@@ -2663,36 +2750,36 @@ var LLSongSelector = (function() {
          me.addComponentAsFilter(name, comp, sf, ssf);
       };
       var addSelect = function (name, sf, ssf) {
-         addComp(name, new LLSelectComponent(name), sf, ssf);
+         addComp(name, new LLSelectComponent(compMapping[name] || name), sf, ssf);
       };
       var addValued = function (name, sf, ssf) {
-         addComp(name, new LLValuedComponent(name), sf, ssf);
+         addComp(name, new LLValuedComponent(compMapping[name] || name), sf, ssf);
       };
-      me.add('diffchoice', new LLSelectComponent('diffchoice'));
-      me.getComponent('diffchoice').onValueChange = function (v) {
+      me.add(COMP_DIFF_CHOICE, new LLSelectComponent(compMapping.diffchoice || COMP_DIFF_CHOICE));
+      me.getComponent(COMP_DIFF_CHOICE).onValueChange = function (v) {
          if (me.onSongSettingChange) me.onSongSettingChange(v);
       };
-      addSelect('songchoice',
+      addSelect(COMP_SONG_CHOICE,
          function (s, v) { return true; },
          function (ss, v) { return (v == '' || ss.song == v); }
       );
-      addSelect('songatt', function (s, v) { return (v == '' || s.attribute == '' || s.attribute == v); });
-      addSelect('songunit', function (s, v) { return (v == '' || s.group == v); });
-      addValued('songsearch',
+      addSelect(COMP_SONG_ATT, function (s, v) { return (v == '' || s.attribute == '' || s.attribute == v); });
+      addSelect(COMP_SONG_UNIT, function (s, v) { return (v == '' || s.group == v); });
+      addValued(COMP_SONG_SEARCH,
          function (s, v) {
             if (v == '') return true;
-            v == v.toLowerCase();
+            v = v.toLowerCase();
             return (s.name.toLowerCase().indexOf(v) != -1 || s.jpname.toLowerCase().indexOf(v) != -1)
          }
       );
-      addSelect('songdiff', undefined, function (ss, v) { return (v == '' || ss.difficulty == v); });
-      addSelect('songac', undefined, function (ss, v) { return (v == '' || ss.isac == v); });
-      addSelect('songswing', undefined, function (ss, v) { return (v == '' || ss.isswing == v); });
-      addSelect('songstardiff', undefined, function (ss, v) { return (v == '' || ss.stardifficulty == v); });
-      var comp_mapAtt = new LLSelectComponent('map');
+      addSelect(COMP_SONG_DIFF, undefined, function (ss, v) { return (v == '' || ss.difficulty == v); });
+      addSelect(COMP_SONG_AC, undefined, function (ss, v) { return (v == '' || ss.isac == v); });
+      addSelect(COMP_SONG_SWING, undefined, function (ss, v) { return (v == '' || ss.isswing == v); });
+      addSelect(COMP_SONG_STAR_DIFF, undefined, function (ss, v) { return (v == '' || ss.stardifficulty == v); });
+      var comp_mapAtt = new LLSelectComponent(compMapping.map || COMP_MAP_ATT);
       if (comp_mapAtt.exist) {
-         me.add('map', comp_mapAtt);
-         me.getComponent('map').onValueChange = function (v) {
+         me.add(COMP_MAP_ATT, comp_mapAtt);
+         me.getComponent(COMP_MAP_ATT).onValueChange = function (v) {
             if (me.onSongColorChange) me.onSongColorChange(v);
          };
       }
@@ -2701,14 +2788,21 @@ var LLSongSelector = (function() {
    };
 
    var cls = LLSong_cls;
-   cls.prototype = new LLComponentCollection();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLComponentCollection);
    var proto = cls.prototype;
 
+   /**
+    * @this LLSongSelector
+    * @param {string | SongsDataType} songjson
+    * @param {boolean} includeDefaultSong
+    */
    proto.setSongData = function (songjson, includeDefaultSong) {
-      var songs = songjson;
-      if (typeof(songs) == "string") {
-         songs = JSON.parse(songs);
+      /** @type {SongsDataType} */
+      var songs = undefined;
+      if (typeof(songjson) == "string") {
+         songs = JSON.parse(songjson);
+      } else {
+         songs = songjson;
       }
       if (includeDefaultSong === undefined || includeDefaultSong) {
          var songGroups = LLConst.getSongGroupIds();
@@ -2721,6 +2815,7 @@ var LLSongSelector = (function() {
          }
       }
 
+      /** @type {{[id: string]: SongSettingDataType}} */
       var songSettings = {};
       for (var i in songs) {
          if (!songs[i].settings) continue;
@@ -2761,7 +2856,7 @@ var LLSongSelector = (function() {
          songSettingAvailableStarDiff[parseInt(curSongSetting.stardifficulty)] = 1;
       }
       this.songSettingOptions = [songSettingOptionsCN, songSettingOptionsJP];
-      this.getComponent('diffchoice').setOptions(this.songSettingOptions[this.language]);
+      this.getComponent(COMP_DIFF_CHOICE).setOptions(this.songSettingOptions[this.language]);
 
       // build song options for both language
       var songOptionsCN = [{'value': '', 'text': '歌曲', 'color': 'black'}];
@@ -2779,10 +2874,10 @@ var LLSongSelector = (function() {
          songOptionsJP.push({'value': songId, 'text': curSong.jpname, 'color': color});
       }
       this.songOptions = [songOptionsCN, songOptionsJP];
-      this.getComponent('songchoice').setOptions(this.songOptions[this.language]);
+      this.getComponent(COMP_SONG_CHOICE).setOptions(this.songOptions[this.language]);
 
       // set other options
-      this.getComponent('songdiff').setOptions([
+      this.getComponent(COMP_SONG_DIFF).setOptions([
          {'value': '',  'text': '难度'},
          {'value': '1', 'text': '简单（Easy）'},
          {'value': '2', 'text': '普通（Normal）'},
@@ -2791,25 +2886,25 @@ var LLSongSelector = (function() {
          {'value': '5', 'text': '随机（Random）'},
          {'value': '6', 'text': '大师（Master）'}
       ]);
-      this.getComponent('songatt').setOptions([
+      this.getComponent(COMP_SONG_ATT).setOptions([
          {'value': '',      'text': '属性',  'color': 'black'},
          {'value': 'smile', 'text': 'Smile', 'color': 'red'},
          {'value': 'pure',  'text': 'Pure',  'color': 'green'},
          {'value': 'cool',  'text': 'Cool',  'color': 'blue'}
       ]);
-      this.getComponent('songunit').setOptions([
+      this.getComponent(COMP_SONG_UNIT).setOptions([
          {'value': '',  'text': '组合'},
          {'value': '1', 'text': "μ's"},
          {'value': '2', 'text': 'Aqours'},
          {'value': '3', 'text': '虹咲'},
          {'value': '4', 'text': 'Liella!'}
       ]);
-      this.getComponent('songswing').setOptions([
+      this.getComponent(COMP_SONG_SWING).setOptions([
          {'value': '',  'text': '是否滑键谱面'},
          {'value': '0', 'text': '非滑键'},
          {'value': '1', 'text': '滑键'},
       ]);
-      this.getComponent('songac').setOptions([
+      this.getComponent(COMP_SONG_AC).setOptions([
          {'value': '',  'text': '是否街机谱面'},
          {'value': '0', 'text': '非街机'},
          {'value': '1', 'text': '街机'},
@@ -2820,9 +2915,9 @@ var LLSongSelector = (function() {
             songStarDifficultyOptions.push({'value': String(i), 'text': '★ ' + i});
          }
       }
-      this.getComponent('songstardiff').setOptions(songStarDifficultyOptions);
-      if (this.getComponent('map')) {
-         this.getComponent('map').setOptions([
+      this.getComponent(COMP_SONG_STAR_DIFF).setOptions(songStarDifficultyOptions);
+      if (this.getComponent(COMP_MAP_ATT)) {
+         this.getComponent(COMP_MAP_ATT).setOptions([
             {'value': 'smile', 'text': 'Smile', 'color': 'red'},
             {'value': 'pure',  'text': 'Pure',  'color': 'green'},
             {'value': 'cool',  'text': 'Cool',  'color': 'blue'}
@@ -2858,16 +2953,16 @@ var LLSongSelector = (function() {
 
    proto.handleSongFilter = function () {
       var me = this;
-      this.getComponent('songchoice').filterOptions(function (option) {
+      this.getComponent(COMP_SONG_CHOICE).filterOptions(function (option) {
          return doFilter(me.songs, me.songFilters, option);
       });
-      this.getComponent('diffchoice').filterOptions(function (option) {
+      this.getComponent(COMP_DIFF_CHOICE).filterOptions(function (option) {
          return doFilter(me.songSettings, me.songSettingFilters, option);
       });
-      if (this.getComponent('map')) {
+      if (this.getComponent(COMP_MAP_ATT)) {
          var curSong = me.getSelectedSong();
          var curSongAttr = (curSong ? curSong.attribute : '');
-         this.getComponent('map').filterOptions(function (option) {
+         this.getComponent(COMP_MAP_ATT).filterOptions(function (option) {
             return curSongAttr == '' || option.value == curSongAttr;
          });
       }
@@ -2876,8 +2971,8 @@ var LLSongSelector = (function() {
    proto.setLanguage = function (language) {
       if (this.language == language) return;
       this.language = language;
-      this.getComponent('songchoice').setOptions(this.songOptions[this.language]);
-      this.getComponent('diffchoice').setOptions(this.songSettingOptions[this.language]);
+      this.getComponent(COMP_SONG_CHOICE).setOptions(this.songOptions[this.language]);
+      this.getComponent(COMP_DIFF_CHOICE).setOptions(this.songSettingOptions[this.language]);
    };
 
    var super_serialize = proto.serialize;
@@ -2900,9 +2995,9 @@ var LLSongSelector = (function() {
       if (this.onSongChange) this.onSongChange(this.getSelectedSongId());
    };
    proto.getSelectedSongId = function () {
-      var curSongId = this.getComponent('songchoice').get();
+      var curSongId = this.getComponent(COMP_SONG_CHOICE).get();
       if (curSongId) return curSongId;
-      var curSongSettingId = this.getComponent('diffchoice').get();
+      var curSongSettingId = this.getComponent(COMP_DIFF_CHOICE).get();
       if (curSongSettingId && this.songSettings[curSongSettingId]) {
          return this.songSettings[curSongSettingId].song || '';
       }
@@ -2912,7 +3007,7 @@ var LLSongSelector = (function() {
       return this.songs[this.getSelectedSongId()];
    };
    proto.getSelectedSongSettingId = function () {
-      return this.getComponent('diffchoice').get();
+      return this.getComponent(COMP_DIFF_CHOICE).get();
    };
    proto.getSelectedSongSetting = function () {
       return this.songSettings[this.getSelectedSongSettingId()];
@@ -7148,11 +7243,11 @@ var LLCSkillComponent = (function () {
    //    getCSkill: function()
    //    setMapColor: function(color)
    // }
-   // options
-   // {
-   //    editable: bool
-   //    title: string (default: '主唱技能')
-   // }
+   /**
+    * @constructor
+    * @param {string | HTMLElement} id 
+    * @param {{editable?: boolean, title?: string}} [options] editable default false, title default '主唱技能'
+    */
    function LLCSkillComponent_cls(id, options) {
       var element = LLUnit.getElement(id);
       var opt = options || {};
@@ -7162,8 +7257,8 @@ var LLCSkillComponent = (function () {
       var innerElement = (editable ? createEditable(this, title) : createTextDisplay(this, title));
       element.appendChild(innerElement);
    }
-   var cls = LLCSkillComponent_cls;
-   return cls;
+
+   return LLCSkillComponent_cls;
 })();
 
 var LLUnitResultComponent = (function () {
@@ -7315,4 +7410,159 @@ var LLUnitResultComponent = (function () {
    }
    
    return LLUnitResultComponent_cls;
+})();
+
+/**
+ * @typedef LLSongSelectorComponent_SaveDataType
+ * 
+ */
+var LLSongSelectorComponent = (function () {
+   var createElement = LLUnit.createElement;
+   var updateSubElements = LLUnit.updateSubElements;
+
+   /**
+    * @param {string} label 
+    * @param {SubElements} subElements 
+    * @returns {HTMLElement}
+    */
+   function createFormGroup(label, subElements) {
+      var group = createElement('div', {'className': 'form-group'}, [
+         createElement('label', undefined, label)
+      ]);
+      updateSubElements(group, subElements);
+      return createElement('div', {'className': 'form-inline'}, group);
+   }
+
+   /** @returns {HTMLElement} */
+   function createFormSelect() {
+      return createElement('select', {'className': 'form-control no-padding'});
+   }
+
+   /**
+    * @param {number} defaultValue 
+    * @returns {HTMLElement}
+    */
+   function createFormNumber(defaultValue) {
+      return createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue});
+   }
+
+   /**
+    * @constructor
+    * @param {string | HTMLElement} id 
+    * @param {Object} songData
+    */
+   function LLSongSelectorComponent_cls(id, songData) {
+      var container = LLUnit.getElement(id);
+      var me = this;
+
+      var songSearch = createElement('input', {'type': 'text', 'className': 'form-control small-padding'});
+      var mapCombo = createFormNumber(300);
+      var mapPerfect = createFormNumber(285);
+      var mapTime = createFormNumber(100);
+      var mapStarPerfect = createFormNumber(47);
+      var buffTapUp = createFormNumber(0);
+      var buffSkillUp = createFormNumber(0);
+
+      /** @type {LLSongSelector_CompMapping} */
+      var compMapping = {
+         'diffchoice': createFormSelect(),
+         'songchoice': createFormSelect(),
+         'songatt': createFormSelect(),
+         'songunit': createFormSelect(),
+         'songsearch': songSearch,
+         'songdiff': createFormSelect(),
+         'songac': createFormSelect(),
+         'songswing': createFormSelect(),
+         'songstardiff': createFormSelect(),
+         'map': createFormSelect()
+      };
+
+      updateSubElements(container, [
+         createFormGroup('搜索', songSearch),
+         createFormGroup('筛选', [compMapping.songdiff, compMapping.songatt, compMapping.songunit, compMapping.songswing, compMapping.songac, compMapping.songstardiff]),
+         createFormGroup('歌曲', compMapping.songchoice),
+         createFormGroup('谱面', compMapping.diffchoice),
+         createFormGroup('图属性', compMapping.map),
+         createFormGroup('总combo数', mapCombo),
+         createFormGroup('perfect数', mapPerfect),
+         createFormGroup('时间', [mapTime, '秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）']),
+         createFormGroup('星星perfect数', mapStarPerfect),
+         createFormGroup('点击得分增加', [buffTapUp, '%']),
+         createFormGroup('技能发动率增加', [buffSkillUp, '%'])
+      ], true);
+
+      /** @type {LLCSkillComponent} */
+      var comp_friendCSkill = undefined;
+
+      var selector = new LLSongSelector(songData, true, compMapping);
+      selector.onSongSettingChange = function (songSettingId) {
+         /** @type {SongSettingDataType} */
+         var songSetting = undefined;
+         if (songSettingId) {
+            songSetting = selector.songSettings[songSettingId];
+            var combo = parseInt(songSetting.combo || 0)
+            mapCombo.value = combo;
+            mapPerfect.value = parseInt(combo * 19/20);
+            mapTime.value = (parseInt(songSetting.time || 0) || 110);
+            mapStarPerfect.value = parseInt(songSetting.star || 0);
+         }
+         if (me.onSongSettingChange) me.onSongSettingChange(songSettingId, songSetting);
+      };
+      selector.onSongColorChange = function (attr) {
+         if (comp_friendCSkill) comp_friendCSkill.setMapColor(attr);
+         if (me.onSongColorChange) me.onSongColorChange(attr);
+      };
+
+      /** @param {0 | 1} language */
+      this.setLanguage = function (language) {
+         selector.setLanguage(language);
+      };
+      /** @param {LLCSkillComponent} comp */
+      this.setFriendCSkillComponent = function (comp) {
+         comp_friendCSkill = comp;
+      };
+      /** @returns {SongDataType} */
+      this.getSelectedSong = function () {
+         return selector.getSelectedSong();
+      };
+      /** @returns {SongSettingDataType} */
+      this.getSelectedSongSetting = function () {
+         return selector.getSelectedSongSetting();
+      };
+      /** @returns {string} */
+      this.getSongAttribute = function () {
+         return compMapping.map.value;
+      };
+
+      /**
+       * @param {string[9] | number[9]} [customWeights] Float
+       * @returns {LLMap}
+       */
+      this.getMap = function (customWeights) {
+         /** @type {SongSettingDataType} */
+         var songSetting = selector.getSelectedSongSetting();
+         var llmap = new LLMap({
+            'song': selector.getSelectedSong(),
+            'songSetting': songSetting,
+            'friendCSkill': (comp_friendCSkill ? comp_friendCSkill.getCSkill() : undefined)
+         });
+         llmap.attribute = compMapping.map.value;
+         llmap.setSongDifficultyData(parseInt(mapCombo.value), parseInt(mapStarPerfect.value), parseInt(mapTime.value), parseInt(mapPerfect.value), parseInt(mapStarPerfect.value));
+         llmap.setMapBuff(parseFloat(buffTapUp.value), parseFloat(buffSkillUp.value));
+         llmap.setWeights(customWeights || songSetting.positionweight);
+         return llmap;
+      };
+
+      /** @param {LLSongSelectorComponent_SaveDataType} data */
+      this.loadData = function (data) {
+         selector.deserialize(data);
+      };
+      /** @returns {LLSongSelectorComponent_SaveDataType} */
+      this.saveData = function () {
+         return selector.serialize();
+      };
+   }
+
+   LLSaveLoadJsonMixin(LLSongSelectorComponent_cls.prototype);
+   return LLSongSelectorComponent_cls;
 })();
