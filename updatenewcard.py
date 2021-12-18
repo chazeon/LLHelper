@@ -1,27 +1,10 @@
 # -*- coding: utf-8 -*-
-import json
 import os
-import hashlib
 import sqlite3
-import re
+from lib.JsonUtil import JsonFile
+from lib.DbUtil import connectUnitDb
 
-json_file = 'newcardsjson.txt'
-
-cards = json.loads(open(json_file, 'rb').read())
-avatarpath = 'static//llhead'
-cardpath = 'static//card'
-navipath = 'static//navi'
-smallcardpath = 'static//card300'
-imgsource = 'http://i1.tietuku.com/'
-imgsource3 = 'http://i3.tietuku.com/'
-imgsource4 = 'http://i4.tietuku.com/'
-jpdbpath = 'unitnewjp.db_'
 cndbpath = 'unitcn.db_'
-navirepo = 'http://app.lovelivewiki.com/images/navis/'
-
-card_count_in_db = 0
-card_count_in_json = len(cards)
-card_count_new = 0
 
 attribute = ['','smile', 'pure', 'cool', '', 'all']
 rarity = ['','N','R','SR','UR','SSR']
@@ -59,8 +42,15 @@ def namechange(name):
         return name
 
 if __name__ == "__main__":
+    json_file = JsonFile('newcardsjson.txt')
+    cards = json_file.load()
+    card_count_in_db = 0
+    card_count_in_json = len(cards)
+    card_count_new = 0
+
     print('Updating cards json: %s ...' % json_file)
-    jpdbconn = sqlite3.connect(jpdbpath)
+
+    jpdbconn = connectUnitDb()
     has_cndb = os.path.exists(cndbpath)
     if has_cndb:
         cndbconn = sqlite3.connect(cndbpath)
@@ -215,9 +205,7 @@ if __name__ == "__main__":
         jptmp = jptc.fetchone()
 
 
-    output = open(json_file, 'w')
-    json.dump(cards, output, sort_keys=True)
-    output.close()
+    json_file.save(cards)
 
     print('Updated %s , card count = %d (old %d, new %d, db %d)' % (json_file, len(cards), card_count_in_json, card_count_new, card_count_in_db))
 

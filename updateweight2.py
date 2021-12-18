@@ -4,6 +4,8 @@ import json
 import threading
 import sys
 import ctypes
+from lib.SyncPrinter import SyncPrinter
+from lib.JsonUtil import JsonFile
 
 if sys.version[0] == '2':
     from urllib2 import urlopen
@@ -139,14 +141,6 @@ class LiveMap:
         liveData['swingslider'] = str(self.swingSliderCount)
         liveData['time'] = str(self.endTime)
 
-class SyncPrinter:
-    def __init__(self):
-        self.lock = threading.Lock()
-    def myPrint(self, message):
-        self.lock.acquire()
-        print(message)
-        self.lock.release()
-
 def getLiveMapJsonUrl(liveId):
     if liveId > 1500:
         raise Exception('llsif no longer updating new live maps')
@@ -244,12 +238,8 @@ def main(threadCount):
     lives = {}
     printer = SyncPrinter()
 
-    try:
-        with open(FILENAME_SONG_LIST_JSON, 'r') as f:
-            songs = json.load(f)
-    except:
-        printer.myPrint('Failed to load %s' % FILENAME_SONG_LIST_JSON)
-        return
+    jsonFile = JsonFile(FILENAME_SONG_LIST_JSON, printer)
+    songs = jsonFile.load()
 
     if not os.path.isdir(LIVE_MAP_LOCAL_CACHE_DIR):
         os.makedirs(LIVE_MAP_LOCAL_CACHE_DIR)
@@ -304,8 +294,7 @@ def main(threadCount):
             for curThread in threads:
                 curThread.interrupt(KeyboardInterrupt)
 
-    with open(FILENAME_SONG_LIST_JSON, 'w') as f:
-        json.dump(songs, f, sort_keys=True)
+    jsonFile.save(songs)
     printer.myPrint('* Successfully processed lives: `%s`.' % (str(updatedLives)))
     printer.myPrint('* Updated %s , live count = %d (old: %d, new: %d).' % (FILENAME_SONG_LIST_JSON, totalLiveCount, (totalLiveCount - liveQueueCount), len(updatedLives)))
 
