@@ -130,7 +130,11 @@
                }
             } catch (e) {
                console.log(e);
-               setResult('Exception: ' + e.message);
+               if (typeof(e) == 'string') {
+                  setResult('Exception: ' + e);
+               } else {
+                  setResult('Exception: ' + e.message);
+               }
                defer.resolve(e);
             }
          }, function () {
@@ -210,29 +214,29 @@
    function getSmileTeam() {
       // id, mezame, skilllevel, maxcost, gems
       return [
-         [1115, 1, 2, 6, [LLSisGem.SMUL_16, LLSisGem.AMUL_18]],
-         [782, 0, 1, 4, [LLSisGem.AMUL_24]],
-         [937, 1, 2, 6, [LLSisGem.SMUL_16, LLSisGem.AMUL_18]],
-         [843, 1, 1, 5, [LLSisGem.SMUL_10, LLSisGem.AMUL_18]],
-         [980, 1, 5, 4, [LLSisGem.SCORE_250]],
-         [476, 1, 1, 5, [LLSisGem.SMUL_10, LLSisGem.SMUL_16]],
-         [315, 1, 3, 5, [LLSisGem.SCORE_250, LLSisGem.SADD_200]],
-         [107, 1, 2, 4, [LLSisGem.SCORE_250]],
-         [955, 1, 4, 4, [LLSisGem.SCORE_250]]
+         [1115, 1, 2, 6, [LLConst.GemType.SMUL_16, LLConst.GemType.AMUL_18]],
+         [782, 0, 1, 4, [LLConst.GemType.AMUL_24]],
+         [937, 1, 2, 6, [LLConst.GemType.SMUL_16, LLConst.GemType.AMUL_18]],
+         [843, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.AMUL_18]],
+         [980, 1, 5, 4, [LLConst.GemType.SCORE_250]],
+         [476, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]],
+         [315, 1, 3, 5, [LLConst.GemType.SCORE_250, LLConst.GemType.SADD_200]],
+         [107, 1, 2, 4, [LLConst.GemType.SCORE_250]],
+         [955, 1, 4, 4, [LLConst.GemType.SCORE_250]]
       ];
    }
 
    function getPureTeam() {
       return [
-         [636, 1, 1, 3, [LLSisGem.AMUL_18]],
-         [939, 1, 1, 4, [LLSisGem.AMUL_24]],
-         [369, 1, 2, 3, [LLSisGem.AMUL_18]],
-         [127, 0, 1, 4, [LLSisGem.AMUL_18]],
-         [1002, 1, 1, 5, [LLSisGem.SMUL_10, LLSisGem.SMUL_16]],
-         [648, 1, 1, 3, [LLSisGem.AMUL_18]],
-         [317, 1, 2, 3, [LLSisGem.AMUL_18]],
-         [378, 0, 1, 4, [LLSisGem.AMUL_24]],
-         [957, 1, 1, 5, [LLSisGem.SMUL_10, LLSisGem.SMUL_16]]
+         [636, 1, 1, 3, [LLConst.GemType.AMUL_18]],
+         [939, 1, 1, 4, [LLConst.GemType.AMUL_24]],
+         [369, 1, 2, 3, [LLConst.GemType.AMUL_18]],
+         [127, 0, 1, 4, [LLConst.GemType.AMUL_18]],
+         [1002, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]],
+         [648, 1, 1, 3, [LLConst.GemType.AMUL_18]],
+         [317, 1, 2, 3, [LLConst.GemType.AMUL_18]],
+         [378, 0, 1, 4, [LLConst.GemType.AMUL_24]],
+         [957, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]]
       ];
    }
 
@@ -327,6 +331,25 @@
    }
 
    function getGemStock_65AllGem() {
+      return {
+         'SADD_200': {'ALL': 9},
+         'SADD_450': {'ALL': 9},
+         'SMUL_10': {'ALL': 9},
+         'SMUL_16': {'ALL': 9},
+         'AMUL_18': {'ALL': 9},
+         'AMUL_24': {'ALL': 9},
+         'SCORE_250': {'ALL': 9},
+         'HEAL_480': {'ALL': 9},
+         'EMUL_33': {'ALL': 9},
+         'SADD_1400': {'ALL': 9},
+         'SMUL_28': {'ALL': 9},
+         'AMUL_40': {'ALL': 9},
+         'MEMBER_29': {'ALL': 9},
+         'NONET_42': {'ALL': 9}
+      };
+   }
+
+   function getGemStock_92AllGem() {
       return {'ALL': 9};
    }
 
@@ -445,15 +468,15 @@
          'name': 'Basic calculate',
          'after': test1,
          'cardConfigs': [
-            [955, 1, 4, 4, [LLSisGem.SCORE_250]],
-            [980, 1, 4, 4, [LLSisGem.SCORE_250]],
-            [459, 1, 1, 1, [LLSisGem.SADD_200]],
-            [127, 0, 1, 4, [LLSisGem.AMUL_24]],
-            [1002, 1, 1, 5, [LLSisGem.SMUL_10, LLSisGem.SMUL_16]],
-            [648, 1, 1, 3, [LLSisGem.AMUL_18]],
-            [317, 1, 2, 3, [LLSisGem.AMUL_18]],
-            [378, 0, 1, 4, [LLSisGem.AMUL_24]],
-            [957, 1, 1, 5, [LLSisGem.SMUL_10, LLSisGem.SMUL_16]]
+            [955, 1, 4, 4, [LLConst.GemType.SCORE_250]],
+            [980, 1, 4, 4, [LLConst.GemType.SCORE_250]],
+            [459, 1, 1, 1, [LLConst.GemType.SADD_200]],
+            [127, 0, 1, 4, [LLConst.GemType.AMUL_24]],
+            [1002, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]],
+            [648, 1, 1, 3, [LLConst.GemType.AMUL_18]],
+            [317, 1, 2, 3, [LLConst.GemType.AMUL_18]],
+            [378, 0, 1, 4, [LLConst.GemType.AMUL_24]],
+            [957, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]]
          ],
          'run': function (cards) {
             var songSetting = {"combo": 359, "positionweight": ["15.5", "26.0", "51.5", "55.0", "52.25", "58.25", "58.5", "26.75", "21.5"], "star": "62", "time": "117", 'difficulty': LLConst.SONG_DIFFICULTY_EXPERT};

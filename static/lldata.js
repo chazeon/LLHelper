@@ -184,6 +184,31 @@ var LLHelperLocalStorage = {
    }
 };
 
+/**
+ * @typedef SisDataType
+ * @property {string} id
+ * @property {1|2} type 1 for normal (circle), 2 for live arena (square)
+ * @property {string} jpname
+ * @property {number} [level] (LA only) level 1~5
+ * @property {number} size 
+ * @property {1|2} [range] (normal only) 1 for self, 2 for team
+ * @property {number} effect_type 
+ * @property {number} effect_value 
+ * @property {1} [fixed] 
+ * @property {1|2|3} [color] 1 for smile, 2 for pure, 3 for cool
+ * @property {number} [member] member id
+ * @property {1|2|3} [grade] grade 1~3
+ * @property {number} [group]
+ * @property {number} [trigger_ref]
+ * @property {number} [trigger_value]
+ * @property {number} [sub_skill] sub sis id
+ * @property {number} [live_effect_type]
+ * @property {number} [live_effect_interval]
+ */
+/**
+ * @typedef {{[id: string]: SisDataType}} SisDictDataType
+ */
+
 /*
  * LLData: class to load json data from backend
  * LLSimpleKeyData: class to load json data from backend
@@ -377,6 +402,9 @@ var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
    ['id', 'typeid', 'support', 'rarity', 'attribute', 'special', 'type', 'skilleffect', 'triggertype', 'triggerrequire', 'eponym', 'jpeponym', 'hp', 'album']);
 var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
+var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
+   ['id', 'type', 'jpname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
+    'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 /**
@@ -855,6 +883,28 @@ var LLComponentCollection = (function() {
    return cls;
 })();
 
+/**
+ * @typedef {number | string} MemberIdType
+ * the number id or jp name
+ */
+/**
+ * @typedef NormalGemMetaType
+ * @property {string} name en name
+ * @property {string} key
+ * @property {number} slot
+ * @property {1|2} effect_range 1 for self, 2 for team
+ * @property {number} effect_value 
+ * @property {0|1} [per_color] 1 means exists gem for 3 kinds of color
+ * @property {0|1} [per_grade] 1 means exists gem for 3 grades
+ * @property {0|1} [per_member] 1 means exists gem for different members
+ * @property {0|1} [per_unit] 1 means exists gem for different units
+ * @property {0|1} [attr_add] 1 means effect_value is fixed value to add attr
+ * @property {0|1} [attr_mul] 1 means effect_value is percentage buff to attr
+ * @property {0|1} [skill_mul] 1 means effect_value is percentage buff to score skill
+ * @property {0|1} [heal_mul] 1 means effect_value is rate of heal to score on overheal
+ * @property {0|1} [ease_attr_mul] 1 means effect_value is percentage buff to attr when covered by ease
+ */
+
 /*
  * LLConst: static meta data
  */
@@ -1048,49 +1098,111 @@ var LLConst = (function () {
       'SONG_DEFAULT_SET_2': 2,
 
       'BACKGROUND_COLOR_DEFAULT': '#dcdbe3',
+
+      'SIS_TYPE_NORMAL': 1,
+      'SIS_TYPE_LIVE_ARENA': 2,
+
+      'SIS_RANGE_SELF': 1,
+      'SIS_RANGE_TEAM': 2,
+
+      'SIS_EFFECT_TYPE_SMILE': 1,
+      'SIS_EFFECT_TYPE_PURE': 2,
+      'SIS_EFFECT_TYPE_COOL': 3,
+      'SIS_EFFECT_TYPE_SCORE_BOOST': 11,
+      'SIS_EFFECT_TYPE_HEAL_SCORE': 12,
+      'SIS_EFFECT_TYPE_ACCURACY_SMILE': 13,
+      'SIS_EFFECT_TYPE_ACCURACY_PURE': 14,
+      'SIS_EFFECT_TYPE_ACCURACY_COOL': 15,
+      'SIS_EFFECT_TYPE_LA_SCORE': 24,
+      'SIS_EFFECT_TYPE_LA_DEBUFF': 25,
+
+      'SIS_LIVE_EFFECT_TYPE_DAMAGE': 1,
+      'SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN': 2
    };
    var COLOR_ID_TO_NAME = ['', 'smile', 'pure', 'cool'];
    var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple'};
+   /**
+    * @typedef MemberDataType
+    * @property {'smile'|'pure'|'cool'} color
+    * @property {string} name
+    * @property {string} cnname
+    * @property {string} background_color
+    * @property {1|2|3} [grade]
+    * @property {0|1} [member_gem]
+    */
+   /** @type {{[id: number]: MemberDataType}} */
    var MEMBER_DATA = {};
-   MEMBER_DATA[KEYS.MEMBER_HONOKA] = {'name': '高坂穂乃果', 'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_ELI] =    {'name': '絢瀬絵里',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_KOTORI] = {'name': '南ことり',   'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_UMI] =    {'name': '園田海未',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RIN] =    {'name': '星空凛',     'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_MAKI] =   {'name': '西木野真姫', 'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_NOZOMI] = {'name': '東條希',     'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_HANAYO] = {'name': '小泉花陽',   'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_NICO] =   {'name': '矢澤にこ',   'color': 'smile', 'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_HONOKA] = {'name': '高坂穂乃果', 'color': 'smile', 'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_ELI] =    {'name': '絢瀬絵里',   'color': 'cool',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_KOTORI] = {'name': '南ことり',   'color': 'pure',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_UMI] =    {'name': '園田海未',   'color': 'cool',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_RIN] =    {'name': '星空凛',     'color': 'smile', 'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_MAKI] =   {'name': '西木野真姫', 'color': 'cool',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_NOZOMI] = {'name': '東條希',     'color': 'pure',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_HANAYO] = {'name': '小泉花陽',   'color': 'pure',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_NICO] =   {'name': '矢澤にこ',   'color': 'smile', 'member_gem': 1};
 
-   MEMBER_DATA[KEYS.MEMBER_CHIKA] =    {'name': '高海千歌',   'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RIKO] =     {'name': '桜内梨子',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_KANAN] =    {'name': '松浦果南',   'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_DIA] =      {'name': '黒澤ダイヤ', 'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_YOU] =      {'name': '渡辺曜',     'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_YOSHIKO] =  {'name': '津島善子',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_HANAMARU] = {'name': '国木田花丸', 'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_MARI] =     {'name': '小原鞠莉',   'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RUBY] =     {'name': '黒澤ルビィ', 'color': 'pure',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_CHIKA] =    {'name': '高海千歌',   'color': 'smile', 'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_RIKO] =     {'name': '桜内梨子',   'color': 'cool',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_KANAN] =    {'name': '松浦果南',   'color': 'pure',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_DIA] =      {'name': '黒澤ダイヤ', 'color': 'cool',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_YOU] =      {'name': '渡辺曜',     'color': 'pure',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_YOSHIKO] =  {'name': '津島善子',   'color': 'cool',  'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_HANAMARU] = {'name': '国木田花丸', 'color': 'smile', 'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_MARI] =     {'name': '小原鞠莉',   'color': 'smile', 'member_gem': 1};
+   // MEMBER_DATA[KEYS.MEMBER_RUBY] =     {'name': '黒澤ルビィ', 'color': 'pure',  'member_gem': 1};
 
-   MEMBER_DATA[KEYS.MEMBER_AYUMU] =   {'name': '上原歩夢'};
-   MEMBER_DATA[KEYS.MEMBER_KASUMI] =  {'name': '中須かすみ'};
-   MEMBER_DATA[KEYS.MEMBER_SHIZUKU] = {'name': '桜坂しずく'};
-   MEMBER_DATA[KEYS.MEMBER_KARIN] =   {'name': '朝香果林'};
-   MEMBER_DATA[KEYS.MEMBER_AI] =      {'name': '宮下愛'};
-   MEMBER_DATA[KEYS.MEMBER_KANATA] =  {'name': '近江彼方'};
-   MEMBER_DATA[KEYS.MEMBER_SETSUNA] = {'name': '優木せつ菜'};
-   MEMBER_DATA[KEYS.MEMBER_EMMA] =    {'name': 'エマ・ヴェルデ'};
-   MEMBER_DATA[KEYS.MEMBER_RINA] =    {'name': '天王寺璃奈'};
+   // MEMBER_DATA[KEYS.MEMBER_AYUMU] =   {'name': '上原歩夢'};
+   // MEMBER_DATA[KEYS.MEMBER_KASUMI] =  {'name': '中須かすみ'};
+   // MEMBER_DATA[KEYS.MEMBER_SHIZUKU] = {'name': '桜坂しずく'};
+   // MEMBER_DATA[KEYS.MEMBER_KARIN] =   {'name': '朝香果林'};
+   // MEMBER_DATA[KEYS.MEMBER_AI] =      {'name': '宮下愛'};
+   // MEMBER_DATA[KEYS.MEMBER_KANATA] =  {'name': '近江彼方'};
+   // MEMBER_DATA[KEYS.MEMBER_SETSUNA] = {'name': '優木せつ菜'};
+   // MEMBER_DATA[KEYS.MEMBER_EMMA] =    {'name': 'エマ・ヴェルデ'};
+   // MEMBER_DATA[KEYS.MEMBER_RINA] =    {'name': '天王寺璃奈'};
+
+   /** @type {NormalGemMetaType[]} */
+   var GEM_NORMAL_TYPE_DATA = [
+      {'name': 'kiss', 'key': 'SADD_200', 'slot': 1, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
+      {'name': 'perfume', 'key': 'SADD_450', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
+      {'name': 'ring', 'key': 'SMUL_10', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 10, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'cross', 'key': 'SMUL_16', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 16, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'aura', 'key': 'AMUL_18', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.8, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'veil', 'key': 'AMUL_24', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 2.4, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'charm', 'key': 'SCORE_250', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 150, 'per_color': 1, 'skill_mul': 1},
+      {'name': 'heal', 'key': 'HEAL_480', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 480, 'per_color': 1, 'heal_mul': 1},
+      {'name': 'trick', 'key': 'EMUL_33', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 33, 'per_color': 1, 'ease_attr_mul': 1},
+      {'name': 'wink', 'key': 'SADD_1400', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 1400, 'per_color': 1, 'attr_add': 1},
+      {'name': 'trill', 'key': 'SMUL_28', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 28, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'bloom', 'key': 'AMUL_40', 'slot': 6, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member', 'key': 'MEMBER_29', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 29, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'nonet', 'key': 'NONET_42', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4.2, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
+      {'name': 'member_petit', 'key': 'MEMBER_13', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 13, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member_midi', 'key': 'MEMBER_21', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 21, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member_grand', 'key': 'MEMBER_53', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 53, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'nonet_petit', 'key': 'NONET_15', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.5, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
+   ];
+
+   var MEMBER_GEM_LIST = [
+      KEYS.MEMBER_HONOKA, KEYS.MEMBER_ELI, KEYS.MEMBER_KOTORI,
+      KEYS.MEMBER_UMI, KEYS.MEMBER_RIN, KEYS.MEMBER_MAKI,
+      KEYS.MEMBER_NOZOMI, KEYS.MEMBER_HANAYO, KEYS.MEMBER_NICO,
+
+      KEYS.MEMBER_CHIKA, KEYS.MEMBER_RIKO, KEYS.MEMBER_KANAN,
+      KEYS.MEMBER_DIA, KEYS.MEMBER_YOU, KEYS.MEMBER_YOSHIKO,
+      KEYS.MEMBER_HANAMARU, KEYS.MEMBER_MARI, KEYS.MEMBER_RUBY,
+
+      KEYS.MEMBER_AYUMU, KEYS.MEMBER_KASUMI, KEYS.MEMBER_SHIZUKU,
+      KEYS.MEMBER_KARIN, KEYS.MEMBER_AI, KEYS.MEMBER_KANATA,
+      KEYS.MEMBER_SETSUNA, KEYS.MEMBER_EMMA, KEYS.MEMBER_RINA,
+      KEYS.MEMBER_SHIORIKO,
+
+      KEYS.MEMBER_KANON, KEYS.MEMBER_KEKE, KEYS.MEMBER_CHISATO,
+      KEYS.MEMBER_SUMIRE, KEYS.MEMBER_REN
+   ];
 
    var GROUP_DATA = {};
-   var MEMBER_GEM_LIST = [];
-
-   (function() {
-      for (var k in MEMBER_DATA) {
-         if (MEMBER_DATA[k].member_gem) MEMBER_GEM_LIST.push(MEMBER_DATA[k].name);
-      }
-   })();
-
    var NOT_FOUND_MEMBER = {};
 
    // ALBUM_DATA = {<id>: {name: <name>, cnname: <cnname>, albumGroupId: <album_group_id>}, ...}
@@ -1105,6 +1217,10 @@ var LLConst = (function () {
       if (!metaDataInited[key]) throw key + ' not inited';
    };
 
+   /**
+    * @param {MemberIdType} member
+    * @returns {number | undefined}
+    */
    var mGetMemberId = function (member) {
       var memberid = member;
       if (typeof(memberid) != 'number') {
@@ -1120,6 +1236,10 @@ var LLConst = (function () {
       }
       return memberid;
    };
+   /**
+    * @param {MemberIdType} member 
+    * @returns {MemberDataType | undefined}
+    */
    var mGetMemberData = function (member) {
       mCheckInited('unit_type');
       var memberid = mGetMemberId(member);
@@ -1193,6 +1313,14 @@ var LLConst = (function () {
             }
             MEMBER_DATA[curMemberId].grade = grade;
          }
+      }
+      for (var i = 0; i < MEMBER_GEM_LIST.length; i++) {
+         var id = MEMBER_GEM_LIST[i];
+         if (!MEMBER_DATA[id]) {
+            console.warn('Not found member ' + id + ' for member gem');
+            continue;
+         }
+         MEMBER_DATA[id].member_gem = 1;
       }
    };
 
@@ -1314,12 +1442,45 @@ var LLConst = (function () {
       }
       return ret;
    };
-   ret.getMemberGemList = function() { return MEMBER_GEM_LIST; };
-   ret.isMemberGemExist = function(member) {
-      var memberData = mGetMemberData(member);
-      if (!memberData) return false;
-      return (memberData.member_gem ? true : false);
+
+   var GemUtils = {
+      getMemberGemList: function () { return MEMBER_GEM_LIST; },
+      /**
+       * @param {MemberIdType} member 
+       * @returns 
+       */
+      isMemberGemExist: function (member) {
+         var memberData = mGetMemberData(member);
+         if (!memberData) return false;
+         return (memberData.member_gem ? true : false);
+      },
+      /**
+       * @param {number} type 
+       * @returns {NormalGemMetaType}
+       */
+      getNormalGemMeta: function (type) {
+         if (type < 0 || type >= GEM_NORMAL_TYPE_DATA.length) return undefined;
+         return GEM_NORMAL_TYPE_DATA[type];
+      },
+      getNormalGemTypeKeys: (function (arr) {
+         /** @type {string[]} */
+         var keys = [];
+         for (var i = 0; i < arr.length; i++) {
+            keys.push(arr[i].key);
+         }
+         return function () { return keys; };
+      })(GEM_NORMAL_TYPE_DATA),
    };
+   ret.Gem = GemUtils;
+   ret.GemType = (function (arr) {
+      /** @type {{[key: string]: number}} */
+      var indexMap = {};
+      for (var i = 0; i < arr.length; i++) {
+         indexMap[arr[i].key] = i;
+      }
+      return indexMap;
+   })(GEM_NORMAL_TYPE_DATA);
+
    ret.getNoteAppearTime = function(noteTimeSec, speed) {
       return noteTimeSec - NOTE_APPEAR_OFFSET_S[speed - 1];
    };
@@ -1634,45 +1795,6 @@ var LLUnit = {
    numberToPercentString: function (n) {
       if (n === undefined) return '';
       return LLUnit.numberToString(n*100, 2) + '%';
-   },
-
-   cardtoskilltype: function(c){
-      if (!c)
-         return 0
-      if (!c.skill)
-         return 0
-      if ((c.skilleffect == 4) || (c.skilleffect == 5)){
-         if (c.triggertype == 1)
-            return 5
-         else if (c.triggertype == 3)
-            return 6
-         else if (c.triggertype == 4)
-            return 12
-      }
-      else if (c.skilleffect == 9){
-         if (c.triggertype == 1)
-            return 8
-         else if (c.triggertype == 3)
-            return 7
-         else if (c.triggertype == 4)
-            return 13
-         else if (c.triggertype == 6)
-            return 9
-      }
-      else if (c.skilleffect == 11){
-         if (c.triggertype == 1)
-            return 4
-         else if (c.triggertype == 3)
-            return 1
-         else if (c.triggertype == 4)
-            return 11
-         else if (c.triggertype == 5)
-            return 3
-         else if (c.triggertype == 6)
-            return 2
-         else if (c.triggertype == 12)
-            return 10
-      }
    },
 
    // kizuna from twintailos.js, skilllevel from each page
@@ -3228,64 +3350,57 @@ var LLMap = (function () {
    return cls;
 })();
 
+/**
+ * @typedef LLSisGem
+ * @property {function(): boolean} isEffectRangeSelf
+ * @property {function(): boolean} isEffectRangeAll
+ * @property {function(): boolean} isSkillGem
+ * @property {function(): boolean} isAccuracyGem
+ * @property {function(): boolean} isValid
+ * @property {function(): boolean} isAttrMultiple
+ * @property {function(): boolean} isAttrAdd
+ * @property {function(): boolean} isHealToScore
+ * @property {function(): boolean} isScoreMultiple
+ * @property {function(): boolean} isNonet
+ * @property {function(): boolean} isMemberGem
+ * @property {function(): number} getEffectValue
+ * @property {function(): number} getNormalGemType
+ * @property {function(): string[]} getGemStockKeys
+ * @property {function(GemStockType): number} getGemStockCount
+ * @property {function(): AttributeType} getAttributeType
+ * @property {function(AttributeType)} setAttributeType
+ */
 var LLSisGem = (function () {
-   var EFFECT_RANGE = {
-      'SELF': 1,
-      'ALL': 2
-   };
-   var GEM_TYPE_DATA = [
-      {'name': 'kiss', 'key': 'SADD_200', 'slot': 1, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
-      {'name': 'perfume', 'key': 'SADD_450', 'slot': 2, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
-      {'name': 'ring', 'key': 'SMUL_10', 'slot': 2, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 10, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'cross', 'key': 'SMUL_16', 'slot': 3, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 16, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'aura', 'key': 'AMUL_18', 'slot': 3, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 1.8, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'veil', 'key': 'AMUL_24', 'slot': 4, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 2.4, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'charm', 'key': 'SCORE_250', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 150, 'per_color': 1, 'skill_mul': 1},
-      {'name': 'heal', 'key': 'HEAL_480', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 480, 'per_color': 1, 'heal_mul': 1},
-      {'name': 'trick', 'key': 'EMUL_33', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 33, 'per_color': 1, 'ease_attr_mul': 1},
-      {'name': 'wink', 'key': 'SADD_1400', 'slot': 5, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 1400, 'per_color': 1, 'attr_add': 1},
-      {'name': 'trill', 'key': 'SMUL_28', 'slot': 5, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 28, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'bloom', 'key': 'AMUL_40', 'slot': 6, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 4, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'member', 'key': 'MEMBER_29', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 29, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'nonet', 'key': 'NONET_42', 'slot': 4, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 4.2, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1}
-   ];
    var GEM_MEMBER_COLOR = ['', '', 'smile', 'pure', 'cool'];
    var EPSILON = 1e-8;
+   /**
+    * @constructor
+    * @param {number} type
+    * @param {{grade: 1|2|3, member: MemberIdType, color: AttributeType, unit: string}} options
+    */
    function LLSisGem_cls(type, options) {
-      // options: {grade:(1~3), member:(member name), color:({smile|pure|cool}), unit:({muse|aqours})}
-      if (type < 0 || type >= GEM_TYPE_DATA.length) throw 'Unknown type: ' + type;
+      /** @type {NormalGemMetaType} */
+      var meta = LLConst.Gem.getNormalGemMeta(type);
+      if (!meta) throw 'Unknown type: ' + type;
       this.type = type;
-      var data = GEM_TYPE_DATA[type];
-      for (var i in data) {
-         if (i != 'key') {
-            this[i] = data[i];
-         }
-      }
+      this.meta = meta;
+
       options = options || {};
-      if (data.per_grade && options.grade) this.grade = options.grade;
-      if (data.per_member && options.member) {
+      if (meta.per_grade && options.grade) this.grade = options.grade;
+      if (meta.per_member && options.member) {
          this.member = options.member;
          this.color = LLConst.getMemberColor(options.member);
       }
-      if (data.per_color && options.color) this.color = options.color;
-      if (data.per_unit && options.unit) this.unit = options.unit;
+      if (meta.per_color && options.color) this.color = options.color;
+      if (meta.per_unit && options.unit) this.unit = options.unit;
    };
    var cls = LLSisGem_cls;
-   (function (obj) {
-      var keys = [];
-      for (var i = 0; i < GEM_TYPE_DATA.length; i++) {
-         obj[GEM_TYPE_DATA[i].key] = i;
-         keys.push(GEM_TYPE_DATA[i].key);
-      }
-      obj.getGemTypeKeys = function () {
-         return keys;
-      };
-   })(cls);
+
    var bitSplit = function (val, candidate) {
       var ret = [];
       // assume candidate sort by value desending
       for (var i = 0; i < candidate.length; i++) {
-         var cur_type = GEM_TYPE_DATA[candidate[i]];
+         var cur_type = LLConst.Gem.getNormalGemMeta(candidate[i]);
          if (val >= cur_type.effect_value) {
             val -= cur_type.effect_value;
             ret.push(candidate[i]);
@@ -3296,7 +3411,7 @@ var LLSisGem = (function () {
    var sumSlot = function (types) {
       var ret = 0;
       for (var i = 0; i < types.length; i++) {
-         ret += GEM_TYPE_DATA[types[i]].slot;
+         ret += LLConst.Gem.getNormalGemMeta(types[i]).slot;
       }
       return ret;
    };
@@ -3309,29 +3424,29 @@ var LLSisGem = (function () {
    };
    cls.createGems = createGems;
    cls.getGemSlot = function (type) {
-      return GEM_TYPE_DATA[type].slot;
+      return LLConst.Gem.getNormalGemMeta(type).slot;
    };
    cls.parseSADDSlot = function (val) {
-      return sumSlot(bitSplit(parseInt(val), [cls.SADD_1400, cls.SADD_450, cls.SADD_200]));
+      return sumSlot(bitSplit(parseInt(val), [LLConst.GemType.SADD_1400, LLConst.GemType.SADD_450, LLConst.GemType.SADD_200]));
    };
    cls.parseSMULSlot = function (val) {
-      return sumSlot(bitSplit(parseInt(val), [cls.SMUL_28, cls.SMUL_16, cls.SMUL_10]));
+      return sumSlot(bitSplit(parseInt(val), [LLConst.GemType.SMUL_28, LLConst.GemType.SMUL_16, LLConst.GemType.SMUL_10]));
    };
    cls.parseAMULSlot = function (val) {
       val = parseFloat(val);
-      if (Math.abs(val - 4.2) < EPSILON) return sumSlot([cls.AMUL_24, cls.AMUL_18]);
-      return sumSlot(bitSplit(val+EPSILON, [cls.AMUL_40, cls.AMUL_24, cls.AMUL_18]));
+      if (Math.abs(val - 4.2) < EPSILON) return sumSlot([LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18]);
+      return sumSlot(bitSplit(val+EPSILON, [LLConst.GemType.AMUL_40, LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18]));
    };
    cls.parseSADD = function (val, color) {
-      return createGems(bitSplit(parseInt(val), [cls.SADD_1400, cls.SADD_450, cls.SADD_200]), {'color': color});
+      return createGems(bitSplit(parseInt(val), [LLConst.GemType.SADD_1400, LLConst.GemType.SADD_450, LLConst.GemType.SADD_200]), {'color': color});
    };
    cls.parseSMUL = function (val, color, grade) {
-      return createGems(bitSplit(parseInt(val), [cls.SMUL_28, cls.SMUL_16, cls.SMUL_10]), {'color': color, 'grade': grade});
+      return createGems(bitSplit(parseInt(val), [LLConst.GemType.SMUL_28, LLConst.GemType.SMUL_16, LLConst.GemType.SMUL_10]), {'color': color, 'grade': grade});
    };
    cls.parseAMUL = function (val, color) {
       val = parseFloat(val);
-      if (Math.abs(val - 4.2) < EPSILON) return createGems([cls.AMUL_24, cls.AMUL_18], {'color': color});
-      return createGems(bitSplit(val+EPSILON, [cls.AMUL_40, cls.AMUL_24, cls.AMUL_18]), {'color': color});
+      if (Math.abs(val - 4.2) < EPSILON) return createGems([LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18], {'color': color});
+      return createGems(bitSplit(val+EPSILON, [LLConst.GemType.AMUL_40, LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18]), {'color': color});
    };
    cls.parseMemberGems = function (member, color) {
       var ret = [];
@@ -3339,16 +3454,16 @@ var LLSisGem = (function () {
       ret = ret.concat(cls.parseSMUL(parseFloat(member.gemsinglepercent)*100, color, LLConst.getMemberGrade(member.card.jpname)));
       ret = ret.concat(cls.parseAMUL(parseFloat(member.gemallpercent)*100, color));
       if (parseInt(member.gemskill) == 1) {
-         ret.push(new LLSisGem(cls.SCORE_250, {'color': color}));
+         ret.push(new LLSisGem(LLConst.GemType.SCORE_250, {'color': color}));
       }
       if (parseInt(member.gemacc) == 1) {
-         ret.push(new LLSisGem(cls.EMUL_33, {'color': color}));
+         ret.push(new LLSisGem(LLConst.GemType.EMUL_33, {'color': color}));
       }
       var gemMemberInt = parseInt(member.gemmember);
       if (gemMemberInt == 1) {
-         ret.push(new LLSisGem(cls.MEMBER_29, {'member': member.card.jpname, 'color': color}));
+         ret.push(new LLSisGem(LLConst.GemType.MEMBER_29, {'member': member.card.jpname, 'color': color}));
       } else if (gemMemberInt >= 2) {
-         ret.push(new LLSisGem(cls.MEMBER_29, {'member': member.card.jpname, 'color': GEM_MEMBER_COLOR[gemMemberInt]}));
+         ret.push(new LLSisGem(LLConst.GemType.MEMBER_29, {'member': member.card.jpname, 'color': GEM_MEMBER_COLOR[gemMemberInt]}));
       }
       if (parseInt(member.gemnonet) == 1) {
          var unit = undefined;
@@ -3357,7 +3472,7 @@ var LLSisGem = (function () {
          } else if (LLConst.isMemberInGroup(member.card.jpname, LLConst.GROUP_AQOURS)) {
             unit = 'aqours';
          }
-         ret.push(new LLSisGem(cls.NONET_42, {'color': color, 'unit':unit}));
+         ret.push(new LLSisGem(LLConst.GemType.NONET_42, {'color': color, 'unit':unit}));
       }
       return ret;
    };
@@ -3375,36 +3490,44 @@ var LLSisGem = (function () {
       return cur;
    };
    var proto = cls.prototype;
-   proto.isEffectRangeSelf = function () { return this.effect_range == EFFECT_RANGE.SELF; };
-   proto.isEffectRangeAll = function () { return this.effect_range == EFFECT_RANGE.ALL; };
-   proto.isSkillGem = function () { return this.skill_mul || this.heal_mul; };
-   proto.isAccuracyGem = function () { return this.ease_attr_mul; };
+   proto.isEffectRangeSelf = function () { return this.meta.effect_range == LLConst.SIS_RANGE_SELF; };
+   proto.isEffectRangeAll = function () { return this.meta.effect_range == LLConst.SIS_RANGE_TEAM; };
+   proto.isSkillGem = function () { return this.meta.skill_mul || this.meta.heal_mul; };
+   proto.isAccuracyGem = function () { return this.meta.ease_attr_mul; };
    proto.isValid = function () {
-      if (this.per_grade && !this.grade) return false;
-      if (this.per_member) {
+      if (this.meta.per_grade && !this.grade) return false;
+      if (this.meta.per_member) {
          if (!this.member) return false;
-         if (!LLConst.isMemberGemExist(this.member)) return false;
+         if (!LLConst.Gem.isMemberGemExist(this.member)) return false;
       }
-      if (this.per_unit && !this.unit) return false;
-      if (this.per_color && !this.color) return false;
+      if (this.meta.per_unit && !this.unit) return false;
+      if (this.meta.per_color && !this.color) return false;
       return true;
    };
+   proto.isAttrMultiple = function () { return this.meta.attr_mul; };
+   proto.isAttrAdd = function () { return this.meta.attr_add; };
+   proto.isHealToScore = function () { return this.meta.heal_mul; };
+   proto.isScoreMultiple = function () { return this.meta.skill_mul; };
+   proto.isNonet = function () { return this.meta.per_unit; };
+   proto.isMemberGem = function () { return this.meta.per_member; };
+   proto.getEffectValue = function () { return this.meta.effect_value; };
+   proto.getNormalGemType = function () { return this.type; };
    proto.getGemStockKeys = function () {
       if (this.gemStockKeys !== undefined) return this.gemStockKeys;
-      var ret = [GEM_TYPE_DATA[this.type].key];
-      if (this.per_grade) {
+      var ret = [this.meta.key];
+      if (this.meta.per_grade) {
          if (this.grade === undefined) throw "Gem has no grade";
          ret.push(this.grade);
       }
-      if (this.per_member) {
+      if (this.meta.per_member) {
          if (this.member === undefined) throw "Gem has no member";
          ret.push(this.member);
       }
-      if (this.per_unit) {
+      if (this.meta.per_unit) {
          if (this.unit === undefined) throw "Gem has no unit";
          ret.push(this.unit);
       }
-      if (this.per_color) {
+      if (this.meta.per_color) {
          if (this.color === undefined) throw "Gem has no color";
          ret.push(this.color);
       }
@@ -3414,6 +3537,10 @@ var LLSisGem = (function () {
    proto.getGemStockCount = function (gemStock) {
       return cls.getGemStockCount(gemStock, this.getGemStockKeys());
    };
+   /** @returns {AttributeType} */
+   proto.getAttributeType = function () { return this.color; };
+   /** @param {AttributeType} newColor */
+   proto.setAttributeType = function (newColor) { this.color = newColor; };
    return cls;
 })();
 
@@ -3636,11 +3763,11 @@ var LLMember = (function() {
       var ret = {'smile': this.smile, 'pure': this.pure, 'cool': this.cool};
       for (var i = 0; i < this.gems.length; i++) {
          var gem = this.gems[i];
-         if (gem.attr_add) {
-            ret[gem.color] += gem.effect_value;
+         if (gem.isAttrAdd()) {
+            ret[gem.getAttributeType()] += gem.getEffectValue();
          }
-         if (gem.attr_mul && gem.isEffectRangeSelf()) {
-            ret[gem.color] += Math.ceil(gem.effect_value/100 * this[gem.color]);
+         if (gem.isAttrMultiple() && gem.isEffectRangeSelf()) {
+            ret[gem.getAttributeType()] += Math.ceil(gem.getEffectValue()/100 * this[gem.getAttributeType()]);
          }
       }
       this.displayAttr = ret;
@@ -3655,7 +3782,7 @@ var LLMember = (function() {
       var sum = 0;
       for (var i = 0; i < 9; i++) {
          for (var j = 0; j < teamgem[i].length; j++) {
-            sum += Math.ceil(teamgem[i][j].effect_value/100 * this[mapcolor]);
+            sum += Math.ceil(teamgem[i][j].getEffectValue()/100 * this[mapcolor]);
          }
          cumulativeTeamGemBonus.push(sum);
       }
@@ -4454,13 +4581,12 @@ var LLTeam = (function() {
       for (i = 0; i <= MAX_SLOT; i++) {
          armCombinationList.push([]);
       }
-      var gemTypeKeys = LLSisGem.getGemTypeKeys();
+      var gemTypeKeys = LLConst.Gem.getNormalGemTypeKeys();
       var gemTypes = [];
       var gemSlots = [];
-      for (i in gemTypeKeys) {
-         var t = LLSisGem[gemTypeKeys[i]];
-         gemTypes.push(t);
-         gemSlots.push(LLSisGem.getGemSlot(t));
+      for (i = 0; i < gemTypeKeys.length; i++) {
+         gemTypes.push(i);
+         gemSlots.push(LLSisGem.getGemSlot(i));
       }
       var dfs = function (gemList, usedSlot, nextGemIndex) {
          if (nextGemIndex >= gemTypes.length) {
@@ -4506,12 +4632,14 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          curMember.calcDisplayAttr(mapcolor);
+         /** @type {LLSisGem[]} */
          var curGems = [];
          for (j = 0; j < curMember.gems.length; j++) {
+            /** @type {LLSisGem} */
             var curGem = curMember.gems[j];
-            if (curGem.attr_mul && curGem.isEffectRangeAll() && curGem.color == mapcolor) {
-               if (curGem.per_unit) {
-                  if (!((curGem.unit == 'muse' && allMuse) || (curGem.unit == 'aqours' && allAqours))) continue;
+            if (curGem.isAttrMultiple() && curGem.isEffectRangeAll() && curGem.getAttributeType() == mapcolor) {
+               if (curGem.isNonet()) {
+                  if (!(allMuse || allAqours)) continue;
                }
                curGems.push(curGem);
             }
@@ -4889,7 +5017,7 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          if (!curMember.hasSkillGem()) {
-            curMember.gems.push(new LLSisGem(LLSisGem.SCORE_250, {'color': curMember.card.attribute}));
+            curMember.gems.push(new LLSisGem(LLConst.GemType.SCORE_250, {'color': curMember.card.attribute}));
          }
       }
       this.calculateAttributeStrength(mapdata);
@@ -4920,40 +5048,41 @@ var LLTeam = (function() {
       var gemStockSubset = [];
       var gemStockKeyToIndex = {};
       var powerUps = [];
-      var gemTypes = LLSisGem.getGemTypeKeys();
+      var gemTypes = LLConst.Gem.getNormalGemTypeKeys();
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          var curPowerUps = {};
          var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': curMember.card.jpname, 'unit': unitInfo[i]};
          for (j = 0; j < gemTypes.length; j++) {
-            var curGem = new LLSisGem(LLSisGem[gemTypes[j]], gemOption);
+            /** @type {LLSisGem} */
+            var curGem = new LLSisGem(j, gemOption);
             if (!curGem.isValid()) continue;
             var curStrengthBuff = 0;
             if (curGem.isSkillGem()) {
                var curSkill = this.avgSkills[i];
-               curGem.color = curMember.card.attribute;
-               if (curGem.heal_mul && curSkill.isEffectHeal()) {
+               curGem.setAttributeType(curMember.card.attribute);
+               if (curGem.isHealToScore() && curSkill.isEffectHeal()) {
                   curStrengthBuff = curSkill.strength;
-               } else if (curGem.skill_mul && curSkill.isEffectScore()) {
-                  curStrengthBuff = curSkill.strength * curGem.effect_value / (100+curGem.effect_value);
+               } else if (curGem.isScoreMultiple() && curSkill.isEffectScore()) {
+                  curStrengthBuff = curSkill.strength * curGem.getEffectValue() / (100+curGem.getEffectValue());
                }
                // 考虑技能概率提升带来的增益
                curStrengthBuff *= (1 + mapdata.skillup/100);
             } else {
-               if (curGem.attr_add) {
+               if (curGem.isAttrAdd()) {
                   if (curGem.isEffectRangeSelf()) {
-                     curStrengthBuff = curGem.effect_value * (1 + cskillPercentages[i]/100);
+                     curStrengthBuff = curGem.getEffectValue() * (1 + cskillPercentages[i]/100);
                   }
-               } else if (curGem.attr_mul) {
+               } else if (curGem.isAttrMultiple()) {
                   if (curGem.isEffectRangeSelf()) {
-                     if (curGem.color == mapcolor) {
-                        curStrengthBuff = (curGem.effect_value / 100) * (1 + cskillPercentages[i]/100) * curMember[mapcolor];
+                     if (curGem.getAttributeType() == mapcolor) {
+                        curStrengthBuff = (curGem.getEffectValue() / 100) * (1 + cskillPercentages[i]/100) * curMember[mapcolor];
                      }
                      // TODO: 个人宝石和歌曲颜色不同的情况下, 增加强度为12%主唱技能加成带来的强度
                   } else if (curGem.isEffectRangeAll()) {
                      var takeEffect = 0;
-                     if (curGem.name == 'nonet') {
-                        if ((curGem.unit == 'muse' && allMuse) || (curGem.unit == 'aqours' && allAqours)) {
+                     if (curGem.isNonet()) {
+                        if (allMuse || allAqours) {
                            takeEffect = 1;
                         }
                      } else {
@@ -4961,7 +5090,7 @@ var LLTeam = (function() {
                      }
                      if (takeEffect) {
                         for (var k = 0; k < 9; k++) {
-                           curStrengthBuff += Math.ceil( (curGem.effect_value / 100) * this.members[k][mapcolor] ) * (1 + cskillPercentages[k]/100);
+                           curStrengthBuff += Math.ceil( (curGem.getEffectValue() / 100) * this.members[k][mapcolor] ) * (1 + cskillPercentages[k]/100);
                         }
                      }
                   }
@@ -4976,7 +5105,7 @@ var LLTeam = (function() {
                gemStockKeyToIndex[gemStockKey] = gemStockSubset.length;
                gemStockSubset.push(curGem.getGemStockCount(gemStock));
             }
-            curPowerUps[curGem.type] = {'gem': curGem, 'strength': curStrengthBuff, 'stockindex': gemStockKeyToIndex[gemStockKey]};
+            curPowerUps[curGem.getNormalGemType()] = {'gem': curGem, 'strength': curStrengthBuff, 'stockindex': gemStockKeyToIndex[gemStockKey]};
          }
          powerUps.push(curPowerUps);
       }
@@ -5334,7 +5463,7 @@ var LLSaveData = (function () {
          var stock = me.gemStock;
          if (stock['MEMBER_29']) {
             var m29 = stock['MEMBER_29'];
-            var members = LLConst.getMemberGemList();
+            var members = LLConst.Gem.getMemberGemList();
             if (m29['ALL'] === undefined) {
                for (var i = 0; i < members.length; i++) {
                   var curMemberName = members[i];
@@ -5401,10 +5530,10 @@ var LLSaveData = (function () {
          types = ['1', '2', '3'];
       } else if (current_sub == 'per_member') {
          next_sub = 'per_unit';
-         types = LLConst.getMemberGemList();
+         types = LLConst.Gem.getMemberGemList();
       } else if (current_sub == 'per_unit') {
          next_sub = 'per_color';
-         types = ['muse', 'aqours'];
+         types = ['muse', 'aqours', 'niji', 'liella'];
       } else if (current_sub == 'per_color') {
          next_sub = '';
          types = ['smile', 'pure', 'cool'];
@@ -5423,7 +5552,7 @@ var LLSaveData = (function () {
    };
    var fillDefaultGemStock = function (stock, fillnum) {
       if (stock.ALL !== undefined) return;
-      var keys = LLSisGem.getGemTypeKeys();
+      var keys = LLConst.Gem.getNormalGemTypeKeys();
       for (var i = 0; i < keys.length; i++) {
          if (stock[keys[i]] === undefined) {
             stock[keys[i]] = recursiveMakeGemStockData(new LLSisGem(i), function(){return fillnum;});
@@ -5564,16 +5693,22 @@ var LLGemStockComponent = (function () {
       'SCORE_250': '魅力 (C4/2.5x)',
       'HEAL_480': '治愈 (C4/480x)',
       'EMUL_33': '诡计 (C4/33%/判)',
-      'SADD_1400': 'Wink (C5/1400)',
-      'SMUL_28': 'Trill (C5/28%)',
-      'AMUL_40': 'Bloom (C6/4%)',
+      'SADD_1400': '眼神 (C5/1400)',
+      'SMUL_28': '颤音 (C5/28%)',
+      'AMUL_40': '绽放 (C6/4%)',
+      'MEMBER_13': '个人宝石(小) (C2/13%)',
+      'MEMBER_21': '个人宝石(中) (C3/21%)',
       'MEMBER_29': '个人宝石 (C4/29%)',
+      'MEMBER_53': '个人宝石(大) (C5/53%)',
+      'NONET_15': '九重奏(小) (C2/1.5%)',
       'NONET_42': '九重奏 (C4/4.2%)',
       '1': '一年级',
       '2': '二年级',
       '3': '三年级',
       'muse': "μ's",
-      'aqours': 'Aqours'
+      'aqours': 'Aqours',
+      'niji': '虹咲',
+      'liella': 'Liella!'
    };
    function toggleSubGroup(arrowSpan, subGroupComp, visible) {
       if (visible === undefined) {
@@ -7181,18 +7316,19 @@ var LLTeamComponent = (function () {
          var sumMEMBER = 0;
          var sumNONET = 0;
          for (var j = 0; j < gems.length; j++) {
+            /** @type {LLSisGem} */
             var curGem = gems[j];
-            if (curGem.attr_add && curGem.isEffectRangeSelf()) {
-               sumSADD += curGem.effect_value;
-            } else if (curGem.attr_mul) {
-               if (curGem.per_member) {
+            if (curGem.isAttrAdd() && curGem.isEffectRangeSelf()) {
+               sumSADD += curGem.getEffectValue();
+            } else if (curGem.isAttrMultiple()) {
+               if (curGem.isMemberGem()) {
                   sumMEMBER++;
-               } else if (curGem.per_unit) {
+               } else if (curGem.isNonet()) {
                   sumNONET++;
                } else if (curGem.isEffectRangeSelf()) {
-                  sumSMUL += curGem.effect_value;
+                  sumSMUL += curGem.getEffectValue();
                } else {
-                  sumAMUL += Math.round(curGem.effect_value*10);
+                  sumAMUL += Math.round(curGem.getEffectValue()*10);
                }
             } else if (curGem.isSkillGem()) {
                sumSKILL++;

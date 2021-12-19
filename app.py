@@ -125,7 +125,7 @@ def lldata_sisdata():
     return json.dumps(g_llsisdata.queryByKeys(request.args['keys']))
 
 @app.route("/lldata/sis/<index>", methods=['GET'])
-def lldata_songdetail(index):
+def lldata_sisdetail(index):
     return json.dumps(g_llsisdata.queryByIndex(index))
 
 ### data api ###
