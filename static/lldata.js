@@ -890,6 +890,7 @@ var LLComponentCollection = (function() {
 /**
  * @typedef NormalGemMetaType
  * @property {string} name en name
+ * @property {string} cnname cn name
  * @property {string} key
  * @property {number} slot
  * @property {1|2} effect_range 1 for self, 2 for team
@@ -1132,56 +1133,27 @@ var LLConst = (function () {
     */
    /** @type {{[id: number]: MemberDataType}} */
    var MEMBER_DATA = {};
-   // MEMBER_DATA[KEYS.MEMBER_HONOKA] = {'name': '高坂穂乃果', 'color': 'smile', 'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_ELI] =    {'name': '絢瀬絵里',   'color': 'cool',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_KOTORI] = {'name': '南ことり',   'color': 'pure',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_UMI] =    {'name': '園田海未',   'color': 'cool',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_RIN] =    {'name': '星空凛',     'color': 'smile', 'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_MAKI] =   {'name': '西木野真姫', 'color': 'cool',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_NOZOMI] = {'name': '東條希',     'color': 'pure',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_HANAYO] = {'name': '小泉花陽',   'color': 'pure',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_NICO] =   {'name': '矢澤にこ',   'color': 'smile', 'member_gem': 1};
-
-   // MEMBER_DATA[KEYS.MEMBER_CHIKA] =    {'name': '高海千歌',   'color': 'smile', 'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_RIKO] =     {'name': '桜内梨子',   'color': 'cool',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_KANAN] =    {'name': '松浦果南',   'color': 'pure',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_DIA] =      {'name': '黒澤ダイヤ', 'color': 'cool',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_YOU] =      {'name': '渡辺曜',     'color': 'pure',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_YOSHIKO] =  {'name': '津島善子',   'color': 'cool',  'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_HANAMARU] = {'name': '国木田花丸', 'color': 'smile', 'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_MARI] =     {'name': '小原鞠莉',   'color': 'smile', 'member_gem': 1};
-   // MEMBER_DATA[KEYS.MEMBER_RUBY] =     {'name': '黒澤ルビィ', 'color': 'pure',  'member_gem': 1};
-
-   // MEMBER_DATA[KEYS.MEMBER_AYUMU] =   {'name': '上原歩夢'};
-   // MEMBER_DATA[KEYS.MEMBER_KASUMI] =  {'name': '中須かすみ'};
-   // MEMBER_DATA[KEYS.MEMBER_SHIZUKU] = {'name': '桜坂しずく'};
-   // MEMBER_DATA[KEYS.MEMBER_KARIN] =   {'name': '朝香果林'};
-   // MEMBER_DATA[KEYS.MEMBER_AI] =      {'name': '宮下愛'};
-   // MEMBER_DATA[KEYS.MEMBER_KANATA] =  {'name': '近江彼方'};
-   // MEMBER_DATA[KEYS.MEMBER_SETSUNA] = {'name': '優木せつ菜'};
-   // MEMBER_DATA[KEYS.MEMBER_EMMA] =    {'name': 'エマ・ヴェルデ'};
-   // MEMBER_DATA[KEYS.MEMBER_RINA] =    {'name': '天王寺璃奈'};
 
    /** @type {NormalGemMetaType[]} */
    var GEM_NORMAL_TYPE_DATA = [
-      {'name': 'kiss', 'key': 'SADD_200', 'slot': 1, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
-      {'name': 'perfume', 'key': 'SADD_450', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
-      {'name': 'ring', 'key': 'SMUL_10', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 10, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'cross', 'key': 'SMUL_16', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 16, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'aura', 'key': 'AMUL_18', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.8, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'veil', 'key': 'AMUL_24', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 2.4, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'charm', 'key': 'SCORE_250', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 150, 'per_color': 1, 'skill_mul': 1},
-      {'name': 'heal', 'key': 'HEAL_480', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 480, 'per_color': 1, 'heal_mul': 1},
-      {'name': 'trick', 'key': 'EMUL_33', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 33, 'per_color': 1, 'ease_attr_mul': 1},
-      {'name': 'wink', 'key': 'SADD_1400', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 1400, 'per_color': 1, 'attr_add': 1},
-      {'name': 'trill', 'key': 'SMUL_28', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 28, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'bloom', 'key': 'AMUL_40', 'slot': 6, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'member', 'key': 'MEMBER_29', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 29, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'nonet', 'key': 'NONET_42', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4.2, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
-      {'name': 'member_petit', 'key': 'MEMBER_13', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 13, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'member_midi', 'key': 'MEMBER_21', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 21, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'member_grand', 'key': 'MEMBER_53', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 53, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'nonet_petit', 'key': 'NONET_15', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.5, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
+      {'name': 'kiss', 'cnname': '吻', 'key': 'SADD_200', 'slot': 1, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
+      {'name': 'perfume', 'cnname': '香水', 'key': 'SADD_450', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
+      {'name': 'ring', 'cnname': '指环', 'key': 'SMUL_10', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 10, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'cross', 'cnname': '十字', 'key': 'SMUL_16', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 16, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'aura', 'cnname': '光环', 'key': 'AMUL_18', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.8, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'veil', 'cnname': '面纱', 'key': 'AMUL_24', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 2.4, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'charm', 'cnname': '魅力', 'key': 'SCORE_250', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 150, 'per_color': 1, 'skill_mul': 1},
+      {'name': 'heal', 'cnname': '治愈', 'key': 'HEAL_480', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 480, 'per_color': 1, 'heal_mul': 1},
+      {'name': 'trick', 'cnname': '诡计', 'key': 'EMUL_33', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 33, 'per_color': 1, 'ease_attr_mul': 1},
+      {'name': 'wink', 'cnname': '眼神', 'key': 'SADD_1400', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 1400, 'per_color': 1, 'attr_add': 1},
+      {'name': 'trill', 'cnname': '颤音', 'key': 'SMUL_28', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 28, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'bloom', 'cnname': '绽放', 'key': 'AMUL_40', 'slot': 6, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member', 'cnname': '个宝', 'key': 'MEMBER_29', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 29, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'nonet', 'cnname': '九重奏', 'key': 'NONET_42', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4.2, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
+      {'name': 'member_petit', 'cnname': '小个宝', 'key': 'MEMBER_13', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 13, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member_midi', 'cnname': '中个宝', 'key': 'MEMBER_21', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 21, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member_grand', 'cnname': '大个宝', 'key': 'MEMBER_53', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 53, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'nonet_petit', 'cnname': '小九重奏', 'key': 'NONET_15', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.5, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
    ];
 
    var MEMBER_GEM_LIST = [
@@ -1201,6 +1173,8 @@ var LLConst = (function () {
       KEYS.MEMBER_KANON, KEYS.MEMBER_KEKE, KEYS.MEMBER_CHISATO,
       KEYS.MEMBER_SUMIRE, KEYS.MEMBER_REN
    ];
+
+   var UNIT_GEM_LIST = [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
 
    var GROUP_DATA = {};
    var NOT_FOUND_MEMBER = {};
@@ -1445,6 +1419,7 @@ var LLConst = (function () {
 
    var GemUtils = {
       getMemberGemList: function () { return MEMBER_GEM_LIST; },
+      getUnitGemList: function () { return UNIT_GEM_LIST; },
       /**
        * @param {MemberIdType} member 
        * @returns 
@@ -1455,12 +1430,16 @@ var LLConst = (function () {
          return (memberData.member_gem ? true : false);
       },
       /**
-       * @param {number} type 
+       * @param {number | NormalGemMetaType} typeOrMeta 
        * @returns {NormalGemMetaType}
        */
-      getNormalGemMeta: function (type) {
-         if (type < 0 || type >= GEM_NORMAL_TYPE_DATA.length) return undefined;
-         return GEM_NORMAL_TYPE_DATA[type];
+      getNormalGemMeta: function (typeOrMeta) {
+         if (typeof(typeOrMeta) == 'number') {
+            if (typeOrMeta < 0 || typeOrMeta >= GEM_NORMAL_TYPE_DATA.length) return undefined;
+            return GEM_NORMAL_TYPE_DATA[typeOrMeta];
+         } else {
+            return typeOrMeta;
+         }
       },
       getNormalGemTypeKeys: (function (arr) {
          /** @type {string[]} */
@@ -1470,6 +1449,29 @@ var LLConst = (function () {
          }
          return function () { return keys; };
       })(GEM_NORMAL_TYPE_DATA),
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      getNormalGemName: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         return meta && meta.cnname;
+      },
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      getNormalGemBriefDescription: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         if (!meta) return undefined;
+         var str = 'C' + meta.slot + '/';
+         if (meta.attr_add) {
+            str += meta.effect_value;
+         } else if (meta.attr_mul) {
+            str += meta.effect_value + '%';
+         } else if (meta.skill_mul) {
+            str += (meta.effect_value + 100) / 100 + 'x';
+         } else if (meta.heal_mul) {
+            str += meta.effect_value + 'x';
+         } else if (meta.ease_attr_mul) {
+            str += meta.effect_value + '%/判';
+         }
+         return str;
+      }
    };
    ret.Gem = GemUtils;
    ret.GemType = (function (arr) {
@@ -5385,6 +5387,10 @@ var LLSaveData = (function () {
    //     added "ALL" for any type/sub-type dict, when specified, all sub-types having "<number>" of gem
    // ver 103 :
    //   member gem now is also per_color (gem stock and gemmember need convert)
+   // ver 104 :
+   //   member gem use member id instead of name now
+   //   nonet gem use unit id instead of key now (4 for muse, 5 for aqours, 60 for niji, 143 for liella)
+   //   new member gems and nonet gems
    var checkSaveDataVersion = function (data) {
       if (data === undefined) return 0;
       if (data.version !== undefined) return parseInt(data.version);
@@ -5466,7 +5472,7 @@ var LLSaveData = (function () {
             var members = LLConst.Gem.getMemberGemList();
             if (m29['ALL'] === undefined) {
                for (var i = 0; i < members.length; i++) {
-                  var curMemberName = members[i];
+                  var curMemberName = LLConst.getMemberName(members[i]);
                   if (m29[curMemberName] !== undefined) {
                      var memberGemCount = m29[curMemberName];
                      if (memberGemCount > 0) {
@@ -5486,7 +5492,8 @@ var LLSaveData = (function () {
                var memberGemCount = m29['ALL'];
                stock['MEMBER_29'] = {};
                for (var i = 0; i < members.length; i++) {
-                  stock['MEMBER_29'][members[i]] = {'ALL': memberGemCount};
+                  var curMemberName = LLConst.getMemberName(members[i]);
+                  stock['MEMBER_29'][curMemberName] = {'ALL': memberGemCount};
                }
             }
          }
@@ -5530,10 +5537,10 @@ var LLSaveData = (function () {
          types = ['1', '2', '3'];
       } else if (current_sub == 'per_member') {
          next_sub = 'per_unit';
-         types = LLConst.Gem.getMemberGemList();
+         types = LLConst.Gem.getMemberGemList().map((x) => x.toFixed());
       } else if (current_sub == 'per_unit') {
          next_sub = 'per_color';
-         types = ['muse', 'aqours', 'niji', 'liella'];
+         types = LLConst.Gem.getUnitGemList().map((x) => x.toFixed());
       } else if (current_sub == 'per_color') {
          next_sub = '';
          types = ['smile', 'pure', 'cool'];
@@ -5555,7 +5562,7 @@ var LLSaveData = (function () {
       var keys = LLConst.Gem.getNormalGemTypeKeys();
       for (var i = 0; i < keys.length; i++) {
          if (stock[keys[i]] === undefined) {
-            stock[keys[i]] = recursiveMakeGemStockData(new LLSisGem(i), function(){return fillnum;});
+            stock[keys[i]] = recursiveMakeGemStockData(LLConst.Gem.getNormalGemMeta(i), function(){return fillnum;});
          }
       }
    };
@@ -5595,6 +5602,9 @@ var LLSaveData = (function () {
       if (this.rawVersion <= 102) {
          convertV102ToV103(this);
       }
+      if (this.rawVersion <= 103) {
+
+      }
    };
    var cls = LLSaveData_cls;
    cls.checkSaveDataVersion = checkSaveDataVersion;
@@ -5604,47 +5614,6 @@ var LLSaveData = (function () {
       return ret;
    };
    var proto = cls.prototype;
-   proto.getLegacyGemStock = function() {
-      var mapping = [
-         ['SADD_450', 'smile'],
-         ['SMUL_10', '1', 'smile'],
-         ['SMUL_10', '2', 'smile'],
-         ['SMUL_10', '3', 'smile'],
-         ['SMUL_16', '1', 'smile'],
-         ['SMUL_16', '2', 'smile'],
-         ['SMUL_16', '3', 'smile'],
-         ['AMUL_18', 'smile'],
-         ['AMUL_24', 'smile'],
-         ['SCORE_250', 'smile'],
-         ['SCORE_250', 'pure'],
-         ['SCORE_250', 'cool'],
-         ['HEAL_480', 'smile'],
-         ['HEAL_480', 'pure'],
-         ['HEAL_480', 'cool'],
-      ];
-      var ret = {};
-      for (var i = 0; i < mapping.length; i++) {
-         ret[String(i+1)] = String(LLSisGem.getGemStockCount(this.gemStock, mapping[i]));
-      }
-      return ret;
-   };
-   proto.serializeV1 = function() {
-      return JSON.stringify(this.teamMember);
-   };
-   proto.serializeV2 = function() {
-      var ret = [];
-      for (var i = 0; i < 9; i++) {
-         ret.push(this.teamMember[i]);
-      }
-      ret.push(this.getLegacyGemStock());
-      return JSON.stringify(ret);
-   };
-   proto.serializeV10 = function() {
-      return JSON.stringify(this.subMember);
-   };
-   proto.serializeV11 = function() {
-      return JSON.stringify(this.getLegacyGemStock());
-   };
    proto.serializeV103 = function(excludeTeam, excludeGemStock, excludeSubMember) {
       return JSON.stringify({
          'version': 103,
@@ -5652,9 +5621,6 @@ var LLSaveData = (function () {
          'gemstock': (excludeGemStock ? {} : this.gemStock),
          'submember': (excludeSubMember ? [] : shrinkSubMembers(this.subMember))
       });
-   };
-   proto.mergeV10 = function (v10data) {
-      this.subMember = getSubMemberV10(v10data);
    };
    return cls;
 })();
@@ -5683,33 +5649,59 @@ var LLSaveLoadJsonMixin = (function () {
 
 var LLGemStockComponent = (function () {
    var createElement = LLUnit.createElement;
-   var textMapping = {
-      'SADD_200': '吻 (C1/200)',
-      'SADD_450': '香水 (C2/450)',
-      'SMUL_10': '指环 (C2/10%)',
-      'SMUL_16': '十字 (C3/16%)',
-      'AMUL_18': '光环 (C3/1.8%)',
-      'AMUL_24': '面纱 (C4/2.4%)',
-      'SCORE_250': '魅力 (C4/2.5x)',
-      'HEAL_480': '治愈 (C4/480x)',
-      'EMUL_33': '诡计 (C4/33%/判)',
-      'SADD_1400': '眼神 (C5/1400)',
-      'SMUL_28': '颤音 (C5/28%)',
-      'AMUL_40': '绽放 (C6/4%)',
-      'MEMBER_13': '个人宝石(小) (C2/13%)',
-      'MEMBER_21': '个人宝石(中) (C3/21%)',
-      'MEMBER_29': '个人宝石 (C4/29%)',
-      'MEMBER_53': '个人宝石(大) (C5/53%)',
-      'NONET_15': '九重奏(小) (C2/1.5%)',
-      'NONET_42': '九重奏 (C4/4.2%)',
-      '1': '一年级',
-      '2': '二年级',
-      '3': '三年级',
-      'muse': "μ's",
-      'aqours': 'Aqours',
-      'niji': '虹咲',
-      'liella': 'Liella!'
-   };
+   var STOCK_SUB_TYPE_START = 0;
+   var STOCK_SUB_TYPE_GEM = 1;
+   var STOCK_SUB_TYPE_GRADE = 2;
+   var STOCK_SUB_TYPE_MEMBER = 3;
+   var STOCK_SUB_TYPE_UNIT = 4;
+   var STOCK_SUB_TYPE_COLOR = 5;
+   /**
+    * @param {nummber} curSubType 
+    * @param {NormalGemMetaType} gemMeta 
+    * @returns {number}
+    */
+   function getNextSubType(curSubType, gemMeta) {
+      if (curSubType == STOCK_SUB_TYPE_START) {
+         return STOCK_SUB_TYPE_GEM;
+      }
+      if (curSubType == STOCK_SUB_TYPE_GEM) {
+         curSubType += 1;
+         if (gemMeta.per_grade) return curSubType;
+      }
+      if (curSubType == STOCK_SUB_TYPE_GRADE) {
+         curSubType += 1;
+         if (gemMeta.per_member) return curSubType;
+      }
+      if (curSubType == STOCK_SUB_TYPE_MEMBER) {
+         curSubType += 1;
+         if (gemMeta.per_unit) return curSubType;
+      }
+      if (curSubType == STOCK_SUB_TYPE_UNIT) {
+         curSubType += 1;
+         if (gemMeta.per_color) return curSubType;
+      }
+      return curSubType + 1;
+   }
+   /**
+    * @param {string} curKey 
+    * @param {number} curSubType 
+    * @returns 
+    */
+   function getGemKeyText(curKey, curSubType) {
+      if (curSubType == STOCK_SUB_TYPE_GEM) {
+         var gemType = LLConst.GemType[curKey];
+         var gemName = LLConst.Gem.getNormalGemName(gemType)
+         var gemDesc = LLConst.Gem.getNormalGemBriefDescription(gemType);
+         return gemName + ' （' + gemDesc + '）';
+      } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
+         return LLConst.getGroupName(parseInt(curKey));
+      } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
+         return LLConst.getMemberName(parseInt(curKey), true);
+      } else if (curSubType == STOCK_SUB_TYPE_UNIT) {
+         return LLConst.getGroupName(parseInt(curKey));
+      }
+      return curKey;
+   }
    function toggleSubGroup(arrowSpan, subGroupComp, visible) {
       if (visible === undefined) {
          subGroupComp.toggleVisible();
@@ -5723,9 +5715,17 @@ var LLGemStockComponent = (function () {
    function createListGroup(subItems) {
       return createElement('div', {'className': 'list-group'}, subItems);
    }
+   /**
+    * 
+    * @param {string} text 
+    * @param {number} val 
+    * @param {any} controller 
+    * @param {HTMLElement} [subGroup] 
+    * @returns {HTMLElement[]}
+    */
    function createListGroupItem(text, val, controller, subGroup) {
       var item;
-      var textSpan = createElement('span', {'className': 'gem-text', 'innerHTML': (textMapping[text] ? textMapping[text] : text)});
+      var textSpan = createElement('span', {'className': 'gem-text', 'innerHTML': text});
 
       var gemCountInput = createElement('input', {'type': 'text', 'size': 2, 'className': 'gem-count num-size-2'}, undefined, {'click': function (e) {
          var curEvent = window.event || e;
@@ -5860,13 +5860,20 @@ var LLGemStockComponent = (function () {
          }
       }
    }
-   function buildStockGUI(text, data) {
+   /**
+    * @param {string} curKey 
+    * @param {any} data 
+    * @param {number} curSubType STOCK_SUB_TYPE_*
+    * @param {NormalGemMetaType} [gemMeta]
+    * @returns {{items: HTMLElement[], controller: any}}
+    */
+   function buildStockGUI(curKey, data, curSubType, gemMeta) {
       if (typeof(data) == 'number' || typeof(data) == 'string') {
          var val = parseInt(data);
          if (val > 9) val = 9;
          if (val < 0) val = 0;
          var controller = {
-            'onchange': makeControllerOnChangeFunc(text),
+            'onchange': makeControllerOnChangeFunc(curKey),
             'pushchange': makeControllerPushChangeFunc(),
             'deserialize': makeControllerDeserializeFunc(),
             'serialize': makeControllerSerializeFunc(),
@@ -5874,7 +5881,7 @@ var LLGemStockComponent = (function () {
             'max': val
          };
          return {
-            'items': createListGroupItem(text, val, controller),
+            'items': createListGroupItem(getGemKeyText(curKey, curSubType), val, controller),
             'controller': {'ALL': controller}
          };
       } else {
@@ -5883,7 +5890,7 @@ var LLGemStockComponent = (function () {
          var minVal = 9;
          var maxVal = 0;
          for (var dataKey in data) {
-            var ret = buildStockGUI(dataKey, data[dataKey]);
+            var ret = buildStockGUI(dataKey, data[dataKey], getNextSubType(curSubType, gemMeta), gemMeta || LLConst.Gem.getNormalGemMeta(LLConst.GemType[dataKey]));
             var curController = ret.controller.ALL;
             if (curController.min < minVal) minVal = curController.min;
             if (curController.max > maxVal) maxVal = curController.max;
@@ -5892,7 +5899,7 @@ var LLGemStockComponent = (function () {
             items = items.concat(ret.items);
          }
          var controller = {
-            'onchange': makeControllerOnChangeFunc(text),
+            'onchange': makeControllerOnChangeFunc(curKey),
             'pushchange': makeControllerPushChangeFunc(controllers),
             'deserialize': makeControllerDeserializeFunc(controllers),
             'serialize': makeControllerSerializeFunc(controllers),
@@ -5900,7 +5907,7 @@ var LLGemStockComponent = (function () {
             'max': maxVal
          };
          var subGroup = createListGroup(items);
-         var retItems = createListGroupItem(text, (minVal == maxVal ? minVal : minVal + '+'), controller, subGroup);
+         var retItems = createListGroupItem(getGemKeyText(curKey, curSubType), (minVal == maxVal ? minVal : minVal + '+'), controller, subGroup);
          if (minVal == maxVal && controller.fold) controller.fold();
          controllers['ALL'] = controller;
          return {
@@ -5938,7 +5945,7 @@ var LLGemStockComponent = (function () {
    // }
    function LLGemStockComponent_cls(id) {
       var data = LLSaveData.makeFullyExpandedGemStock();
-      var gui = buildStockGUI('技能宝石仓库', data);
+      var gui = buildStockGUI('技能宝石仓库', data, STOCK_SUB_TYPE_START);
       LLUnit.getElement(id).appendChild(createListGroup(gui.items));
       this.loadData = function(data) { gui.controller.ALL.deserialize(data); };
       this.saveData = function() { return gui.controller.ALL.serialize(); }
