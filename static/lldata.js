@@ -5362,6 +5362,14 @@ var LLTeam = (function() {
    return cls;
 })();
 
+/**
+ * @typedef LLSaveData
+ * @property {any[]} teamMember
+ * @property {GemStockType} gemStock
+ * @property {boolean} hasGemStock
+ * @property {any[]} subMember
+ * @property {function(boolean, boolean, boolean): any} serializeV104
+ */
 var LLSaveData = (function () {
    // ver 0 : invalid save data
    // ver 1 : [{team member}, ..] total 9 members
@@ -5513,6 +5521,51 @@ var LLSaveData = (function () {
       }
       return me;
    };
+   /** @param {LLSaveData} me */
+   var convertV103ToV104 = function (me) {
+      // convert gem stock
+      var i;
+      if (me.hasGemStock && me.gemStock) {
+         var stock = me.gemStock;
+         // convert member gems, name => member id
+         if (stock['MEMBER_29']) {
+            var m29 = stock['MEMBER_29'];
+            if (m29['ALL'] === undefined) {
+               var newM29 = {};
+               var members = LLConst.Gem.getMemberGemList();
+               for (i = 0; i < members.length; i++) {
+                  var curMemberName = LLConst.getMemberName(members[i]);
+                  if (m29[curMemberName] !== undefined) {
+                     newM29[i.toFixed()] = m29[curMemberName];
+                  } else {
+                     newM29[i.toFixed()] = {'ALL': 0};
+                  }
+               }
+               stock['MEMBER_29'] = newM29;
+            }
+         }
+         // convert nonet gems, unit key => group id
+         if (stock['NONET_42']) {
+            var n42 = stock['NONET_42'];
+            if (n42['ALL'] === undefined) {
+               var newN42 = {};
+               if (n42['muse'] !== undefined) {
+                  newN42[LLConst.GROUP_MUSE.toFixed()] = n42['muse'];
+               }
+               if (n42['aqours'] !== undefined) {
+                  newN42[LLConst.GROUP_AQOURS.toFixed()] = n42['aqours'];
+               }
+               var units = LLConst.Gem.getUnitGemList();
+               for (i = 0; i < units.length; i++) {
+                  if (newN42[i.toFixed()] === undefined) {
+                     newN42[i.toFixed()] = {'ALL': 0};
+                  }
+               }
+               stock['NONET_42'] = newN42;
+            }
+         }
+      }
+   };
    var SUB_MEMBER_ATTRS = ['cardid', 'mezame', 'skilllevel', 'maxcost'];
    var shrinkSubMembers = function (submembers) {
       var ret = [];
@@ -5603,7 +5656,7 @@ var LLSaveData = (function () {
          convertV102ToV103(this);
       }
       if (this.rawVersion <= 103) {
-
+         convertV103ToV104(this);
       }
    };
    var cls = LLSaveData_cls;
@@ -5614,9 +5667,9 @@ var LLSaveData = (function () {
       return ret;
    };
    var proto = cls.prototype;
-   proto.serializeV103 = function(excludeTeam, excludeGemStock, excludeSubMember) {
+   proto.serializeV104 = function(excludeTeam, excludeGemStock, excludeSubMember) {
       return JSON.stringify({
-         'version': 103,
+         'version': 104,
          'team': (excludeTeam ? [] : this.teamMember),
          'gemstock': (excludeGemStock ? {} : this.gemStock),
          'submember': (excludeSubMember ? [] : shrinkSubMembers(this.subMember))
@@ -6271,7 +6324,6 @@ var LLSaveStorageComponent = (function () {
    function createToggleButton(controller, text, enabled) {
       controller.enabled = enabled;
       controller.included = enabled;
-      var toggleClass = (enabled ? toggleIncludedClass : toggleDisabledClass);
       var toggleButton = createElement('a', {'className': (enabled ? toggleIncludedClass : toggleDisabledClass), 'href': 'javascript:;', 'innerHTML': text}, undefined, {
          'click': function () {
             if (controller.enabled) {
@@ -6360,7 +6412,7 @@ var LLSaveStorageComponent = (function () {
                key = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
             }
             var savedJson = loadStorageJSON();
-            savedJson[key] = data.serializeV103(!teamMemberToggleController.included, !gemStockToggleController.included, !subMemberToggleController.included);
+            savedJson[key] = data.serializeV104(!teamMemberToggleController.included, !gemStockToggleController.included, !subMemberToggleController.included);
             saveStorageJSON(savedJson);
             if (controller.reload) controller.reload(savedJson);
          }

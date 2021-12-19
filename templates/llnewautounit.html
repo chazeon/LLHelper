@@ -143,7 +143,7 @@
    }
 
    function makeSaveData() {
-      return new LLSaveData({'version': 103, 'team': comp_team.getMembers(), 'gemstock': comp_gemstock.saveData(), 'submember': comp_submember.saveData()});
+      return new LLSaveData({'version': 104, 'team': comp_team.getMembers(), 'gemstock': comp_gemstock.saveData(), 'submember': comp_submember.saveData()});
    }
 
    function handleLoadTeamMember(teamMember) {
@@ -195,23 +195,23 @@
 
    function savesis(){
       var saveData = makeSaveData();
-      var unitjson = saveData.serializeV103(true, false, true);
+      var unitjson = saveData.serializeV104(true, false, true);
       window.location.href="/llsavesis/"+unitjson;
    }
    function saveunit(){
       var saveData = makeSaveData();
-      var unitjson = saveData.serializeV103();
+      var unitjson = saveData.serializeV104();
       window.location.href="/llsaveunit/"+unitjson;
    }
    function savesubmembers(){
       var saveData = makeSaveData();
-      var submembersjson = saveData.serializeV103(true, true, false);
+      var submembersjson = saveData.serializeV104(true, true, false);
       window.location.href="/llsavesubmembers/"+submembersjson;
    }
    function saveallmembers(){
       var saveData = makeSaveData();
       saveData.subMember = saveData.subMember.concat(saveData.teamMember);
-      var submembersjson = saveData.serializeV103(true, true, false);
+      var submembersjson = saveData.serializeV104(true, true, false);
       window.location.href="/llsaveallmembers/"+submembersjson;
    }
    function handleLoadSis(sis) {
