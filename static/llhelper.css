@@ -111,7 +111,7 @@
 .unit-storage .storage-list .badge {
    margin-top: 4px;
 }
-.lltooltip {
+span.lltooltip {
    border-bottom: 1px dotted black;
 }
 .lltooltip .tooltiptext {
@@ -123,7 +123,10 @@
    padding: 5px;
    position: absolute;
    z-index: 1;
-   margin-top: 16px;
+   margin-top: 2em;
+}
+.lltooltip .tooltiptext.pop-left {
+   right: 0px;
 }
 .lltooltip:hover .tooltiptext {
    visibility: visible;
@@ -144,6 +147,31 @@
 .team-table >tbody >tr >th {
    min-width: 7em;
    vertical-align: middle;
+}
+.team-table .btn {
+   padding: 4px 8px;
+}
+.team-table .gem-list {
+   font-size: small;
+}
+.team-table .gem-list .gem-dot {
+   line-height: 8px;
+   display: block;
+}
+.team-table .gem-list .gem-dot div {
+   width: 6px;
+   height: 6px;
+   border-radius: 3px;
+   background-color: black;
+   display: inline-block;
+   margin-right: 1px;
+}
+.team-table .gem-list .btn {
+   padding: 2px 4px;
+   width: 66px;
+   text-align: center;
+   overflow: clip;
+   border-radius: 12px;
 }
 .no-padding {
    padding: 0;

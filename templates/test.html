@@ -173,15 +173,12 @@
             'cool': (mezame ? cards[id].cool2 : cards[id].cool),
             'skilllevel': skillLevel,
             'maxcost': maxcost,
-            'gems': [],
+            'gemlist': gems.map((g) => LLConst.Gem.getNormalGemMeta(g).key),
             'card': cards[id],
             'hp': (mezame ? cards[id].hp+1 : cards[id].hp)
          };
          member[cards[id].attribute] += kizuna[cards[id].rarity][mezame];
-         for (var j in gems) {
-            member.gems.push(new LLSisGem(gems[j], {'color': mapdata.attribute}));
-         }
-         members.push(new LLMember(member));
+         members.push(new LLMember(member, mapdata.attribute));
       }
       var llteam = new LLTeam(members);
       return llteam;
@@ -201,7 +198,7 @@
             'cool': (mezame ? cards[id].cool2 : cards[id].cool),
             'skilllevel': skillLevel,
             'maxcost': maxcost,
-            'gems': [],
+            'gemlist': [],
             'card': cards[id],
             'hp': (mezame ? cards[id].hp+1 : cards[id].hp)
          };

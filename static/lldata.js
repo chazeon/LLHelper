@@ -888,6 +888,17 @@ var LLComponentCollection = (function() {
  * the number id or jp name
  */
 /**
+ * @typedef {4 | 5 | 60 | 143} BigGroupIdType
+ * 4 for muse, 5 for aqours, 60 for niji, 143 for liella
+ */
+/**
+ * @typedef {1 | 2 | 3 | 4} SongGroupIdType
+ * 1 for muse, 2 for aqours, 3 for niji, 4 for liella
+ */
+/**
+ * @typedef {1 | 2 | 3} GradeType
+  */
+/**
  * @typedef NormalGemMetaType
  * @property {string} name en name
  * @property {string} cnname cn name
@@ -1128,7 +1139,7 @@ var LLConst = (function () {
     * @property {string} name
     * @property {string} cnname
     * @property {string} background_color
-    * @property {1|2|3} [grade]
+    * @property {GradeType} [grade]
     * @property {0|1} [member_gem]
     */
    /** @type {{[id: number]: MemberDataType}} */
@@ -1416,6 +1427,31 @@ var LLConst = (function () {
       }
       return ret;
    };
+   var MemberUtils = {
+      /**
+       * @param {MemberIdType} memberId
+       * @returns {BigGroupIdType}
+       */
+      getBigGroupId: function (memberId) {
+         var bigGroups = ret.Group.getBigGroupIds();
+         for (var i = 0; i < bigGroups.length; i++) {
+            var groupId = bigGroups[i];
+            if (ret.isMemberInGroup(memberId, groupId)) {
+               return groupId;
+            }
+         }
+         return undefined;
+      }
+   };
+   ret.Member = MemberUtils;
+
+   var GroupUtils = {
+      /** @returns {BigGroupIdType[]} */
+      getBigGroupIds: function () {
+         return [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
+      }
+   };
+   ret.Group = GroupUtils;
 
    var GemUtils = {
       getMemberGemList: function () { return MEMBER_GEM_LIST; },
@@ -1435,7 +1471,10 @@ var LLConst = (function () {
        */
       getNormalGemMeta: function (typeOrMeta) {
          if (typeof(typeOrMeta) == 'number') {
-            if (typeOrMeta < 0 || typeOrMeta >= GEM_NORMAL_TYPE_DATA.length) return undefined;
+            if (typeOrMeta < 0 || typeOrMeta >= GEM_NORMAL_TYPE_DATA.length) {
+               console.warn('Unknown normal gem id: ' + typeOrMeta);
+               return undefined;
+            }
             return GEM_NORMAL_TYPE_DATA[typeOrMeta];
          } else {
             return typeOrMeta;
@@ -1471,6 +1510,20 @@ var LLConst = (function () {
             str += meta.effect_value + '%/判';
          }
          return str;
+      },
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      getNormalGemNameAndDescription: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         var gemName = GemUtils.getNormalGemName(meta)
+         var gemDesc = GemUtils.getNormalGemBriefDescription(meta);
+         return gemName + ' （' + gemDesc + '）';
+      },
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      isGemFollowMemberAttribute: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         if (!meta) return false;
+         if (meta.heal_mul || meta.skill_mul || meta.ease_attr_mul) return true;
+         return false;
       }
    };
    ret.Gem = GemUtils;
@@ -3378,7 +3431,7 @@ var LLSisGem = (function () {
    /**
     * @constructor
     * @param {number} type
-    * @param {{grade: 1|2|3, member: MemberIdType, color: AttributeType, unit: string}} options
+    * @param {{grade: GradeType, member: MemberIdType, color: AttributeType, unit: string}} options
     */
    function LLSisGem_cls(type, options) {
       /** @type {NormalGemMetaType} */
@@ -3712,10 +3765,27 @@ var LLSkill = (function () {
    return cls;
 })();
 
+/**
+ * @typedef LLMember_Options
+ * @property {number | string} cardid int
+ * @property {number} smile int
+ * @property {number} pure int
+ * @property {number} cool int
+ * @property {number} skilllevel int 1~8
+ * @property {number} maxcost int 0~8
+ * @property {number} hp int
+ * @property {string[]} gemlist normal gem meta key list
+ * @property {CardDataType} card
+ */
 var LLMember = (function() {
    var int_attr = ["cardid", "smile", "pure", "cool", "skilllevel", "maxcost", "hp"];
    var MIC_RATIO = [0, 5, 11, 24, 40, 0]; //'UR': 40, 'SSR': 24, 'SR': 11, 'R': 5, 'N': 0
-   function LLMember_cls(v) {
+   /**
+    * @constructor
+    * @param {LLMember_Options} v 
+    * @param {AttributeType} mapAttribute
+    */
+   function LLMember_cls(v, mapAttribute) {
       v = v || {};
       var i;
       for (i = 0; i < int_attr.length; i++) {
@@ -3732,11 +3802,25 @@ var LLMember = (function() {
       } else {
          this.card = v.card;
       }
-      if (v.gems === undefined) {
+      this.gems = [];
+      if (v.gemlist === undefined) {
          console.error('missing gem info');
-         this.gems = [];
-      } else {
-         this.gems = v.gems;
+      } else if (v.card) {
+         for (i = 0; i < v.gemlist.length; i++) {
+            var gemMetaId = LLConst.GemType[v.gemlist[i]];
+            var memberId = v.card.typeid;
+            var sisOptions = {
+               'grade': LLConst.getMemberGrade(memberId),
+               'member': memberId,
+               'unit': LLConst.Member.getBigGroupId(memberId)
+            };
+            if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
+               sisOptions.color = v.card.attribute;
+            } else {
+               sisOptions.color = mapAttribute;
+            }
+            this.gems.push(new LLSisGem(gemMetaId, sisOptions));
+         }
       }
       this.raw = v;
    };
@@ -5399,6 +5483,9 @@ var LLSaveData = (function () {
    //   member gem use member id instead of name now
    //   nonet gem use unit id instead of key now (4 for muse, 5 for aqours, 60 for niji, 143 for liella)
    //   new member gems and nonet gems
+   //   team member def change
+   //     removed: gemnum, gemsinglepercent, gemallpercent, gemskill, gemacc, gemmember, gemnonet
+   //     added: gemlist (normal gem meta key list)
    var checkSaveDataVersion = function (data) {
       if (data === undefined) return 0;
       if (data.version !== undefined) return parseInt(data.version);
@@ -5521,6 +5608,63 @@ var LLSaveData = (function () {
       }
       return me;
    };
+   var CONVERT_MEMBER_103_TO_104 = {
+      '0': [],
+      '200': ['SADD_200'],
+      '450': ['SADD_450'],
+      '650': ['SADD_450', 'SADD_200'],
+      '1400': ['SADD_1400'],
+      '1600': ['SADD_1400', 'SADD_200'],
+      '1850': ['SADD_1400', 'SADD_450'],
+      '2050': ['SADD_1400', 'SADD_450', 'SADD_200'],
+      '0.1': ['SMUL_10'],
+      '0.16': ['SMUL_16'],
+      '0.26': ['SMUL_16', 'SMUL_10'],
+      '0.28': ['SMUL_28'],
+      '0.38': ['SMUL_28', 'SMUL_10'],
+      '0.44': ['SMUL_28', 'SMUL_16'],
+      '0.018': ['AMUL_18'],
+      '0.024': ['AMUL_24'],
+      '0.04': ['AMUL_40'],
+      '0.042': ['AMUL_24', 'AMUL_18']
+   };
+   var convertMemberV103ToV104 = function (members) {
+      for (var i = 0; i < members.length; i++) {
+         var member = members[i];
+         if (member.gemlist !== undefined) continue;
+         /** @type {string[]} */
+         var gemList = [];
+         if (member.gemnum) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemnum]);
+         }
+         if (member.gemsinglepercent) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemsinglepercent]);
+         }
+         if (member.gemallpercent) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemallpercent]);
+         }
+         if (member.gemskill == '1') {
+            var isHeal = false;
+            if (member.cardid && LLCardData) {
+               var cardbrief = (LLCardData.getCachedBriefData() || {})[member.cardid];
+               if (cardbrief && cardbrief.skilleffect == LLConst.SKILL_EFFECT_HEAL) {
+                  isHeal = true;
+               }
+            }
+            gemList.push(isHeal ? 'HEAL_480' : 'SCORE_250');
+         }
+         if (member.gemacc == '1') {
+            gemList.push('EMUL_33');
+         }
+         if (member.gemmember && member.gemmember != '0') {
+            gemList.push('MEMBER_29');
+         }
+         if (member.gemnonet == '1') {
+            gemList.push('NONET_42');
+         }
+         member.gemlist = gemList;
+      }
+   };
    /** @param {LLSaveData} me */
    var convertV103ToV104 = function (me) {
       // convert gem stock
@@ -5564,6 +5708,9 @@ var LLSaveData = (function () {
                stock['NONET_42'] = newN42;
             }
          }
+      }
+      if (me.teamMember && me.teamMember.length > 0) {
+         convertMemberV103ToV104(me.teamMember);
       }
    };
    var SUB_MEMBER_ATTRS = ['cardid', 'mezame', 'skilllevel', 'maxcost'];
@@ -5666,6 +5813,7 @@ var LLSaveData = (function () {
       fillDefaultGemStock(ret, 9);
       return ret;
    };
+   cls.normalizeMemberGemList = convertMemberV103ToV104;
    var proto = cls.prototype;
    proto.serializeV104 = function(excludeTeam, excludeGemStock, excludeSubMember) {
       return JSON.stringify({
@@ -5743,9 +5891,7 @@ var LLGemStockComponent = (function () {
    function getGemKeyText(curKey, curSubType) {
       if (curSubType == STOCK_SUB_TYPE_GEM) {
          var gemType = LLConst.GemType[curKey];
-         var gemName = LLConst.Gem.getNormalGemName(gemType)
-         var gemDesc = LLConst.Gem.getNormalGemBriefDescription(gemType);
-         return gemName + ' （' + gemDesc + '）';
+         return LLConst.Gem.getNormalGemNameAndDescription(gemType);
       } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
          return LLConst.getGroupName(parseInt(curKey));
       } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
@@ -6815,43 +6961,8 @@ var LLScoreDistributionChart = (function () {
 
 var LLTeamComponent = (function () {
    var createElement = LLUnit.createElement;
-   var gemNumOptions = [
-      {'value': '0', 'text': '0'},
-      {'value': '200', 'text': '200'},
-      {'value': '450', 'text': '450'},
-      {'value': '650', 'text': '650'},
-      {'value': '1400', 'text': '1400'},
-      {'value': '1600', 'text': '1600'},
-      {'value': '1850', 'text': '1850'},
-      {'value': '2050', 'text': '2050'}
-   ];
-   var gemSinglePercentOptions = [
-      {'value': '0', 'text': '0'},
-      {'value': '0.1', 'text': '10%'},
-      {'value': '0.16', 'text': '16%'},
-      {'value': '0.26', 'text': '26%'},
-      {'value': '0.28', 'text': '28%'},
-      {'value': '0.38', 'text': '38%'},
-      {'value': '0.44', 'text': '44%'}
-   ];
-   var gemAllPercentOptions = [
-      {'value': '0', 'text': '0'},
-      {'value': '0.018', 'text': '1.8%'},
-      {'value': '0.024', 'text': '2.4%'},
-      {'value': '0.04', 'text': '4.0%'},
-      {'value': '0.042', 'text': '4.2%'}
-   ];
-   var gemYesNoOptions = [
-      {'value': '0', 'text': '无'},
-      {'value': '1', 'text': '有'}
-   ];
-   var gemMemberOptions = [
-      {'value': '0', 'text': '无'},
-      {'value': '1', 'text': '曲属性'},
-      {'value': '2', 'text': 'smile'},
-      {'value': '3', 'text': 'pure'},
-      {'value': '4', 'text': 'cool'}
-   ];
+   var updateSubElements = LLUnit.updateSubElements;
+
    // controller
    // {
    //    get: function()
@@ -6921,30 +7032,7 @@ var LLTeamComponent = (function () {
       };
       return [textElement, '/', inputElement];
    }
-   // controller
-   // {
-   //    get: function()
-   //    set: function(value)
-   // }
-   function makeSelectCreator(selOptions, valOptions, valueChangeFunc, converter) {
-      return function(controller, i) {
-         var sel = createElement('select', selOptions);
-         var selComp = new LLSelectComponent(sel);
-         selComp.setOptions(valOptions);
-         selComp.onValueChange = function (v) {
-            valueChangeFunc && valueChangeFunc(i, v);
-         };
-         controller.get = function() {
-            if (converter) {
-               return converter(selComp.get());
-            } else {
-               return selComp.get();
-            }
-         };
-         controller.set = function(v) { selComp.set(v); }
-         return [sel];
-      }
-   }
+
    function makeButtonCreator(text, clickFunc) {
       return function(controller, i) {
          return [createElement('button', {'type': 'button', 'className': 'btn btn-default', 'innerHTML': text+(i+1)}, undefined, {'click': function(){clickFunc(i);}})];
@@ -7041,35 +7129,7 @@ var LLTeamComponent = (function () {
       controller.setColor = function(c) { ret[0].style.color = c; };
       return ret;
    }
-   function makeTextCreator(controller, getConverter, setConverter, defaultValue) {
-      if (defaultValue === undefined) defaultValue = '';
-      return function (controller) {
-         var textElement = createElement('span');
-         var curValue = defaultValue;
-         if (setConverter) {
-            controller.set = function(v) {
-               if (curValue !== v) {
-                  curValue = v;
-                  textElement.innerHTML = setConverter(v);
-               }
-            };
-         } else {
-            controller.set = function(v) {
-               if (curValue !== v) {
-                  curValue = v;
-                  textElement.innerHTML = v;
-               }
-            };
-         }
-         if (getConverter) {
-            controller.get = function() { return getConverter(curValue); };
-         } else {
-            controller.get = function() { return curValue; };
-         }
-         controller.reset = function() { controller.set(defaultValue); };
-         return [textElement];
-      };
-   }
+
    // controller
    // {
    //    setTooltip: function(value)
@@ -7092,18 +7152,239 @@ var LLTeamComponent = (function () {
       };
       return ret;
    }
-   // controller
-   // {
-   //    headColor: optional config
-   //    cellColor: optional config
-   //    fold: optional callback function()
-   //    unfold: optional callback function()
-   //    cells[0-8]: cell controllers
-   //    show: function()
-   //    hide: function()
-   //    toggleFold: optional function()
-   // }
-   function createRowFor9(head, cellCreator, controller) {
+
+   /**
+    * @typedef LLTeam_NormalGemListItemController
+    * @property {(attribute?: AttributeType) => void} resetAttribute (out)
+    * @property {(metaId: number) => void} resetMetaId (out)
+    * @property {() => number} getMetaId (out)
+    * @property {() => void} [onDelete] (in)
+    */
+   /**
+    * @param {LLTeam_NormalGemListItemController} controller 
+    * @param {number} metaId
+    * @param {AttributeType} [attribute]
+    * @param {boolean} [popLeft]
+    * @returns {HTMLElement} 
+    */
+   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
+      var myMetaId = metaId;
+      var myAttr = attribute;
+      var callbackOnDelete = function () {
+         controller.onDelete && controller.onDelete();
+      };
+      var btnName = createElement('button', {'type': 'button', 'className': 'btn btn-default'}, undefined, {'click': callbackOnDelete});
+      var dots = [];
+      for (var i = 0; i < 8; i++) {
+         dots.push(createElement('div', {'style': {'display': 'none'}}));
+      }
+      var btnDots = createElement('span', {'className': 'gem-dot'}, dots);
+      var btnTooltip = createElement('span', {'className': 'tooltiptext' + (popLeft ? ' pop-left' : '')});
+      var btnContainer = createElement('div', {'className': 'lltooltip'}, [btnName, btnTooltip]);
+      var updateMeta = function () {
+         var meta = LLConst.Gem.getNormalGemMeta(myMetaId);
+         var slot = meta.slot;
+         for (var i = 0; i < 8; i++) {
+            dots[i].style.display = (i < slot ? '' : 'none');
+         }
+         btnTooltip.innerHTML = LLConst.Gem.getNormalGemNameAndDescription(meta) + '<br/>点击移除该宝石';
+         updateSubElements(btnName, [LLConst.Gem.getNormalGemName(meta), btnDots], true);
+      };
+      var updateColor = function () {
+         for (var i = 0; i < 8; i++) {
+            dots[i].style['background-color'] = LLConst.getAttributeColor(myAttr);
+         }
+      };
+      controller.resetMetaId = function (id) {
+         myMetaId = id;
+         updateMeta();
+      };
+      controller.resetAttribute = function (attr) {
+         myAttr = attr;
+         updateColor();
+      };
+      controller.getMetaId = function () {
+         return myMetaId;
+      };
+      updateMeta();
+      updateColor();
+      return btnContainer;
+   }
+
+   /**
+    * @typedef LLTeam_NormalGemListController
+    * @property {() => string[]} get (out) normal gem meta key list
+    * @property {(memberId: MemberIdType) => LLSisGem[]} getSisGemList (out)
+    * @property {(normalGemMetaKeyList: string[]) => void} set (out)
+    * @property {(memberAttribute?: AttributeType, mapAttribute?: AttributeType) => void} setAttributes (out)
+    * @property {(normalGemMetaKey: string) => void} add (out)
+    * @property {(index: number, slots: number) => void} [onListChange] (in)
+    */
+   /**
+    * @param {LLTeam_NormalGemListController} controller 
+    * @param {number} index
+    * @returns {HTMLElement[]}
+    */
+   function normalGemListCreator(controller, index) {
+      /** @type {AttributeType} */
+      var memberAttribute = undefined;
+      /** @type {AttributeType} */
+      var mapAttribute = undefined;
+      var listContainer = createElement('div', {'className': 'gem-list'});
+      /** @type {HTMLElement[]} */
+      var listItems = [];
+      /** @type {LLTeam_NormalGemListItemController[]} */
+      var listItemControllers = [];
+      /** @param {number} normalGemMetaId */
+      var getAttributeForGem = function (normalGemMetaId) {
+         if (LLConst.Gem.isGemFollowMemberAttribute(normalGemMetaId)) {
+            // these gems use member attribute
+            return memberAttribute;
+         } else {
+            // other gems use map attribute
+            return mapAttribute;
+         }
+      };
+      var updateColor = function () {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            var curController = listItemControllers[i];
+            curController.resetAttribute(getAttributeForGem(curController.getMetaId()));
+         }
+      };
+      var callbackListChange = function () {
+         if (controller.onListChange) {
+            var totalSlot = 0;
+            for (var i = 0; i < listItemControllers.length; i++) {
+               var meta = LLConst.Gem.getNormalGemMeta(listItemControllers[i].getMetaId());
+               if (meta) {
+                  totalSlot += meta.slot;
+               }
+            }
+            controller.onListChange(index, totalSlot);
+         }
+      };
+      /**
+       * @param {LLTeam_NormalGemListItemController} [controller] delete by controller ref
+       * @param {number} [index] delete by index
+       * @param {boolean} doCallback
+       */
+      var deleteListItem = function (controller, index, doCallback) {
+         if (index === undefined) {
+            for (var i = 0; i < listItemControllers.length; i++) {
+               if (controller === listItemControllers[i]) {
+                  index = i;
+                  break;
+               }
+            }
+         }
+         if (index === undefined) {
+            console.error('Not found index to delete');
+            console.info(controller);
+            return;
+         }
+         listContainer.removeChild(listItems[index]);
+         listItems.splice(index, 1);
+         listItemControllers.splice(index, 1);
+         if (doCallback) {
+            callbackListChange();
+         }
+      };
+      /**
+       * @param {number} normalGemMetaId 
+       * @param {boolean} doCallback 
+       */
+      var addListItem = function (normalGemMetaId, doCallback) {
+         /** @type {LLTeam_NormalGemListItemController} */
+         var itemController = {
+            'onDelete': () => deleteListItem(itemController, undefined, true)
+         };
+         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), index >= 7);
+         listItems.push(item);
+         listItemControllers.push(itemController);
+         updateSubElements(listContainer, item);
+         if (doCallback) {
+            callbackListChange();
+         }
+      };
+      controller.get = function () {
+         return listItemControllers.map((c) => LLConst.Gem.getNormalGemMeta(c.getMetaId()).key);
+      };
+      /** @deprecated */
+      controller.getSisGemList = function (memberId) {
+         /** @type {LLSisGem[]} */
+         var ret = [];
+         var grade = LLConst.getMemberGrade(memberId);
+         var bigGroup = LLCosnt.Member.getBigGroupId(memberId);
+         for (var i = 0; i < listItemControllers.length; i++) {
+            var gemMetaId = listItemControllers[i].getMetaId();
+            var attribute = getAttributeForGem(gemMetaId);
+            ret.push(new LLSisGem(gemMetaId, {'grade': grade, 'member': memberId, 'color': attribute, 'unit': bigGroup}));
+         }
+         return ret;
+      };
+      controller.set = function (normalGemMetaKeyList) {
+         var i = 0;
+         for (; i < normalGemMetaKeyList.length; i++) {
+            var curId = LLConst.GemType[normalGemMetaKeyList[i]];
+            if (i < listItemControllers.length) {
+               var curController = listItemControllers[i];
+               if (curController.getMetaId() != curId) {
+                  curController.resetMetaId(curId);
+                  curController.resetAttribute(getAttributeForGem(curId))
+               }
+            } else {
+               addListItem(curId, false);
+            }
+         }
+         for (; i < listItemControllers.length;) {
+            deleteListItem(undefined, i, false);
+         }
+         callbackListChange();
+      };
+      controller.setAttributes = function (memberAttr, mapAttr) {
+         if (memberAttr !== undefined) {
+            memberAttribute = memberAttr;
+         }
+         if (mapAttr !== undefined) {
+            mapAttribute = mapAttr;
+         }
+         updateColor();
+      };
+      controller.add = function (normalGemMetaKey) {
+         var gemId = LLConst.GemType[normalGemMetaKey];
+         if (gemId === undefined) return;
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (listItemControllers[i].getMetaId() == gemId) {
+               console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
+               return;
+            }
+         }
+         addListItem(gemId, true);
+      };
+      return [listContainer];
+   }
+
+   /**
+    * @template CellController
+    * @typedef LLTeam_RowController
+    * @property {string} [headColor] (in)
+    * @property {string} [cellColor] (in)
+    * @property {() => void} [fold] (in)
+    * @property {() => void} [unfold] (in)
+    * @property {CellController[]} cells (out) index 0-8
+    * @property {() => void} show (out)
+    * @property {() => void} hide (out)
+    * @property {() => void} [toggleFold] (out)
+    */
+   /**
+    * @template CellController
+    * @param {string} head 
+    * @param {(controller: CellController, index: number) => HTMLElement[]} cellCreator 
+    * @param {LLTeam_RowController<CellController>} controller 
+    * @param {(controller: CellController, index: number) => void} cellControllerDeco
+    * @returns {HTMLElement}
+    */
+   function createRowFor9(head, cellCreator, controller, cellControllerDeco) {
       var headElement;
       if (controller.fold) {
          var arrowSpan = createElement('span', {'className': 'tri-down'});
@@ -7138,6 +7419,9 @@ var LLTeamComponent = (function () {
          var tdElement = createElement('td', undefined, cellCreator(cellController, i));
          if (controller.cellColor) {
             tdElement.style.color = controller.cellColor;
+         }
+         if (cellControllerDeco) {
+            cellControllerDeco(cellController, i);
          }
          cells.push(tdElement);
          cellControllers.push(cellController);
@@ -7188,7 +7472,7 @@ var LLTeamComponent = (function () {
    //    setMember: function(i, member) alias putMember
    //    setMembers: function(members)
    //    getMember(i), getMembers()
-   //    setMemberGem(i, g), setMemberGems(g)
+   //    setMemberGem(i, g)
    //    getCardId(i), getCardIds()
    //    getWeight(i), getWeights(), setWeight(i,w), setWeights(i,w)
    //    setStrengthAttribute(i,s), setStrengthAttributes(s)
@@ -7199,6 +7483,7 @@ var LLTeamComponent = (function () {
    //    setHeal(i,s)
    //    setSwapper: function(swapper)
    //    getSwapper: function()
+   //    setMapAttribute: function(attr)
    //    saveData: function()
    //    loadData: function(data)
    // }
@@ -7216,14 +7501,9 @@ var LLTeamComponent = (function () {
          'pure': {'headColor': 'green', 'cellColor': 'green', 'memberKey': 'pure', 'memberDefault': 0},
          'cool': {'headColor': 'blue', 'cellColor': 'blue', 'memberKey': 'cool', 'memberDefault': 0},
          'skill_level': {'memberKey': 'skilllevel'},
-         'slot': {'owning': ['gem_num', 'gem_single_percent', 'gem_all_percent', 'gem_score', 'gem_acc', 'gem_member', 'gem_nonet']},
-         'gem_num': {'memberKey': 'gemnum'},
-         'gem_single_percent': {'memberKey': 'gemsinglepercent'},
-         'gem_all_percent': {'memberKey': 'gemallpercent'},
-         'gem_score': {'memberKey': 'gemskill'},
-         'gem_acc': {'memberKey': 'gemacc'},
-         'gem_member': {'memberKey': 'gemmember'},
-         'gem_nonet': {'memberKey': 'gemnonet'},
+         'slot': {'owning': ['put_gem', 'gem_list']},
+         'put_gem': {},
+         'gem_list': {'memberKey': 'gemlist'},
          'str_attr': {},
          'str_skill_theory': {},
          'str_card_theory': {},
@@ -7255,16 +7535,8 @@ var LLTeamComponent = (function () {
       var doSetToMember = function(i, member) {
          member[this.memberKey] = this.cells[i].get();
       };
-      var calcSlot = function(i) {
-         var result = 0;
-         result += LLSisGem.parseSADDSlot(controllers.gem_num.cells[i].get());
-         result += LLSisGem.parseSMULSlot(controllers.gem_single_percent.cells[i].get()*100);
-         result += LLSisGem.parseAMULSlot(controllers.gem_all_percent.cells[i].get()*100);
-         result += controllers.gem_score.cells[i].get()*4;
-         result += controllers.gem_acc.cells[i].get()*4;
-         result += (controllers.gem_member.cells[i].get() > 0 ? 4 : 0);
-         result += controllers.gem_nonet.cells[i].get()*4;
-         controllers.slot.cells[i].setUsedSlot(result);
+      var updateSlot = function(i, slots) {
+         controllers.slot.cells[i].setUsedSlot(slots);
       };
       for (var i in controllers) {
          if (controllers[i].owning) {
@@ -7278,7 +7550,6 @@ var LLTeamComponent = (function () {
       }
       var number3Config = {'type': 'number', 'step': 'any', 'size': 3, 'autocomplete': 'off', 'className': 'form-control num-size-3', 'value': '0'};
       var number1Config = {'type': 'number', 'step': '1', 'size': 1, 'autocomplete': 'off', 'className': 'form-control num-size-1', 'value': '1'};
-      var selConfig = {'className': 'form-control'};
       rows.push(createRowFor9('权重', makeInputCreator(number3Config, parseFloat), controllers.weight));
       rows.push(createRowFor9('放卡', makeButtonCreator('放卡', function(i) {
          controller.onPutCardClicked && controller.onPutCardClicked(i);
@@ -7295,13 +7566,15 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('cool', makeInputCreator(number3Config, parseInt), controllers.cool));
       rows.push(createRowFor9('技能等级', skillLevelCreator, controllers.skill_level));
       rows.push(createRowFor9('使用槽数', slotCreator, controllers.slot));
-      rows.push(createRowFor9('单体数值', makeSelectCreator(selConfig, gemNumOptions, calcSlot, parseInt), controllers.gem_num));
-      rows.push(createRowFor9('单体百分比', makeSelectCreator(selConfig, gemSinglePercentOptions, calcSlot), controllers.gem_single_percent));
-      rows.push(createRowFor9('全体百分比', makeSelectCreator(selConfig, gemAllPercentOptions, calcSlot), controllers.gem_all_percent));
-      rows.push(createRowFor9('奶/分宝石', makeSelectCreator(selConfig, gemYesNoOptions, calcSlot, parseInt), controllers.gem_score));
-      rows.push(createRowFor9('判定宝石', makeSelectCreator(selConfig, gemYesNoOptions, calcSlot, parseInt), controllers.gem_acc));
-      rows.push(createRowFor9('个人宝石', makeSelectCreator(selConfig, gemMemberOptions, calcSlot, parseInt), controllers.gem_member));
-      rows.push(createRowFor9('九重奏宝石', makeSelectCreator(selConfig, gemYesNoOptions, calcSlot, parseInt), controllers.gem_nonet));
+      rows.push(createRowFor9('放宝石', makeButtonCreator('放宝石', function (i) {
+         if (controller.onPutGemClicked) {
+            var gemKey = controller.onPutGemClicked(i);
+            if (LLConst.GemType[gemKey] !== undefined) {
+               controllers.gem_list.cells[i].add(gemKey);
+            }
+         }
+      }), controllers.put_gem));
+      rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
       rows.push(createRowFor9('换位', makeSwapCreator(controller), {}));
       rows.push(createRowFor9('属性强度', textCreator, controllers.str_attr));
       rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
@@ -7339,11 +7612,13 @@ var LLTeamComponent = (function () {
             if (member.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
+            controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
          } else {
             controllers.info.cells[i].reset();
             controllers.info_name.cells[i].reset();
             controllers.skill_trigger.cells[i].reset();
             controllers.skill_effect.cells[i].reset();
+            controllers.gem_list.cells[i].setAttributes('');
          }
          if (member.maxcost !== undefined) {
             controllers.slot.cells[i].setMaxSlot(parseInt(member.maxcost));
@@ -7367,40 +7642,20 @@ var LLTeamComponent = (function () {
          return retMember;
       };
       controller.getMembers = makeGet9Function(controller.getMember);
+      /**
+       * @param {number} i 
+       * @param {LLSisGem[]} gems 
+       */
       controller.setMemberGem = function(i, gems) {
-         var sumSADD = 0;
-         var sumSMUL = 0;
-         var sumAMUL = 0;
-         var sumSKILL = 0;
-         var sumMEMBER = 0;
-         var sumNONET = 0;
+         /** @type {string[]} */
+         var gemList = [];
          for (var j = 0; j < gems.length; j++) {
             /** @type {LLSisGem} */
             var curGem = gems[j];
-            if (curGem.isAttrAdd() && curGem.isEffectRangeSelf()) {
-               sumSADD += curGem.getEffectValue();
-            } else if (curGem.isAttrMultiple()) {
-               if (curGem.isMemberGem()) {
-                  sumMEMBER++;
-               } else if (curGem.isNonet()) {
-                  sumNONET++;
-               } else if (curGem.isEffectRangeSelf()) {
-                  sumSMUL += curGem.getEffectValue();
-               } else {
-                  sumAMUL += Math.round(curGem.getEffectValue()*10);
-               }
-            } else if (curGem.isSkillGem()) {
-               sumSKILL++;
-            }
+            gemList.push(LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType()).key);
          }
-         controllers.gem_num.cells[i].set(sumSADD);
-         controllers.gem_single_percent.cells[i].set(String(sumSMUL/100));
-         controllers.gem_all_percent.cells[i].set(String(sumAMUL/1000));
-         controllers.gem_score.cells[i].set(sumSKILL);
-         controllers.gem_member.cells[i].set(sumMEMBER);
-         controllers.gem_nonet.cells[i].set(sumNONET);
+         controllers.gem_list.cells[i].set(gemList);
       };
-      controller.setMemberGems = makeSet9Function(controller.setMemberGem);
       controller.getCardId = function(i) { return controllers.avatar.cells[i].getCardId(); };
       controller.getCardIds = makeGet9Function(controller.getCardId);
       controller.getWeight = function(i) { return controllers.weight.cells[i].get(); };
@@ -7427,6 +7682,8 @@ var LLTeamComponent = (function () {
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
       controller.getSwapper = function() { return swapper; };
+      /** @param {AttributeType} mapAttr */
+      controller.setMapAttribute = function (mapAttr) { controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr)); };
       /** @returns {boolean} */
       controller.isAllMembersPresent = function () {
          var cardIds = controller.getCardIds();
@@ -7437,7 +7694,10 @@ var LLTeamComponent = (function () {
       };
 
       controller.saveData = controller.getMembers;
-      controller.loadData = controller.setMembers;
+      controller.loadData = function (members) {
+         LLSaveData.normalizeMemberGemList(members);
+         controller.setMembers(members);
+      };
       return createElement('table', {'className': 'table table-bordered table-hover table-condensed team-table'}, [
          createElement('tbody', undefined, rows)
       ]);
@@ -7454,6 +7714,7 @@ var LLTeamComponent = (function () {
       var element = LLUnit.getElement(id);
       element.appendChild(createTeamTable(this));
       this.onPutCardClicked = callbacks && callbacks.onPutCardClicked;
+      this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
       this.onCenterChanged = callbacks && callbacks.onCenterChanged;
    }
    var cls = LLTeamComponent_cls;
@@ -7910,4 +8171,49 @@ var LLSongSelectorComponent = (function () {
 
    LLSaveLoadJsonMixin(LLSongSelectorComponent_cls.prototype);
    return LLSongSelectorComponent_cls;
+})();
+
+/**
+ * @typedef LLGemSelectorComponent_SaveDataType
+ */
+var LLGemSelectorComponent = (function () {
+   var createElement = LLUnit.createElement;
+   var updateSubElements = LLUnit.updateSubElements;
+   var createFormInlineGroup = LLUnit.createFormInlineGroup;
+
+   /** @returns {HTMLElement} */
+   function createFormSelect() {
+      return createElement('select', {'className': 'form-control no-padding'});
+   }
+
+   /**
+    * @constructor
+    * @param {string | HTMLElement} id 
+    * @param {SisDictDataType} gemData
+    */
+   function LLGemSelectorComponent_cls(id, gemData) {
+      var container = LLUnit.getElement(id);
+
+      var gemChoice = createFormSelect();
+      var gemChoiceComponent = new LLSelectComponent(gemChoice);
+      var gemOptions = [{'value': '', 'text': '选择宝石'}];
+      var normalGems = LLConst.Gem.getNormalGemTypeKeys();
+      var i;
+      for (i = 0; i < normalGems.length; i++) {
+         var normalGemKey = normalGems[i];
+         var normalGemId = LLConst.GemType[normalGemKey];
+         gemOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
+      }
+      gemChoiceComponent.setOptions(gemOptions);
+
+      updateSubElements(container, [
+         createFormInlineGroup('宝石：', gemChoice)
+      ], true);
+
+      this.getGemId = function () {
+         return gemChoiceComponent.get();
+      };
+   }
+
+   return LLGemSelectorComponent_cls;
 })();
