@@ -184,31 +184,6 @@ var LLHelperLocalStorage = {
    }
 };
 
-/**
- * @typedef SisDataType
- * @property {string} id
- * @property {1|2} type 1 for normal (circle), 2 for live arena (square)
- * @property {string} jpname
- * @property {number} [level] (LA only) level 1~5
- * @property {number} size 
- * @property {1|2} [range] (normal only) 1 for self, 2 for team
- * @property {number} effect_type 
- * @property {number} effect_value 
- * @property {1} [fixed] 
- * @property {1|2|3} [color] 1 for smile, 2 for pure, 3 for cool
- * @property {number} [member] member id
- * @property {1|2|3} [grade] grade 1~3
- * @property {number} [group]
- * @property {number} [trigger_ref]
- * @property {number} [trigger_value]
- * @property {number} [sub_skill] sub sis id
- * @property {number} [live_effect_type]
- * @property {number} [live_effect_interval]
- */
-/**
- * @typedef {{[id: string]: SisDataType}} SisDictDataType
- */
-
 /*
  * LLData: class to load json data from backend
  * LLSimpleKeyData: class to load json data from backend
@@ -407,14 +382,6 @@ var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
-/**
- * @typedef NoteDataType
- * @property {number} timing_sec float
- * @property {number} notes_level
- * @property {number} effect LLConst.NOTE_TYPE_*
- * @property {number} effect_value float, hold time
- * @property {number} position 1~9, 1 for right most, 9 for left most
- */
 var LLMapNoteData = (function () {
    function LLMapNoteData_cls(base_url) {
       this.baseUrl = (base_url || 'https://rawfile.loveliv.es/livejson/');
@@ -892,13 +859,6 @@ var LLComponentCollection = (function() {
  * 4 for muse, 5 for aqours, 60 for niji, 143 for liella
  */
 /**
- * @typedef {1 | 2 | 3 | 4} SongGroupIdType
- * 1 for muse, 2 for aqours, 3 for niji, 4 for liella
- */
-/**
- * @typedef {1 | 2 | 3} GradeType
-  */
-/**
  * @typedef NormalGemMetaType
  * @property {string} name en name
  * @property {string} cnname cn name
@@ -1141,7 +1101,7 @@ var LLConst = (function () {
     * @property {string} name
     * @property {string} cnname
     * @property {string} background_color
-    * @property {GradeType} [grade]
+    * @property {LLH.Core.GradeType} [grade]
     * @property {0|1} [member_gem]
     */
    /** @type {{[id: number]: MemberDataType}} */
@@ -2446,56 +2406,8 @@ var LLSkillContainer = (function() {
    return cls;
 })();
 
-/**
- * @typedef SkillDetailDataType
- * @property {number} score effect value
- * @property {number} time discharge time
- * @property {number} require trigger value
- * @property {number} possibility trigger rate
- * @property {number} [limit] trigger limit
- */
 /** @typedef {'smile'|'pure'|'cool'} AttributeType */
-/**
- * @typedef CardDataType
- * @property {number} id
- * @property {'N'|'R'|'SR'|'SSR'|'UR'} rarity
- * @property {AttributeType|'all'} attribute
- * @property {number} typeid unit type id
- * @property {string} jpeponym
- * @property {string} eponym
- * @property {string} jpname
- * @property {string} name
- * @property {number} hp
- * @property {number} smile
- * @property {number} pure
- * @property {number} cool
- * @property {number} smile2
- * @property {number} pure2
- * @property {number} cool2
- * @property {number} skill skill id
- * @property {number} Cskill leader skill id
- * @property {0|1} support
- * @property {0|1} special
- * @property {number} minslot
- * @property {number} maxslot
- * @property {number} album album id
- * @property {AttributeType} Cskillattribute add from
- * @property {number} Cskillpercentage
- * @property {number} [Csecondskillattribute] effect value
- * @property {number} [Csecondskilllimit] target
- * @property {string} jpskillname
- * @property {string} skillname
- * @property {number} skilleffect
- * @property {number} triggertype
- * @property {number} skillleveluppattern
- * @property {SkillDetailDataType[]} skilldetail
- * @property {number | string} triggerrequire <require> | <min>~<max>
- * @property {number[]} [triggertarget]
- * @property {number[]} [effecttarget]
- */
-/**
- * @typedef {{[id: string]: CardDataType}} CardsDataType
- */
+
 var LLCardSelector = (function() {
    var createElement = LLUnit.createElement;
    var SEL_ID_CARD_CHOICE = 'cardchoice';
@@ -2532,7 +2444,7 @@ var LLCardSelector = (function() {
     */
    /**
     * @constructor
-    * @param {CardsDataType} cards 
+    * @param {LLH.API.CardDictDataType} cards 
     * @param {string | HTMLElement} container 
     */
    function LLCardSelector_cls(cards, container) {
@@ -2927,42 +2839,6 @@ var LLCardSelector = (function() {
  * @property {string | HTMLElement} [songstardiff]
  * @property {string | HTMLElement} [map]
  */
-/**
- * @typedef SongSettingDataType
- * @property {string} liveid
- * @property {number} difficulty
- * @property {number} stardifficulty
- * @property {number} combo
- * @property {number} cscore
- * @property {number} bscore
- * @property {number} ascore
- * @property {number} sscore
- * @property {string} jsonpath
- * @property {0 | 1} isac
- * @property {0 | 1} isswing
- * @property {string[9]} positionweight Float
- * @property {string[9]} positionnote Integer
- * @property {string[9]} positionslider Integer
- * @property {string[9]} positionswing Integer
- * @property {string[9]} positionswingslider Integer
- * @property {string} star Integer
- * @property {string} slider Integer
- * @property {string} swing Integer
- * @property {string} swingslider Integer
- * @property {string} time Float
- */
-/**
- * @typedef SongDataType
- * @property {string} id
- * @property {string} jpname
- * @property {string} name
- * @property {number} group 1(muse)|2(aqours)|3(niji)|4(liella)
- * @property {AttributeType|'all'} attribute 
- * @property {{[id: string]: SongSettingDataType}} settings
- */
-/**
- * @typedef {{[id: string]: SongDataType}} SongsDataType
- */
 var LLSongSelector = (function() {
 //  removed difficulty (easy, normal, hard, expert, master, arcade, expert_swing)
 //  added live settings (settings: {"<liveid>": {<similar to old difficulty>, difficulty: <difficulty id>, isac: <isac>, isswing: <isswing>}, ...})
@@ -3004,7 +2880,7 @@ var LLSongSelector = (function() {
     */
    /**
     * @constructor
-    * @param {string | SongsDataType} songjson 
+    * @param {string | LLH.API.SongDictDataType} songjson 
     * @param {boolean} includeDefaultSong 
     * @param {LLSongSelector_CompMapping} compMapping
     */
@@ -3078,11 +2954,11 @@ var LLSongSelector = (function() {
 
    /**
     * @this LLSongSelector
-    * @param {string | SongsDataType} songjson
+    * @param {string | LLH.API.SongDictDataType} songjson
     * @param {boolean} includeDefaultSong
     */
    proto.setSongData = function (songjson, includeDefaultSong) {
-      /** @type {SongsDataType} */
+      /** @type {LLH.API.SongDictDataType} */
       var songs = undefined;
       if (typeof(songjson) == "string") {
          songs = JSON.parse(songjson);
@@ -3100,7 +2976,7 @@ var LLSongSelector = (function() {
          }
       }
 
-      /** @type {{[id: string]: SongSettingDataType}} */
+      /** @type {LLH.API.SongSettingDictDataType} */
       var songSettings = {};
       for (var i in songs) {
          if (!songs[i].settings) continue;
@@ -3352,7 +3228,7 @@ var LLMap = (function () {
 
    /**
     * @constructor
-    * @param {{song?: SongDataType, songSetting?: SongSettingDataType, friendCSkill?: CSkillDataType}} options 
+    * @param {{song?: LLH.API.SongDataType, songSetting?: LLH.API.SongSettingDataType, friendCSkill?: CSkillDataType}} options 
     */
    function LLMap_cls(options) {
       if (options.song) {
@@ -3457,7 +3333,7 @@ var LLSisGem = (function () {
    /**
     * @constructor
     * @param {number} type
-    * @param {{grade: GradeType, member: MemberIdType, color: AttributeType, unit: string}} options
+    * @param {{grade: LLH.Core.GradeType, member: MemberIdType, color: AttributeType, unit: string}} options
     */
    function LLSisGem_cls(type, options) {
       /** @type {NormalGemMetaType} */
@@ -3551,16 +3427,15 @@ var LLSisGem = (function () {
 var LLSkill = (function () {
    /**
     * @constructor
-    * @param {CardDataType} card 
+    * @param {LLH.API.CardDataType} card 
     * @param {number} level base 0
     * @param {{gemskill?: number, skillup?: number}} [buff] 
     */
    function LLSkill_cls(card, level, buff) {
       this.card = card;
       this.level = level;
-      /** @type {SkillDetailDataType[]} */
       var skilldetails = card.skilldetail || [];
-      /** @type {SkillDetailDataType} */
+      /** @type {LLH.API.SkillDetailDataType} */
       var skilldetail = skilldetails[level]  || {};
       this.hasSkill = (card.skilldetail && skilldetail.possibility);
       this.require = skilldetail.require || 1;
@@ -3724,7 +3599,7 @@ var LLSkill = (function () {
  * @property {number} maxcost int 0~8
  * @property {number} hp int
  * @property {string[]} gemlist normal gem meta key list
- * @property {CardDataType} card
+ * @property {LLH.API.CardDataType} card
  */
 var LLMember = (function() {
    var int_attr = ["cardid", "smile", "pure", "cool", "skilllevel", "maxcost", "hp"];
@@ -3917,7 +3792,7 @@ var LLMember = (function() {
    };
    /**
     * @param {number} [levelBoost]
-    * @returns {SkillDetailDataType}
+    * @returns {LLH.API.SkillDetailDataType}
     */
    proto.getSkillDetail = function(levelBoost) {
       if (!levelBoost) {
@@ -3934,7 +3809,7 @@ var LLMember = (function() {
  * @typedef NoteTriggerDataType
  * @property {1|2|3|4} type 1 for enter, 2 for hit, 3 for hold, 4 for release
  * @property {number} time float
- * @property {NoteDataType} note
+ * @property {LLH.API.NoteDataType} note
  * @property {number} factor 0.5 for swing, 1 for other
  */
 var LLSimulateContext = (function() {
@@ -4036,7 +3911,7 @@ var LLSimulateContext = (function() {
          if ((!curMember.card.skill) || (curMember.skilleffect == 0)) continue;
          var triggerType = curMember.card.triggertype;
          var effectType = curMember.card.skilleffect;
-         /** @type {SkillDetailDataType} */
+         /** @type {LLH.API.SkillDetailDataType} */
          var skillDetail = curMember.getSkillDetail();
          var skillRequire = skillDetail.require;
          var targets;
@@ -8016,7 +7891,7 @@ var LLSongSelectorComponent = (function () {
 
       var selector = new LLSongSelector(songData, true, compMapping);
       selector.onSongSettingChange = function (songSettingId) {
-         /** @type {SongSettingDataType} */
+         /** @type {LLH.API.SongSettingDataType} */
          var songSetting = undefined;
          if (songSettingId) {
             songSetting = selector.songSettings[songSettingId];
@@ -8041,11 +7916,11 @@ var LLSongSelectorComponent = (function () {
       this.setFriendCSkillComponent = function (comp) {
          comp_friendCSkill = comp;
       };
-      /** @returns {SongDataType} */
+      /** @returns {LLH.API.SongDataType} */
       this.getSelectedSong = function () {
          return selector.getSelectedSong();
       };
-      /** @returns {SongSettingDataType} */
+      /** @returns {LLH.API.SongSettingDataType} */
       this.getSelectedSongSetting = function () {
          return selector.getSelectedSongSetting();
       };
@@ -8059,7 +7934,7 @@ var LLSongSelectorComponent = (function () {
        * @returns {LLMap}
        */
       this.getMap = function (customWeights) {
-         /** @type {SongSettingDataType} */
+         /** @type {LLH.API.SongSettingDataType} */
          var songSetting = selector.getSelectedSongSetting();
          var llmap = new LLMap({
             'song': selector.getSelectedSong(),
@@ -8103,7 +7978,7 @@ var LLGemSelectorComponent = (function () {
    /**
     * @constructor
     * @param {string | HTMLElement} id 
-    * @param {SisDictDataType} gemData
+    * @param {LLH.API.SisDictDataType} gemData
     */
    function LLGemSelectorComponent_cls(id, gemData) {
       var container = LLUnit.getElement(id);
