@@ -184,6 +184,31 @@ var LLHelperLocalStorage = {
    }
 };
 
+/**
+ * @typedef SisDataType
+ * @property {string} id
+ * @property {1|2} type 1 for normal (circle), 2 for live arena (square)
+ * @property {string} jpname
+ * @property {number} [level] (LA only) level 1~5
+ * @property {number} size 
+ * @property {1|2} [range] (normal only) 1 for self, 2 for team
+ * @property {number} effect_type 
+ * @property {number} effect_value 
+ * @property {1} [fixed] 
+ * @property {1|2|3} [color] 1 for smile, 2 for pure, 3 for cool
+ * @property {number} [member] member id
+ * @property {1|2|3} [grade] grade 1~3
+ * @property {number} [group]
+ * @property {number} [trigger_ref]
+ * @property {number} [trigger_value]
+ * @property {number} [sub_skill] sub sis id
+ * @property {number} [live_effect_type]
+ * @property {number} [live_effect_interval]
+ */
+/**
+ * @typedef {{[id: string]: SisDataType}} SisDictDataType
+ */
+
 /*
  * LLData: class to load json data from backend
  * LLSimpleKeyData: class to load json data from backend
@@ -377,6 +402,9 @@ var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
    ['id', 'typeid', 'support', 'rarity', 'attribute', 'special', 'type', 'skilleffect', 'triggertype', 'triggerrequire', 'eponym', 'jpeponym', 'hp', 'album']);
 var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
+var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
+   ['id', 'type', 'jpname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
+    'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 /**
@@ -855,6 +883,40 @@ var LLComponentCollection = (function() {
    return cls;
 })();
 
+/**
+ * @typedef {number | string} MemberIdType
+ * the number id or jp name
+ */
+/**
+ * @typedef {4 | 5 | 60 | 143} BigGroupIdType
+ * 4 for muse, 5 for aqours, 60 for niji, 143 for liella
+ */
+/**
+ * @typedef {1 | 2 | 3 | 4} SongGroupIdType
+ * 1 for muse, 2 for aqours, 3 for niji, 4 for liella
+ */
+/**
+ * @typedef {1 | 2 | 3} GradeType
+  */
+/**
+ * @typedef NormalGemMetaType
+ * @property {string} name en name
+ * @property {string} cnname cn name
+ * @property {string} key
+ * @property {number} slot
+ * @property {1|2} effect_range 1 for self, 2 for team
+ * @property {number} effect_value 
+ * @property {0|1} [per_color] 1 means exists gem for 3 kinds of color
+ * @property {0|1} [per_grade] 1 means exists gem for 3 grades
+ * @property {0|1} [per_member] 1 means exists gem for different members
+ * @property {0|1} [per_unit] 1 means exists gem for different units
+ * @property {0|1} [attr_add] 1 means effect_value is fixed value to add attr
+ * @property {0|1} [attr_mul] 1 means effect_value is percentage buff to attr
+ * @property {0|1} [skill_mul] 1 means effect_value is percentage buff to score skill
+ * @property {0|1} [heal_mul] 1 means effect_value is rate of heal to score on overheal
+ * @property {0|1} [ease_attr_mul] 1 means effect_value is percentage buff to attr when covered by ease
+ */
+
 /*
  * LLConst: static meta data
  */
@@ -920,6 +982,7 @@ var LLConst = (function () {
       'エマ・ヴェルデ': 208,
       '天王寺璃奈': 209,
       '三船栞子': 212,
+      'ミア・テイラー': 214,
       'MEMBER_AYUMU': 201,
       'MEMBER_KASUMI': 202,
       'MEMBER_SHIZUKU': 203,
@@ -930,6 +993,7 @@ var LLConst = (function () {
       'MEMBER_EMMA': 208,
       'MEMBER_RINA': 209,
       'MEMBER_SHIORIKO': 212,
+      'MEMBER_MIA': 214,
 
       '澁谷かのん': 301,
       '唐可可': 302,
@@ -1048,49 +1112,84 @@ var LLConst = (function () {
       'SONG_DEFAULT_SET_2': 2,
 
       'BACKGROUND_COLOR_DEFAULT': '#dcdbe3',
+
+      'SIS_TYPE_NORMAL': 1,
+      'SIS_TYPE_LIVE_ARENA': 2,
+
+      'SIS_RANGE_SELF': 1,
+      'SIS_RANGE_TEAM': 2,
+
+      'SIS_EFFECT_TYPE_SMILE': 1,
+      'SIS_EFFECT_TYPE_PURE': 2,
+      'SIS_EFFECT_TYPE_COOL': 3,
+      'SIS_EFFECT_TYPE_SCORE_BOOST': 11,
+      'SIS_EFFECT_TYPE_HEAL_SCORE': 12,
+      'SIS_EFFECT_TYPE_ACCURACY_SMILE': 13,
+      'SIS_EFFECT_TYPE_ACCURACY_PURE': 14,
+      'SIS_EFFECT_TYPE_ACCURACY_COOL': 15,
+      'SIS_EFFECT_TYPE_LA_SCORE': 24,
+      'SIS_EFFECT_TYPE_LA_DEBUFF': 25,
+
+      'SIS_LIVE_EFFECT_TYPE_DAMAGE': 1,
+      'SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN': 2
    };
    var COLOR_ID_TO_NAME = ['', 'smile', 'pure', 'cool'];
    var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple'};
+   /**
+    * @typedef MemberDataType
+    * @property {'smile'|'pure'|'cool'} color
+    * @property {string} name
+    * @property {string} cnname
+    * @property {string} background_color
+    * @property {GradeType} [grade]
+    * @property {0|1} [member_gem]
+    */
+   /** @type {{[id: number]: MemberDataType}} */
    var MEMBER_DATA = {};
-   MEMBER_DATA[KEYS.MEMBER_HONOKA] = {'name': '高坂穂乃果', 'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_ELI] =    {'name': '絢瀬絵里',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_KOTORI] = {'name': '南ことり',   'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_UMI] =    {'name': '園田海未',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RIN] =    {'name': '星空凛',     'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_MAKI] =   {'name': '西木野真姫', 'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_NOZOMI] = {'name': '東條希',     'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_HANAYO] = {'name': '小泉花陽',   'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_NICO] =   {'name': '矢澤にこ',   'color': 'smile', 'member_gem': 1};
 
-   MEMBER_DATA[KEYS.MEMBER_CHIKA] =    {'name': '高海千歌',   'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RIKO] =     {'name': '桜内梨子',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_KANAN] =    {'name': '松浦果南',   'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_DIA] =      {'name': '黒澤ダイヤ', 'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_YOU] =      {'name': '渡辺曜',     'color': 'pure',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_YOSHIKO] =  {'name': '津島善子',   'color': 'cool',  'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_HANAMARU] = {'name': '国木田花丸', 'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_MARI] =     {'name': '小原鞠莉',   'color': 'smile', 'member_gem': 1};
-   MEMBER_DATA[KEYS.MEMBER_RUBY] =     {'name': '黒澤ルビィ', 'color': 'pure',  'member_gem': 1};
+   /** @type {NormalGemMetaType[]} */
+   var GEM_NORMAL_TYPE_DATA = [
+      {'name': 'kiss', 'cnname': '吻', 'key': 'SADD_200', 'slot': 1, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
+      {'name': 'perfume', 'cnname': '香水', 'key': 'SADD_450', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
+      {'name': 'ring', 'cnname': '指环', 'key': 'SMUL_10', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 10, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'cross', 'cnname': '十字', 'key': 'SMUL_16', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 16, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'aura', 'cnname': '光环', 'key': 'AMUL_18', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.8, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'veil', 'cnname': '面纱', 'key': 'AMUL_24', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 2.4, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'charm', 'cnname': '魅力', 'key': 'SCORE_250', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 150, 'per_color': 1, 'skill_mul': 1},
+      {'name': 'heal', 'cnname': '治愈', 'key': 'HEAL_480', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 480, 'per_color': 1, 'heal_mul': 1},
+      {'name': 'trick', 'cnname': '诡计', 'key': 'EMUL_33', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 33, 'per_color': 1, 'ease_attr_mul': 1},
+      {'name': 'wink', 'cnname': '眼神', 'key': 'SADD_1400', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 1400, 'per_color': 1, 'attr_add': 1},
+      {'name': 'trill', 'cnname': '颤音', 'key': 'SMUL_28', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 28, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
+      {'name': 'bloom', 'cnname': '绽放', 'key': 'AMUL_40', 'slot': 6, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member', 'cnname': '个宝', 'key': 'MEMBER_29', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 29, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'nonet', 'cnname': '九重奏', 'key': 'NONET_42', 'slot': 4, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 4.2, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
+      {'name': 'member_petit', 'cnname': '小个宝', 'key': 'MEMBER_13', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 13, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member_midi', 'cnname': '中个宝', 'key': 'MEMBER_21', 'slot': 3, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 21, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'member_grand', 'cnname': '大个宝', 'key': 'MEMBER_53', 'slot': 5, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 53, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
+      {'name': 'nonet_petit', 'cnname': '小九重奏', 'key': 'NONET_15', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_TEAM, 'effect_value': 1.5, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1},
+   ];
 
-   MEMBER_DATA[KEYS.MEMBER_AYUMU] =   {'name': '上原歩夢'};
-   MEMBER_DATA[KEYS.MEMBER_KASUMI] =  {'name': '中須かすみ'};
-   MEMBER_DATA[KEYS.MEMBER_SHIZUKU] = {'name': '桜坂しずく'};
-   MEMBER_DATA[KEYS.MEMBER_KARIN] =   {'name': '朝香果林'};
-   MEMBER_DATA[KEYS.MEMBER_AI] =      {'name': '宮下愛'};
-   MEMBER_DATA[KEYS.MEMBER_KANATA] =  {'name': '近江彼方'};
-   MEMBER_DATA[KEYS.MEMBER_SETSUNA] = {'name': '優木せつ菜'};
-   MEMBER_DATA[KEYS.MEMBER_EMMA] =    {'name': 'エマ・ヴェルデ'};
-   MEMBER_DATA[KEYS.MEMBER_RINA] =    {'name': '天王寺璃奈'};
+   var MEMBER_GEM_LIST = [
+      KEYS.MEMBER_HONOKA, KEYS.MEMBER_ELI, KEYS.MEMBER_KOTORI,
+      KEYS.MEMBER_UMI, KEYS.MEMBER_RIN, KEYS.MEMBER_MAKI,
+      KEYS.MEMBER_NOZOMI, KEYS.MEMBER_HANAYO, KEYS.MEMBER_NICO,
+
+      KEYS.MEMBER_CHIKA, KEYS.MEMBER_RIKO, KEYS.MEMBER_KANAN,
+      KEYS.MEMBER_DIA, KEYS.MEMBER_YOU, KEYS.MEMBER_YOSHIKO,
+      KEYS.MEMBER_HANAMARU, KEYS.MEMBER_MARI, KEYS.MEMBER_RUBY,
+
+      KEYS.MEMBER_AYUMU, KEYS.MEMBER_KASUMI, KEYS.MEMBER_SHIZUKU,
+      KEYS.MEMBER_KARIN, KEYS.MEMBER_AI, KEYS.MEMBER_KANATA,
+      KEYS.MEMBER_SETSUNA, KEYS.MEMBER_EMMA, KEYS.MEMBER_RINA,
+      KEYS.MEMBER_SHIORIKO,
+
+      KEYS.MEMBER_KANON, KEYS.MEMBER_KEKE, KEYS.MEMBER_CHISATO,
+      KEYS.MEMBER_SUMIRE, KEYS.MEMBER_REN
+   ];
+
+   var UNIT_GEM_LIST = [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
 
    var GROUP_DATA = {};
-   var MEMBER_GEM_LIST = [];
-
-   (function() {
-      for (var k in MEMBER_DATA) {
-         if (MEMBER_DATA[k].member_gem) MEMBER_GEM_LIST.push(MEMBER_DATA[k].name);
-      }
-   })();
-
    var NOT_FOUND_MEMBER = {};
 
    // ALBUM_DATA = {<id>: {name: <name>, cnname: <cnname>, albumGroupId: <album_group_id>}, ...}
@@ -1105,6 +1204,10 @@ var LLConst = (function () {
       if (!metaDataInited[key]) throw key + ' not inited';
    };
 
+   /**
+    * @param {MemberIdType} member
+    * @returns {number | undefined}
+    */
    var mGetMemberId = function (member) {
       var memberid = member;
       if (typeof(memberid) != 'number') {
@@ -1120,6 +1223,10 @@ var LLConst = (function () {
       }
       return memberid;
    };
+   /**
+    * @param {MemberIdType} member 
+    * @returns {MemberDataType | undefined}
+    */
    var mGetMemberData = function (member) {
       mCheckInited('unit_type');
       var memberid = mGetMemberId(member);
@@ -1193,6 +1300,14 @@ var LLConst = (function () {
             }
             MEMBER_DATA[curMemberId].grade = grade;
          }
+      }
+      for (var i = 0; i < MEMBER_GEM_LIST.length; i++) {
+         var id = MEMBER_GEM_LIST[i];
+         if (!MEMBER_DATA[id]) {
+            console.warn('Not found member ' + id + ' for member gem');
+            continue;
+         }
+         MEMBER_DATA[id].member_gem = 1;
       }
    };
 
@@ -1314,12 +1429,141 @@ var LLConst = (function () {
       }
       return ret;
    };
-   ret.getMemberGemList = function() { return MEMBER_GEM_LIST; };
-   ret.isMemberGemExist = function(member) {
-      var memberData = mGetMemberData(member);
-      if (!memberData) return false;
-      return (memberData.member_gem ? true : false);
+   var MemberUtils = {
+      /**
+       * @param {MemberIdType} memberId
+       * @returns {BigGroupIdType | undefined}
+       */
+      getBigGroupId: function (memberId) {
+         var bigGroups = ret.Group.getBigGroupIds();
+         for (var i = 0; i < bigGroups.length; i++) {
+            var groupId = bigGroups[i];
+            if (ret.isMemberInGroup(memberId, groupId)) {
+               return groupId;
+            }
+         }
+         return undefined;
+      },
+      /**
+       * @param {LLMember[]} members 
+       * @returns {BigGroupIdType | undefined}
+       */
+      isNonetTeam: function (members) {
+         if ((!members) || (members.length != 9)) {
+            console.error('isNonetTeam: invalid members', members);
+            return undefined;
+         }
+         var curMemberName = members[0].card.jpname;
+         var bigGroup = MemberUtils.getBigGroupId(curMemberName);
+         if (bigGroup === undefined) return undefined;
+         var memberFlag = {};
+         memberFlag[curMemberName] = 1;
+         for (var i = 1; i < members.length; i++) {
+            curMemberName = members[i].card.jpname;
+            if (!ret.isMemberInGroup(curMemberName, bigGroup)) return undefined;
+            memberFlag[curMemberName] = 1;
+         }
+         var distinctMemberCount = Object.keys(memberFlag).length;
+         if (bigGroup == ret.GROUP_LIELLA) {
+            return (distinctMemberCount == 5 ? bigGroup : undefined);
+         } else {
+            return (distinctMemberCount == 9 ? bigGroup : undefined);
+         }
+      }
    };
+   ret.Member = MemberUtils;
+
+   var GroupUtils = {
+      /** @returns {BigGroupIdType[]} */
+      getBigGroupIds: function () {
+         return [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
+      }
+   };
+   ret.Group = GroupUtils;
+
+   var GemUtils = {
+      getMemberGemList: function () { return MEMBER_GEM_LIST; },
+      getUnitGemList: function () { return UNIT_GEM_LIST; },
+      /**
+       * @param {MemberIdType} member 
+       * @returns 
+       */
+      isMemberGemExist: function (member) {
+         var memberData = mGetMemberData(member);
+         if (!memberData) return false;
+         return (memberData.member_gem ? true : false);
+      },
+      /**
+       * @param {number | NormalGemMetaType} typeOrMeta 
+       * @returns {NormalGemMetaType}
+       */
+      getNormalGemMeta: function (typeOrMeta) {
+         if (typeof(typeOrMeta) == 'number') {
+            if (typeOrMeta < 0 || typeOrMeta >= GEM_NORMAL_TYPE_DATA.length) {
+               console.warn('Unknown normal gem id: ' + typeOrMeta);
+               return undefined;
+            }
+            return GEM_NORMAL_TYPE_DATA[typeOrMeta];
+         } else {
+            return typeOrMeta;
+         }
+      },
+      getNormalGemTypeKeys: (function (arr) {
+         /** @type {string[]} */
+         var keys = [];
+         for (var i = 0; i < arr.length; i++) {
+            keys.push(arr[i].key);
+         }
+         return function () { return keys; };
+      })(GEM_NORMAL_TYPE_DATA),
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      getNormalGemName: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         return meta && meta.cnname;
+      },
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      getNormalGemBriefDescription: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         if (!meta) return undefined;
+         var str = 'C' + meta.slot + '/';
+         if (meta.attr_add) {
+            str += meta.effect_value;
+         } else if (meta.attr_mul) {
+            str += meta.effect_value + '%';
+         } else if (meta.skill_mul) {
+            str += (meta.effect_value + 100) / 100 + 'x';
+         } else if (meta.heal_mul) {
+            str += meta.effect_value + 'x';
+         } else if (meta.ease_attr_mul) {
+            str += meta.effect_value + '%/判';
+         }
+         return str;
+      },
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      getNormalGemNameAndDescription: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         var gemName = GemUtils.getNormalGemName(meta)
+         var gemDesc = GemUtils.getNormalGemBriefDescription(meta);
+         return gemName + ' （' + gemDesc + '）';
+      },
+      /** @param {number | NormalGemMetaType} typeOrMeta */
+      isGemFollowMemberAttribute: function (typeOrMeta) {
+         var meta = GemUtils.getNormalGemMeta(typeOrMeta);
+         if (!meta) return false;
+         if (meta.heal_mul || meta.skill_mul || meta.ease_attr_mul) return true;
+         return false;
+      }
+   };
+   ret.Gem = GemUtils;
+   ret.GemType = (function (arr) {
+      /** @type {{[key: string]: number}} */
+      var indexMap = {};
+      for (var i = 0; i < arr.length; i++) {
+         indexMap[arr[i].key] = i;
+      }
+      return indexMap;
+   })(GEM_NORMAL_TYPE_DATA);
+
    ret.getNoteAppearTime = function(noteTimeSec, speed) {
       return noteTimeSec - NOTE_APPEAR_OFFSET_S[speed - 1];
    };
@@ -1634,45 +1878,6 @@ var LLUnit = {
    numberToPercentString: function (n) {
       if (n === undefined) return '';
       return LLUnit.numberToString(n*100, 2) + '%';
-   },
-
-   cardtoskilltype: function(c){
-      if (!c)
-         return 0
-      if (!c.skill)
-         return 0
-      if ((c.skilleffect == 4) || (c.skilleffect == 5)){
-         if (c.triggertype == 1)
-            return 5
-         else if (c.triggertype == 3)
-            return 6
-         else if (c.triggertype == 4)
-            return 12
-      }
-      else if (c.skilleffect == 9){
-         if (c.triggertype == 1)
-            return 8
-         else if (c.triggertype == 3)
-            return 7
-         else if (c.triggertype == 4)
-            return 13
-         else if (c.triggertype == 6)
-            return 9
-      }
-      else if (c.skilleffect == 11){
-         if (c.triggertype == 1)
-            return 4
-         else if (c.triggertype == 3)
-            return 1
-         else if (c.triggertype == 4)
-            return 11
-         else if (c.triggertype == 5)
-            return 3
-         else if (c.triggertype == 6)
-            return 2
-         else if (c.triggertype == 12)
-            return 10
-      }
    },
 
    // kizuna from twintailos.js, skilllevel from each page
@@ -3228,138 +3433,52 @@ var LLMap = (function () {
    return cls;
 })();
 
+/**
+ * @typedef LLSisGem
+ * @property {function(): boolean} isEffectRangeSelf
+ * @property {function(): boolean} isEffectRangeAll
+ * @property {function(): boolean} isSkillGem
+ * @property {function(): boolean} isAccuracyGem
+ * @property {function(): boolean} isValid
+ * @property {function(): boolean} isAttrMultiple
+ * @property {function(): boolean} isAttrAdd
+ * @property {function(): boolean} isHealToScore
+ * @property {function(): boolean} isScoreMultiple
+ * @property {function(): boolean} isNonet
+ * @property {function(): boolean} isMemberGem
+ * @property {function(): number} getEffectValue
+ * @property {function(): number} getNormalGemType
+ * @property {function(): string[]} getGemStockKeys
+ * @property {function(GemStockType): number} getGemStockCount
+ * @property {function(): AttributeType} getAttributeType
+ * @property {function(AttributeType)} setAttributeType
+ */
 var LLSisGem = (function () {
-   var EFFECT_RANGE = {
-      'SELF': 1,
-      'ALL': 2
-   };
-   var GEM_TYPE_DATA = [
-      {'name': 'kiss', 'key': 'SADD_200', 'slot': 1, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
-      {'name': 'perfume', 'key': 'SADD_450', 'slot': 2, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
-      {'name': 'ring', 'key': 'SMUL_10', 'slot': 2, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 10, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'cross', 'key': 'SMUL_16', 'slot': 3, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 16, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'aura', 'key': 'AMUL_18', 'slot': 3, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 1.8, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'veil', 'key': 'AMUL_24', 'slot': 4, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 2.4, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'charm', 'key': 'SCORE_250', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 150, 'per_color': 1, 'skill_mul': 1},
-      {'name': 'heal', 'key': 'HEAL_480', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 480, 'per_color': 1, 'heal_mul': 1},
-      {'name': 'trick', 'key': 'EMUL_33', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 33, 'per_color': 1, 'ease_attr_mul': 1},
-      {'name': 'wink', 'key': 'SADD_1400', 'slot': 5, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 1400, 'per_color': 1, 'attr_add': 1},
-      {'name': 'trill', 'key': 'SMUL_28', 'slot': 5, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 28, 'per_color': 1, 'per_grade': 1, 'attr_mul': 1},
-      {'name': 'bloom', 'key': 'AMUL_40', 'slot': 6, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 4, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'member', 'key': 'MEMBER_29', 'slot': 4, 'effect_range': EFFECT_RANGE.SELF, 'effect_value': 29, 'per_member': 1, 'per_color': 1, 'attr_mul': 1},
-      {'name': 'nonet', 'key': 'NONET_42', 'slot': 4, 'effect_range': EFFECT_RANGE.ALL, 'effect_value': 4.2, 'per_color': 1, 'per_unit': 1, 'attr_mul': 1}
-   ];
-   var GEM_MEMBER_COLOR = ['', '', 'smile', 'pure', 'cool'];
-   var EPSILON = 1e-8;
+   /**
+    * @constructor
+    * @param {number} type
+    * @param {{grade: GradeType, member: MemberIdType, color: AttributeType, unit: string}} options
+    */
    function LLSisGem_cls(type, options) {
-      // options: {grade:(1~3), member:(member name), color:({smile|pure|cool}), unit:({muse|aqours})}
-      if (type < 0 || type >= GEM_TYPE_DATA.length) throw 'Unknown type: ' + type;
+      /** @type {NormalGemMetaType} */
+      var meta = LLConst.Gem.getNormalGemMeta(type);
+      if (!meta) throw 'Unknown type: ' + type;
       this.type = type;
-      var data = GEM_TYPE_DATA[type];
-      for (var i in data) {
-         if (i != 'key') {
-            this[i] = data[i];
-         }
-      }
+      this.meta = meta;
+
       options = options || {};
-      if (data.per_grade && options.grade) this.grade = options.grade;
-      if (data.per_member && options.member) {
+      if (meta.per_grade && options.grade) this.grade = options.grade;
+      if (meta.per_member && options.member) {
          this.member = options.member;
          this.color = LLConst.getMemberColor(options.member);
       }
-      if (data.per_color && options.color) this.color = options.color;
-      if (data.per_unit && options.unit) this.unit = options.unit;
+      if (meta.per_color && options.color) this.color = options.color;
+      if (meta.per_unit && options.unit) this.unit = options.unit;
    };
    var cls = LLSisGem_cls;
-   (function (obj) {
-      var keys = [];
-      for (var i = 0; i < GEM_TYPE_DATA.length; i++) {
-         obj[GEM_TYPE_DATA[i].key] = i;
-         keys.push(GEM_TYPE_DATA[i].key);
-      }
-      obj.getGemTypeKeys = function () {
-         return keys;
-      };
-   })(cls);
-   var bitSplit = function (val, candidate) {
-      var ret = [];
-      // assume candidate sort by value desending
-      for (var i = 0; i < candidate.length; i++) {
-         var cur_type = GEM_TYPE_DATA[candidate[i]];
-         if (val >= cur_type.effect_value) {
-            val -= cur_type.effect_value;
-            ret.push(candidate[i]);
-         }
-      }
-      return ret;
-   };
-   var sumSlot = function (types) {
-      var ret = 0;
-      for (var i = 0; i < types.length; i++) {
-         ret += GEM_TYPE_DATA[types[i]].slot;
-      }
-      return ret;
-   };
-   var createGems = function (types, options) {
-      var ret = [];
-      for (var i = 0; i < types.length; i++) {
-         ret.push(new LLSisGem(types[i], options));
-      }
-      return ret;
-   };
-   cls.createGems = createGems;
+
    cls.getGemSlot = function (type) {
-      return GEM_TYPE_DATA[type].slot;
-   };
-   cls.parseSADDSlot = function (val) {
-      return sumSlot(bitSplit(parseInt(val), [cls.SADD_1400, cls.SADD_450, cls.SADD_200]));
-   };
-   cls.parseSMULSlot = function (val) {
-      return sumSlot(bitSplit(parseInt(val), [cls.SMUL_28, cls.SMUL_16, cls.SMUL_10]));
-   };
-   cls.parseAMULSlot = function (val) {
-      val = parseFloat(val);
-      if (Math.abs(val - 4.2) < EPSILON) return sumSlot([cls.AMUL_24, cls.AMUL_18]);
-      return sumSlot(bitSplit(val+EPSILON, [cls.AMUL_40, cls.AMUL_24, cls.AMUL_18]));
-   };
-   cls.parseSADD = function (val, color) {
-      return createGems(bitSplit(parseInt(val), [cls.SADD_1400, cls.SADD_450, cls.SADD_200]), {'color': color});
-   };
-   cls.parseSMUL = function (val, color, grade) {
-      return createGems(bitSplit(parseInt(val), [cls.SMUL_28, cls.SMUL_16, cls.SMUL_10]), {'color': color, 'grade': grade});
-   };
-   cls.parseAMUL = function (val, color) {
-      val = parseFloat(val);
-      if (Math.abs(val - 4.2) < EPSILON) return createGems([cls.AMUL_24, cls.AMUL_18], {'color': color});
-      return createGems(bitSplit(val+EPSILON, [cls.AMUL_40, cls.AMUL_24, cls.AMUL_18]), {'color': color});
-   };
-   cls.parseMemberGems = function (member, color) {
-      var ret = [];
-      ret = ret.concat(cls.parseSADD(member.gemnum, color));
-      ret = ret.concat(cls.parseSMUL(parseFloat(member.gemsinglepercent)*100, color, LLConst.getMemberGrade(member.card.jpname)));
-      ret = ret.concat(cls.parseAMUL(parseFloat(member.gemallpercent)*100, color));
-      if (parseInt(member.gemskill) == 1) {
-         ret.push(new LLSisGem(cls.SCORE_250, {'color': color}));
-      }
-      if (parseInt(member.gemacc) == 1) {
-         ret.push(new LLSisGem(cls.EMUL_33, {'color': color}));
-      }
-      var gemMemberInt = parseInt(member.gemmember);
-      if (gemMemberInt == 1) {
-         ret.push(new LLSisGem(cls.MEMBER_29, {'member': member.card.jpname, 'color': color}));
-      } else if (gemMemberInt >= 2) {
-         ret.push(new LLSisGem(cls.MEMBER_29, {'member': member.card.jpname, 'color': GEM_MEMBER_COLOR[gemMemberInt]}));
-      }
-      if (parseInt(member.gemnonet) == 1) {
-         var unit = undefined;
-         if (LLConst.isMemberInGroup(member.card.jpname, LLConst.GROUP_MUSE)) {
-            unit = 'muse';
-         } else if (LLConst.isMemberInGroup(member.card.jpname, LLConst.GROUP_AQOURS)) {
-            unit = 'aqours';
-         }
-         ret.push(new LLSisGem(cls.NONET_42, {'color': color, 'unit':unit}));
-      }
-      return ret;
+      return LLConst.Gem.getNormalGemMeta(type).slot;
    };
    cls.getGemStockCount = function (gemStock, gemStockKeys) {
       var cur = gemStock;
@@ -3375,36 +3494,44 @@ var LLSisGem = (function () {
       return cur;
    };
    var proto = cls.prototype;
-   proto.isEffectRangeSelf = function () { return this.effect_range == EFFECT_RANGE.SELF; };
-   proto.isEffectRangeAll = function () { return this.effect_range == EFFECT_RANGE.ALL; };
-   proto.isSkillGem = function () { return this.skill_mul || this.heal_mul; };
-   proto.isAccuracyGem = function () { return this.ease_attr_mul; };
+   proto.isEffectRangeSelf = function () { return this.meta.effect_range == LLConst.SIS_RANGE_SELF; };
+   proto.isEffectRangeAll = function () { return this.meta.effect_range == LLConst.SIS_RANGE_TEAM; };
+   proto.isSkillGem = function () { return this.meta.skill_mul || this.meta.heal_mul; };
+   proto.isAccuracyGem = function () { return this.meta.ease_attr_mul; };
    proto.isValid = function () {
-      if (this.per_grade && !this.grade) return false;
-      if (this.per_member) {
+      if (this.meta.per_grade && !this.grade) return false;
+      if (this.meta.per_member) {
          if (!this.member) return false;
-         if (!LLConst.isMemberGemExist(this.member)) return false;
+         if (!LLConst.Gem.isMemberGemExist(this.member)) return false;
       }
-      if (this.per_unit && !this.unit) return false;
-      if (this.per_color && !this.color) return false;
+      if (this.meta.per_unit && !this.unit) return false;
+      if (this.meta.per_color && !this.color) return false;
       return true;
    };
+   proto.isAttrMultiple = function () { return this.meta.attr_mul; };
+   proto.isAttrAdd = function () { return this.meta.attr_add; };
+   proto.isHealToScore = function () { return this.meta.heal_mul; };
+   proto.isScoreMultiple = function () { return this.meta.skill_mul; };
+   proto.isNonet = function () { return this.meta.per_unit; };
+   proto.isMemberGem = function () { return this.meta.per_member; };
+   proto.getEffectValue = function () { return this.meta.effect_value; };
+   proto.getNormalGemType = function () { return this.type; };
    proto.getGemStockKeys = function () {
       if (this.gemStockKeys !== undefined) return this.gemStockKeys;
-      var ret = [GEM_TYPE_DATA[this.type].key];
-      if (this.per_grade) {
+      var ret = [this.meta.key];
+      if (this.meta.per_grade) {
          if (this.grade === undefined) throw "Gem has no grade";
          ret.push(this.grade);
       }
-      if (this.per_member) {
+      if (this.meta.per_member) {
          if (this.member === undefined) throw "Gem has no member";
          ret.push(this.member);
       }
-      if (this.per_unit) {
+      if (this.meta.per_unit) {
          if (this.unit === undefined) throw "Gem has no unit";
          ret.push(this.unit);
       }
-      if (this.per_color) {
+      if (this.meta.per_color) {
          if (this.color === undefined) throw "Gem has no color";
          ret.push(this.color);
       }
@@ -3414,6 +3541,10 @@ var LLSisGem = (function () {
    proto.getGemStockCount = function (gemStock) {
       return cls.getGemStockCount(gemStock, this.getGemStockKeys());
    };
+   /** @returns {AttributeType} */
+   proto.getAttributeType = function () { return this.color; };
+   /** @param {AttributeType} newColor */
+   proto.setAttributeType = function (newColor) { this.color = newColor; };
    return cls;
 })();
 
@@ -3583,10 +3714,27 @@ var LLSkill = (function () {
    return cls;
 })();
 
+/**
+ * @typedef LLMember_Options
+ * @property {number | string} cardid int
+ * @property {number} smile int
+ * @property {number} pure int
+ * @property {number} cool int
+ * @property {number} skilllevel int 1~8
+ * @property {number} maxcost int 0~8
+ * @property {number} hp int
+ * @property {string[]} gemlist normal gem meta key list
+ * @property {CardDataType} card
+ */
 var LLMember = (function() {
    var int_attr = ["cardid", "smile", "pure", "cool", "skilllevel", "maxcost", "hp"];
    var MIC_RATIO = [0, 5, 11, 24, 40, 0]; //'UR': 40, 'SSR': 24, 'SR': 11, 'R': 5, 'N': 0
-   function LLMember_cls(v) {
+   /**
+    * @constructor
+    * @param {LLMember_Options} v 
+    * @param {AttributeType} mapAttribute
+    */
+   function LLMember_cls(v, mapAttribute) {
       v = v || {};
       var i;
       for (i = 0; i < int_attr.length; i++) {
@@ -3603,11 +3751,25 @@ var LLMember = (function() {
       } else {
          this.card = v.card;
       }
-      if (v.gems === undefined) {
+      this.gems = [];
+      if (v.gemlist === undefined) {
          console.error('missing gem info');
-         this.gems = [];
-      } else {
-         this.gems = v.gems;
+      } else if (v.card) {
+         for (i = 0; i < v.gemlist.length; i++) {
+            var gemMetaId = LLConst.GemType[v.gemlist[i]];
+            var memberId = v.card.typeid;
+            var sisOptions = {
+               'grade': LLConst.getMemberGrade(memberId),
+               'member': memberId,
+               'unit': LLConst.Member.getBigGroupId(memberId)
+            };
+            if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
+               sisOptions.color = v.card.attribute;
+            } else {
+               sisOptions.color = mapAttribute;
+            }
+            this.gems.push(new LLSisGem(gemMetaId, sisOptions));
+         }
       }
       this.raw = v;
    };
@@ -3636,11 +3798,11 @@ var LLMember = (function() {
       var ret = {'smile': this.smile, 'pure': this.pure, 'cool': this.cool};
       for (var i = 0; i < this.gems.length; i++) {
          var gem = this.gems[i];
-         if (gem.attr_add) {
-            ret[gem.color] += gem.effect_value;
+         if (gem.isAttrAdd()) {
+            ret[gem.getAttributeType()] += gem.getEffectValue();
          }
-         if (gem.attr_mul && gem.isEffectRangeSelf()) {
-            ret[gem.color] += Math.ceil(gem.effect_value/100 * this[gem.color]);
+         if (gem.isAttrMultiple() && gem.isEffectRangeSelf()) {
+            ret[gem.getAttributeType()] += Math.ceil(gem.getEffectValue()/100 * this[gem.getAttributeType()]);
          }
       }
       this.displayAttr = ret;
@@ -3655,7 +3817,7 @@ var LLMember = (function() {
       var sum = 0;
       for (var i = 0; i < 9; i++) {
          for (var j = 0; j < teamgem[i].length; j++) {
-            sum += Math.ceil(teamgem[i][j].effect_value/100 * this[mapcolor]);
+            sum += Math.ceil(teamgem[i][j].getEffectValue()/100 * this[mapcolor]);
          }
          cumulativeTeamGemBonus.push(sum);
       }
@@ -4454,13 +4616,12 @@ var LLTeam = (function() {
       for (i = 0; i <= MAX_SLOT; i++) {
          armCombinationList.push([]);
       }
-      var gemTypeKeys = LLSisGem.getGemTypeKeys();
+      var gemTypeKeys = LLConst.Gem.getNormalGemTypeKeys();
       var gemTypes = [];
       var gemSlots = [];
-      for (i in gemTypeKeys) {
-         var t = LLSisGem[gemTypeKeys[i]];
-         gemTypes.push(t);
-         gemSlots.push(LLSisGem.getGemSlot(t));
+      for (i = 0; i < gemTypeKeys.length; i++) {
+         gemTypes.push(i);
+         gemSlots.push(LLSisGem.getGemSlot(i));
       }
       var dfs = function (gemList, usedSlot, nextGemIndex) {
          if (nextGemIndex >= gemTypes.length) {
@@ -4491,27 +4652,19 @@ var LLTeam = (function() {
       //((基本属性+绊)*百分比宝石加成+数值宝石加成)*主唱技能加成
       var teamgem = [];
       var i, j;
-      var unitMemberCount = {'muse':{}, 'aqours':{}};
-      for (i = 0; i < 9; i++) {
-         var curMember = this.members[i];
-         if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_MUSE)) {
-            unitMemberCount.muse[curMember.card.jpname] = 1;
-         } else if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_AQOURS)) {
-            unitMemberCount.aqours[curMember.card.jpname] = 1;
-         }
-      }
-      var allMuse = (Object.keys(unitMemberCount.muse).length == 9);
-      var allAqours = (Object.keys(unitMemberCount.aqours).length == 9);
+      var isNonetTeam = LLConst.Member.isNonetTeam(this.members);
       //数值和单体百分比宝石
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          curMember.calcDisplayAttr(mapcolor);
+         /** @type {LLSisGem[]} */
          var curGems = [];
          for (j = 0; j < curMember.gems.length; j++) {
+            /** @type {LLSisGem} */
             var curGem = curMember.gems[j];
-            if (curGem.attr_mul && curGem.isEffectRangeAll() && curGem.color == mapcolor) {
-               if (curGem.per_unit) {
-                  if (!((curGem.unit == 'muse' && allMuse) || (curGem.unit == 'aqours' && allAqours))) continue;
+            if (curGem.isAttrMultiple() && curGem.isEffectRangeAll() && curGem.getAttributeType() == mapcolor) {
+               if (curGem.isNonet()) {
+                  if (!isNonetTeam) continue;
                }
                curGems.push(curGem);
             }
@@ -4889,7 +5042,7 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          if (!curMember.hasSkillGem()) {
-            curMember.gems.push(new LLSisGem(LLSisGem.SCORE_250, {'color': curMember.card.attribute}));
+            curMember.gems.push(new LLSisGem(LLConst.GemType.SCORE_250, {'color': curMember.card.attribute}));
          }
       }
       this.calculateAttributeStrength(mapdata);
@@ -4898,62 +5051,54 @@ var LLTeam = (function() {
       var gradeInfo = [];
       var gradeCount = [0, 0, 0];
       var unitInfo = [];
-      var unitMemberCount = {'muse':{}, 'aqours':{}};
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          var curMemberGrade = curMember.getGrade();
+         var curBigGroupId = LLConst.Member.getBigGroupId(curMember.card.jpname);
          gradeInfo.push(curMemberGrade);
          gradeCount[curMemberGrade]++;
-         if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_MUSE)) {
-            unitInfo.push('muse');
-            unitMemberCount.muse[curMember.card.jpname] = 1;
-         } else if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_AQOURS)) {
-            unitInfo.push('aqours');
-            unitMemberCount.aqours[curMember.card.jpname] = 1;
-         } else {
-            unitInfo.push('');
-         }
+         unitInfo.push((curBigGroupId ? curBigGroupId.toFixed() : ''));
       }
-      var allMuse = (Object.keys(unitMemberCount.muse).length == 9);
-      var allAqours = (Object.keys(unitMemberCount.aqours).length == 9);
+      var isNonetTeam = LLConst.Member.isNonetTeam(this.members);
       // 计算每种宝石带来的增益
       var gemStockSubset = [];
       var gemStockKeyToIndex = {};
       var powerUps = [];
-      var gemTypes = LLSisGem.getGemTypeKeys();
+      var gemTypes = LLConst.Gem.getNormalGemTypeKeys();
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          var curPowerUps = {};
          var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': curMember.card.jpname, 'unit': unitInfo[i]};
          for (j = 0; j < gemTypes.length; j++) {
-            var curGem = new LLSisGem(LLSisGem[gemTypes[j]], gemOption);
+            /** @type {LLSisGem} */
+            var curGem = new LLSisGem(j, gemOption);
             if (!curGem.isValid()) continue;
             var curStrengthBuff = 0;
             if (curGem.isSkillGem()) {
                var curSkill = this.avgSkills[i];
-               curGem.color = curMember.card.attribute;
-               if (curGem.heal_mul && curSkill.isEffectHeal()) {
+               curGem.setAttributeType(curMember.card.attribute);
+               if (curGem.isHealToScore() && curSkill.isEffectHeal()) {
                   curStrengthBuff = curSkill.strength;
-               } else if (curGem.skill_mul && curSkill.isEffectScore()) {
-                  curStrengthBuff = curSkill.strength * curGem.effect_value / (100+curGem.effect_value);
+               } else if (curGem.isScoreMultiple() && curSkill.isEffectScore()) {
+                  curStrengthBuff = curSkill.strength * curGem.getEffectValue() / (100+curGem.getEffectValue());
                }
                // 考虑技能概率提升带来的增益
                curStrengthBuff *= (1 + mapdata.skillup/100);
             } else {
-               if (curGem.attr_add) {
+               if (curGem.isAttrAdd()) {
                   if (curGem.isEffectRangeSelf()) {
-                     curStrengthBuff = curGem.effect_value * (1 + cskillPercentages[i]/100);
+                     curStrengthBuff = curGem.getEffectValue() * (1 + cskillPercentages[i]/100);
                   }
-               } else if (curGem.attr_mul) {
+               } else if (curGem.isAttrMultiple()) {
                   if (curGem.isEffectRangeSelf()) {
-                     if (curGem.color == mapcolor) {
-                        curStrengthBuff = (curGem.effect_value / 100) * (1 + cskillPercentages[i]/100) * curMember[mapcolor];
+                     if (curGem.getAttributeType() == mapcolor) {
+                        curStrengthBuff = (curGem.getEffectValue() / 100) * (1 + cskillPercentages[i]/100) * curMember[mapcolor];
                      }
                      // TODO: 个人宝石和歌曲颜色不同的情况下, 增加强度为12%主唱技能加成带来的强度
                   } else if (curGem.isEffectRangeAll()) {
                      var takeEffect = 0;
-                     if (curGem.name == 'nonet') {
-                        if ((curGem.unit == 'muse' && allMuse) || (curGem.unit == 'aqours' && allAqours)) {
+                     if (curGem.isNonet()) {
+                        if (isNonetTeam) {
                            takeEffect = 1;
                         }
                      } else {
@@ -4961,7 +5106,7 @@ var LLTeam = (function() {
                      }
                      if (takeEffect) {
                         for (var k = 0; k < 9; k++) {
-                           curStrengthBuff += Math.ceil( (curGem.effect_value / 100) * this.members[k][mapcolor] ) * (1 + cskillPercentages[k]/100);
+                           curStrengthBuff += Math.ceil( (curGem.getEffectValue() / 100) * this.members[k][mapcolor] ) * (1 + cskillPercentages[k]/100);
                         }
                      }
                   }
@@ -4976,7 +5121,7 @@ var LLTeam = (function() {
                gemStockKeyToIndex[gemStockKey] = gemStockSubset.length;
                gemStockSubset.push(curGem.getGemStockCount(gemStock));
             }
-            curPowerUps[curGem.type] = {'gem': curGem, 'strength': curStrengthBuff, 'stockindex': gemStockKeyToIndex[gemStockKey]};
+            curPowerUps[curGem.getNormalGemType()] = {'gem': curGem, 'strength': curStrengthBuff, 'stockindex': gemStockKeyToIndex[gemStockKey]};
          }
          powerUps.push(curPowerUps);
       }
@@ -5231,6 +5376,14 @@ var LLTeam = (function() {
    return cls;
 })();
 
+/**
+ * @typedef LLSaveData
+ * @property {any[]} teamMember
+ * @property {GemStockType} gemStock
+ * @property {boolean} hasGemStock
+ * @property {any[]} subMember
+ * @property {function(boolean, boolean, boolean): any} serializeV104
+ */
 var LLSaveData = (function () {
    // ver 0 : invalid save data
    // ver 1 : [{team member}, ..] total 9 members
@@ -5256,6 +5409,13 @@ var LLSaveData = (function () {
    //     added "ALL" for any type/sub-type dict, when specified, all sub-types having "<number>" of gem
    // ver 103 :
    //   member gem now is also per_color (gem stock and gemmember need convert)
+   // ver 104 :
+   //   member gem use member id instead of name now
+   //   nonet gem use unit id instead of key now (4 for muse, 5 for aqours, 60 for niji, 143 for liella)
+   //   new member gems and nonet gems
+   //   team member def change
+   //     removed: gemnum, gemsinglepercent, gemallpercent, gemskill, gemacc, gemmember, gemnonet
+   //     added: gemlist (normal gem meta key list)
    var checkSaveDataVersion = function (data) {
       if (data === undefined) return 0;
       if (data.version !== undefined) return parseInt(data.version);
@@ -5269,15 +5429,6 @@ var LLSaveData = (function () {
       if (data.length == 10) return 2;
       return 0;
    };
-   var calculateSlot = function (member){
-      var ret = 0;
-      ret += LLSisGem.parseSADDSlot(member.gemnum || 0);
-      ret += LLSisGem.parseSMULSlot(parseFloat(member.gemsinglepercent || 0)*100);
-      ret += LLSisGem.parseAMULSlot(parseFloat(member.gemallpercent || 0)*100);
-      ret += parseInt(member.gemskill || 0)*4;
-      ret += parseInt(member.gemacc || 0)*4;
-      return ret;
-   }
    var getTeamMemberV1V2 = function (data) {
       var ret = [];
       for (var i = 0; i < 9; i++) {
@@ -5286,7 +5437,14 @@ var LLSaveData = (function () {
          for (var j in cur) {
             member[j] = cur[j];
          }
-         if (member.maxcost === undefined) member.maxcost = calculateSlot(member);
+         if (member.maxcost === undefined) {
+            var totalCost = 0;
+            convertMemberV103ToV104(member);
+            for (var j = 0; j < member.gemlist.length; j++) {
+               totalCost += LLConst.Gem.getNormalGemMeta(LLConst.GemType[member.gemlist[j]]).slot;
+            }
+            member.maxcost = totalCost;
+         }
          ret.push(member);
       }
       return ret;
@@ -5334,10 +5492,10 @@ var LLSaveData = (function () {
          var stock = me.gemStock;
          if (stock['MEMBER_29']) {
             var m29 = stock['MEMBER_29'];
-            var members = LLConst.getMemberGemList();
+            var members = LLConst.Gem.getMemberGemList();
             if (m29['ALL'] === undefined) {
                for (var i = 0; i < members.length; i++) {
-                  var curMemberName = members[i];
+                  var curMemberName = LLConst.getMemberName(members[i]);
                   if (m29[curMemberName] !== undefined) {
                      var memberGemCount = m29[curMemberName];
                      if (memberGemCount > 0) {
@@ -5357,7 +5515,8 @@ var LLSaveData = (function () {
                var memberGemCount = m29['ALL'];
                stock['MEMBER_29'] = {};
                for (var i = 0; i < members.length; i++) {
-                  stock['MEMBER_29'][members[i]] = {'ALL': memberGemCount};
+                  var curMemberName = LLConst.getMemberName(members[i]);
+                  stock['MEMBER_29'][curMemberName] = {'ALL': memberGemCount};
                }
             }
          }
@@ -5376,6 +5535,111 @@ var LLSaveData = (function () {
          }
       }
       return me;
+   };
+   var CONVERT_MEMBER_103_TO_104 = {
+      '0': [],
+      '200': ['SADD_200'],
+      '450': ['SADD_450'],
+      '650': ['SADD_450', 'SADD_200'],
+      '1400': ['SADD_1400'],
+      '1600': ['SADD_1400', 'SADD_200'],
+      '1850': ['SADD_1400', 'SADD_450'],
+      '2050': ['SADD_1400', 'SADD_450', 'SADD_200'],
+      '0.1': ['SMUL_10'],
+      '0.16': ['SMUL_16'],
+      '0.26': ['SMUL_16', 'SMUL_10'],
+      '0.28': ['SMUL_28'],
+      '0.38': ['SMUL_28', 'SMUL_10'],
+      '0.44': ['SMUL_28', 'SMUL_16'],
+      '0.018': ['AMUL_18'],
+      '0.024': ['AMUL_24'],
+      '0.04': ['AMUL_40'],
+      '0.042': ['AMUL_24', 'AMUL_18']
+   };
+   var convertMemberV103ToV104 = function (members) {
+      for (var i = 0; i < members.length; i++) {
+         var member = members[i];
+         if (member.gemlist !== undefined) continue;
+         /** @type {string[]} */
+         var gemList = [];
+         if (member.gemnum) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemnum]);
+         }
+         if (member.gemsinglepercent) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemsinglepercent]);
+         }
+         if (member.gemallpercent) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemallpercent]);
+         }
+         if (member.gemskill == '1') {
+            var isHeal = false;
+            if (member.cardid && LLCardData) {
+               var cardbrief = (LLCardData.getCachedBriefData() || {})[member.cardid];
+               if (cardbrief && cardbrief.skilleffect == LLConst.SKILL_EFFECT_HEAL) {
+                  isHeal = true;
+               }
+            }
+            gemList.push(isHeal ? 'HEAL_480' : 'SCORE_250');
+         }
+         if (member.gemacc == '1') {
+            gemList.push('EMUL_33');
+         }
+         if (member.gemmember && member.gemmember != '0') {
+            gemList.push('MEMBER_29');
+         }
+         if (member.gemnonet == '1') {
+            gemList.push('NONET_42');
+         }
+         member.gemlist = gemList;
+      }
+   };
+   /** @param {LLSaveData} me */
+   var convertV103ToV104 = function (me) {
+      // convert gem stock
+      var i;
+      if (me.hasGemStock && me.gemStock) {
+         var stock = me.gemStock;
+         // convert member gems, name => member id
+         if (stock['MEMBER_29']) {
+            var m29 = stock['MEMBER_29'];
+            if (m29['ALL'] === undefined) {
+               var newM29 = {};
+               var members = LLConst.Gem.getMemberGemList();
+               for (i = 0; i < members.length; i++) {
+                  var curMemberName = LLConst.getMemberName(members[i]);
+                  if (m29[curMemberName] !== undefined) {
+                     newM29[i.toFixed()] = m29[curMemberName];
+                  } else {
+                     newM29[i.toFixed()] = {'ALL': 0};
+                  }
+               }
+               stock['MEMBER_29'] = newM29;
+            }
+         }
+         // convert nonet gems, unit key => group id
+         if (stock['NONET_42']) {
+            var n42 = stock['NONET_42'];
+            if (n42['ALL'] === undefined) {
+               var newN42 = {};
+               if (n42['muse'] !== undefined) {
+                  newN42[LLConst.GROUP_MUSE.toFixed()] = n42['muse'];
+               }
+               if (n42['aqours'] !== undefined) {
+                  newN42[LLConst.GROUP_AQOURS.toFixed()] = n42['aqours'];
+               }
+               var units = LLConst.Gem.getUnitGemList();
+               for (i = 0; i < units.length; i++) {
+                  if (newN42[i.toFixed()] === undefined) {
+                     newN42[i.toFixed()] = {'ALL': 0};
+                  }
+               }
+               stock['NONET_42'] = newN42;
+            }
+         }
+      }
+      if (me.teamMember && me.teamMember.length > 0) {
+         convertMemberV103ToV104(me.teamMember);
+      }
    };
    var SUB_MEMBER_ATTRS = ['cardid', 'mezame', 'skilllevel', 'maxcost'];
    var shrinkSubMembers = function (submembers) {
@@ -5401,10 +5665,10 @@ var LLSaveData = (function () {
          types = ['1', '2', '3'];
       } else if (current_sub == 'per_member') {
          next_sub = 'per_unit';
-         types = LLConst.getMemberGemList();
+         types = LLConst.Gem.getMemberGemList().map((x) => x.toFixed());
       } else if (current_sub == 'per_unit') {
          next_sub = 'per_color';
-         types = ['muse', 'aqours'];
+         types = LLConst.Gem.getUnitGemList().map((x) => x.toFixed());
       } else if (current_sub == 'per_color') {
          next_sub = '';
          types = ['smile', 'pure', 'cool'];
@@ -5423,10 +5687,10 @@ var LLSaveData = (function () {
    };
    var fillDefaultGemStock = function (stock, fillnum) {
       if (stock.ALL !== undefined) return;
-      var keys = LLSisGem.getGemTypeKeys();
+      var keys = LLConst.Gem.getNormalGemTypeKeys();
       for (var i = 0; i < keys.length; i++) {
          if (stock[keys[i]] === undefined) {
-            stock[keys[i]] = recursiveMakeGemStockData(new LLSisGem(i), function(){return fillnum;});
+            stock[keys[i]] = recursiveMakeGemStockData(LLConst.Gem.getNormalGemMeta(i), function(){return fillnum;});
          }
       }
    };
@@ -5466,6 +5730,9 @@ var LLSaveData = (function () {
       if (this.rawVersion <= 102) {
          convertV102ToV103(this);
       }
+      if (this.rawVersion <= 103) {
+         convertV103ToV104(this);
+      }
    };
    var cls = LLSaveData_cls;
    cls.checkSaveDataVersion = checkSaveDataVersion;
@@ -5474,58 +5741,15 @@ var LLSaveData = (function () {
       fillDefaultGemStock(ret, 9);
       return ret;
    };
+   cls.normalizeMemberGemList = convertMemberV103ToV104;
    var proto = cls.prototype;
-   proto.getLegacyGemStock = function() {
-      var mapping = [
-         ['SADD_450', 'smile'],
-         ['SMUL_10', '1', 'smile'],
-         ['SMUL_10', '2', 'smile'],
-         ['SMUL_10', '3', 'smile'],
-         ['SMUL_16', '1', 'smile'],
-         ['SMUL_16', '2', 'smile'],
-         ['SMUL_16', '3', 'smile'],
-         ['AMUL_18', 'smile'],
-         ['AMUL_24', 'smile'],
-         ['SCORE_250', 'smile'],
-         ['SCORE_250', 'pure'],
-         ['SCORE_250', 'cool'],
-         ['HEAL_480', 'smile'],
-         ['HEAL_480', 'pure'],
-         ['HEAL_480', 'cool'],
-      ];
-      var ret = {};
-      for (var i = 0; i < mapping.length; i++) {
-         ret[String(i+1)] = String(LLSisGem.getGemStockCount(this.gemStock, mapping[i]));
-      }
-      return ret;
-   };
-   proto.serializeV1 = function() {
-      return JSON.stringify(this.teamMember);
-   };
-   proto.serializeV2 = function() {
-      var ret = [];
-      for (var i = 0; i < 9; i++) {
-         ret.push(this.teamMember[i]);
-      }
-      ret.push(this.getLegacyGemStock());
-      return JSON.stringify(ret);
-   };
-   proto.serializeV10 = function() {
-      return JSON.stringify(this.subMember);
-   };
-   proto.serializeV11 = function() {
-      return JSON.stringify(this.getLegacyGemStock());
-   };
-   proto.serializeV103 = function(excludeTeam, excludeGemStock, excludeSubMember) {
+   proto.serializeV104 = function(excludeTeam, excludeGemStock, excludeSubMember) {
       return JSON.stringify({
-         'version': 103,
+         'version': 104,
          'team': (excludeTeam ? [] : this.teamMember),
          'gemstock': (excludeGemStock ? {} : this.gemStock),
          'submember': (excludeSubMember ? [] : shrinkSubMembers(this.subMember))
       });
-   };
-   proto.mergeV10 = function (v10data) {
-      this.subMember = getSubMemberV10(v10data);
    };
    return cls;
 })();
@@ -5554,27 +5778,57 @@ var LLSaveLoadJsonMixin = (function () {
 
 var LLGemStockComponent = (function () {
    var createElement = LLUnit.createElement;
-   var textMapping = {
-      'SADD_200': '吻 (C1/200)',
-      'SADD_450': '香水 (C2/450)',
-      'SMUL_10': '指环 (C2/10%)',
-      'SMUL_16': '十字 (C3/16%)',
-      'AMUL_18': '光环 (C3/1.8%)',
-      'AMUL_24': '面纱 (C4/2.4%)',
-      'SCORE_250': '魅力 (C4/2.5x)',
-      'HEAL_480': '治愈 (C4/480x)',
-      'EMUL_33': '诡计 (C4/33%/判)',
-      'SADD_1400': 'Wink (C5/1400)',
-      'SMUL_28': 'Trill (C5/28%)',
-      'AMUL_40': 'Bloom (C6/4%)',
-      'MEMBER_29': '个人宝石 (C4/29%)',
-      'NONET_42': '九重奏 (C4/4.2%)',
-      '1': '一年级',
-      '2': '二年级',
-      '3': '三年级',
-      'muse': "μ's",
-      'aqours': 'Aqours'
-   };
+   var STOCK_SUB_TYPE_START = 0;
+   var STOCK_SUB_TYPE_GEM = 1;
+   var STOCK_SUB_TYPE_GRADE = 2;
+   var STOCK_SUB_TYPE_MEMBER = 3;
+   var STOCK_SUB_TYPE_UNIT = 4;
+   var STOCK_SUB_TYPE_COLOR = 5;
+   /**
+    * @param {nummber} curSubType 
+    * @param {NormalGemMetaType} gemMeta 
+    * @returns {number}
+    */
+   function getNextSubType(curSubType, gemMeta) {
+      if (curSubType == STOCK_SUB_TYPE_START) {
+         return STOCK_SUB_TYPE_GEM;
+      }
+      if (curSubType == STOCK_SUB_TYPE_GEM) {
+         curSubType += 1;
+         if (gemMeta.per_grade) return curSubType;
+      }
+      if (curSubType == STOCK_SUB_TYPE_GRADE) {
+         curSubType += 1;
+         if (gemMeta.per_member) return curSubType;
+      }
+      if (curSubType == STOCK_SUB_TYPE_MEMBER) {
+         curSubType += 1;
+         if (gemMeta.per_unit) return curSubType;
+      }
+      if (curSubType == STOCK_SUB_TYPE_UNIT) {
+         curSubType += 1;
+         if (gemMeta.per_color) return curSubType;
+      }
+      return curSubType + 1;
+   }
+   /**
+    * @param {string} curKey 
+    * @param {number} curSubType 
+    * @returns 
+    */
+   function getGemKeyText(curKey, curSubType) {
+      if (curSubType == STOCK_SUB_TYPE_GEM) {
+         var gemType = LLConst.GemType[curKey];
+         return LLConst.Gem.getNormalGemNameAndDescription(gemType);
+      } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
+         return LLConst.getGroupName(parseInt(curKey));
+      } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
+         return LLConst.getMemberName(parseInt(curKey), true);
+      } else if (curSubType == STOCK_SUB_TYPE_UNIT) {
+         return LLConst.getGroupName(parseInt(curKey));
+      }
+      return curKey;
+   }
    function toggleSubGroup(arrowSpan, subGroupComp, visible) {
       if (visible === undefined) {
          subGroupComp.toggleVisible();
@@ -5588,9 +5842,17 @@ var LLGemStockComponent = (function () {
    function createListGroup(subItems) {
       return createElement('div', {'className': 'list-group'}, subItems);
    }
+   /**
+    * 
+    * @param {string} text 
+    * @param {number} val 
+    * @param {any} controller 
+    * @param {HTMLElement} [subGroup] 
+    * @returns {HTMLElement[]}
+    */
    function createListGroupItem(text, val, controller, subGroup) {
       var item;
-      var textSpan = createElement('span', {'className': 'gem-text', 'innerHTML': (textMapping[text] ? textMapping[text] : text)});
+      var textSpan = createElement('span', {'className': 'gem-text', 'innerHTML': text});
 
       var gemCountInput = createElement('input', {'type': 'text', 'size': 2, 'className': 'gem-count num-size-2'}, undefined, {'click': function (e) {
          var curEvent = window.event || e;
@@ -5725,13 +5987,20 @@ var LLGemStockComponent = (function () {
          }
       }
    }
-   function buildStockGUI(text, data) {
+   /**
+    * @param {string} curKey 
+    * @param {any} data 
+    * @param {number} curSubType STOCK_SUB_TYPE_*
+    * @param {NormalGemMetaType} [gemMeta]
+    * @returns {{items: HTMLElement[], controller: any}}
+    */
+   function buildStockGUI(curKey, data, curSubType, gemMeta) {
       if (typeof(data) == 'number' || typeof(data) == 'string') {
          var val = parseInt(data);
          if (val > 9) val = 9;
          if (val < 0) val = 0;
          var controller = {
-            'onchange': makeControllerOnChangeFunc(text),
+            'onchange': makeControllerOnChangeFunc(curKey),
             'pushchange': makeControllerPushChangeFunc(),
             'deserialize': makeControllerDeserializeFunc(),
             'serialize': makeControllerSerializeFunc(),
@@ -5739,7 +6008,7 @@ var LLGemStockComponent = (function () {
             'max': val
          };
          return {
-            'items': createListGroupItem(text, val, controller),
+            'items': createListGroupItem(getGemKeyText(curKey, curSubType), val, controller),
             'controller': {'ALL': controller}
          };
       } else {
@@ -5748,7 +6017,7 @@ var LLGemStockComponent = (function () {
          var minVal = 9;
          var maxVal = 0;
          for (var dataKey in data) {
-            var ret = buildStockGUI(dataKey, data[dataKey]);
+            var ret = buildStockGUI(dataKey, data[dataKey], getNextSubType(curSubType, gemMeta), gemMeta || LLConst.Gem.getNormalGemMeta(LLConst.GemType[dataKey]));
             var curController = ret.controller.ALL;
             if (curController.min < minVal) minVal = curController.min;
             if (curController.max > maxVal) maxVal = curController.max;
@@ -5757,7 +6026,7 @@ var LLGemStockComponent = (function () {
             items = items.concat(ret.items);
          }
          var controller = {
-            'onchange': makeControllerOnChangeFunc(text),
+            'onchange': makeControllerOnChangeFunc(curKey),
             'pushchange': makeControllerPushChangeFunc(controllers),
             'deserialize': makeControllerDeserializeFunc(controllers),
             'serialize': makeControllerSerializeFunc(controllers),
@@ -5765,7 +6034,7 @@ var LLGemStockComponent = (function () {
             'max': maxVal
          };
          var subGroup = createListGroup(items);
-         var retItems = createListGroupItem(text, (minVal == maxVal ? minVal : minVal + '+'), controller, subGroup);
+         var retItems = createListGroupItem(getGemKeyText(curKey, curSubType), (minVal == maxVal ? minVal : minVal + '+'), controller, subGroup);
          if (minVal == maxVal && controller.fold) controller.fold();
          controllers['ALL'] = controller;
          return {
@@ -5803,7 +6072,7 @@ var LLGemStockComponent = (function () {
    // }
    function LLGemStockComponent_cls(id) {
       var data = LLSaveData.makeFullyExpandedGemStock();
-      var gui = buildStockGUI('技能宝石仓库', data);
+      var gui = buildStockGUI('技能宝石仓库', data, STOCK_SUB_TYPE_START);
       LLUnit.getElement(id).appendChild(createListGroup(gui.items));
       this.loadData = function(data) { gui.controller.ALL.deserialize(data); };
       this.saveData = function() { return gui.controller.ALL.serialize(); }
@@ -6129,7 +6398,6 @@ var LLSaveStorageComponent = (function () {
    function createToggleButton(controller, text, enabled) {
       controller.enabled = enabled;
       controller.included = enabled;
-      var toggleClass = (enabled ? toggleIncludedClass : toggleDisabledClass);
       var toggleButton = createElement('a', {'className': (enabled ? toggleIncludedClass : toggleDisabledClass), 'href': 'javascript:;', 'innerHTML': text}, undefined, {
          'click': function () {
             if (controller.enabled) {
@@ -6218,7 +6486,7 @@ var LLSaveStorageComponent = (function () {
                key = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
             }
             var savedJson = loadStorageJSON();
-            savedJson[key] = data.serializeV103(!teamMemberToggleController.included, !gemStockToggleController.included, !subMemberToggleController.included);
+            savedJson[key] = data.serializeV104(!teamMemberToggleController.included, !gemStockToggleController.included, !subMemberToggleController.included);
             saveStorageJSON(savedJson);
             if (controller.reload) controller.reload(savedJson);
          }
@@ -6621,43 +6889,8 @@ var LLScoreDistributionChart = (function () {
 
 var LLTeamComponent = (function () {
    var createElement = LLUnit.createElement;
-   var gemNumOptions = [
-      {'value': '0', 'text': '0'},
-      {'value': '200', 'text': '200'},
-      {'value': '450', 'text': '450'},
-      {'value': '650', 'text': '650'},
-      {'value': '1400', 'text': '1400'},
-      {'value': '1600', 'text': '1600'},
-      {'value': '1850', 'text': '1850'},
-      {'value': '2050', 'text': '2050'}
-   ];
-   var gemSinglePercentOptions = [
-      {'value': '0', 'text': '0'},
-      {'value': '0.1', 'text': '10%'},
-      {'value': '0.16', 'text': '16%'},
-      {'value': '0.26', 'text': '26%'},
-      {'value': '0.28', 'text': '28%'},
-      {'value': '0.38', 'text': '38%'},
-      {'value': '0.44', 'text': '44%'}
-   ];
-   var gemAllPercentOptions = [
-      {'value': '0', 'text': '0'},
-      {'value': '0.018', 'text': '1.8%'},
-      {'value': '0.024', 'text': '2.4%'},
-      {'value': '0.04', 'text': '4.0%'},
-      {'value': '0.042', 'text': '4.2%'}
-   ];
-   var gemYesNoOptions = [
-      {'value': '0', 'text': '无'},
-      {'value': '1', 'text': '有'}
-   ];
-   var gemMemberOptions = [
-      {'value': '0', 'text': '无'},
-      {'value': '1', 'text': '曲属性'},
-      {'value': '2', 'text': 'smile'},
-      {'value': '3', 'text': 'pure'},
-      {'value': '4', 'text': 'cool'}
-   ];
+   var updateSubElements = LLUnit.updateSubElements;
+
    // controller
    // {
    //    get: function()
@@ -6727,30 +6960,7 @@ var LLTeamComponent = (function () {
       };
       return [textElement, '/', inputElement];
    }
-   // controller
-   // {
-   //    get: function()
-   //    set: function(value)
-   // }
-   function makeSelectCreator(selOptions, valOptions, valueChangeFunc, converter) {
-      return function(controller, i) {
-         var sel = createElement('select', selOptions);
-         var selComp = new LLSelectComponent(sel);
-         selComp.setOptions(valOptions);
-         selComp.onValueChange = function (v) {
-            valueChangeFunc && valueChangeFunc(i, v);
-         };
-         controller.get = function() {
-            if (converter) {
-               return converter(selComp.get());
-            } else {
-               return selComp.get();
-            }
-         };
-         controller.set = function(v) { selComp.set(v); }
-         return [sel];
-      }
-   }
+
    function makeButtonCreator(text, clickFunc) {
       return function(controller, i) {
          return [createElement('button', {'type': 'button', 'className': 'btn btn-default', 'innerHTML': text+(i+1)}, undefined, {'click': function(){clickFunc(i);}})];
@@ -6847,35 +7057,7 @@ var LLTeamComponent = (function () {
       controller.setColor = function(c) { ret[0].style.color = c; };
       return ret;
    }
-   function makeTextCreator(controller, getConverter, setConverter, defaultValue) {
-      if (defaultValue === undefined) defaultValue = '';
-      return function (controller) {
-         var textElement = createElement('span');
-         var curValue = defaultValue;
-         if (setConverter) {
-            controller.set = function(v) {
-               if (curValue !== v) {
-                  curValue = v;
-                  textElement.innerHTML = setConverter(v);
-               }
-            };
-         } else {
-            controller.set = function(v) {
-               if (curValue !== v) {
-                  curValue = v;
-                  textElement.innerHTML = v;
-               }
-            };
-         }
-         if (getConverter) {
-            controller.get = function() { return getConverter(curValue); };
-         } else {
-            controller.get = function() { return curValue; };
-         }
-         controller.reset = function() { controller.set(defaultValue); };
-         return [textElement];
-      };
-   }
+
    // controller
    // {
    //    setTooltip: function(value)
@@ -6898,18 +7080,225 @@ var LLTeamComponent = (function () {
       };
       return ret;
    }
-   // controller
-   // {
-   //    headColor: optional config
-   //    cellColor: optional config
-   //    fold: optional callback function()
-   //    unfold: optional callback function()
-   //    cells[0-8]: cell controllers
-   //    show: function()
-   //    hide: function()
-   //    toggleFold: optional function()
-   // }
-   function createRowFor9(head, cellCreator, controller) {
+
+   /**
+    * @typedef LLTeam_NormalGemListItemController
+    * @property {(attribute?: AttributeType) => void} resetAttribute (out)
+    * @property {(metaId: number) => void} resetMetaId (out)
+    * @property {() => number} getMetaId (out)
+    * @property {() => void} [onDelete] (in)
+    */
+   /**
+    * @param {LLTeam_NormalGemListItemController} controller 
+    * @param {number} metaId
+    * @param {AttributeType} [attribute]
+    * @param {boolean} [popLeft]
+    * @returns {HTMLElement} 
+    */
+   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
+      var myMetaId = metaId;
+      var myAttr = attribute;
+      var callbackOnDelete = function () {
+         controller.onDelete && controller.onDelete();
+      };
+      var btnName = createElement('button', {'type': 'button', 'className': 'btn btn-default'}, undefined, {'click': callbackOnDelete});
+      var dots = [];
+      for (var i = 0; i < 8; i++) {
+         dots.push(createElement('div', {'style': {'display': 'none'}}));
+      }
+      var btnDots = createElement('span', {'className': 'gem-dot'}, dots);
+      var btnTooltip = createElement('span', {'className': 'tooltiptext' + (popLeft ? ' pop-left' : '')});
+      var btnContainer = createElement('div', {'className': 'lltooltip'}, [btnName, btnTooltip]);
+      var updateMeta = function () {
+         var meta = LLConst.Gem.getNormalGemMeta(myMetaId);
+         var slot = meta.slot;
+         for (var i = 0; i < 8; i++) {
+            dots[i].style.display = (i < slot ? '' : 'none');
+         }
+         btnTooltip.innerHTML = LLConst.Gem.getNormalGemNameAndDescription(meta) + '<br/>点击移除该宝石';
+         updateSubElements(btnName, [LLConst.Gem.getNormalGemName(meta), btnDots], true);
+      };
+      var updateColor = function () {
+         for (var i = 0; i < 8; i++) {
+            dots[i].style['background-color'] = LLConst.getAttributeColor(myAttr);
+         }
+      };
+      controller.resetMetaId = function (id) {
+         myMetaId = id;
+         updateMeta();
+      };
+      controller.resetAttribute = function (attr) {
+         myAttr = attr;
+         updateColor();
+      };
+      controller.getMetaId = function () {
+         return myMetaId;
+      };
+      updateMeta();
+      updateColor();
+      return btnContainer;
+   }
+
+   /**
+    * @typedef LLTeam_NormalGemListController
+    * @property {() => string[]} get (out) normal gem meta key list
+    * @property {(normalGemMetaKeyList: string[]) => void} set (out)
+    * @property {(memberAttribute?: AttributeType, mapAttribute?: AttributeType) => void} setAttributes (out)
+    * @property {(normalGemMetaKey: string) => void} add (out)
+    * @property {(index: number, slots: number) => void} [onListChange] (in)
+    */
+   /**
+    * @param {LLTeam_NormalGemListController} controller 
+    * @param {number} index
+    * @returns {HTMLElement[]}
+    */
+   function normalGemListCreator(controller, index) {
+      /** @type {AttributeType} */
+      var memberAttribute = undefined;
+      /** @type {AttributeType} */
+      var mapAttribute = undefined;
+      var listContainer = createElement('div', {'className': 'gem-list'});
+      /** @type {HTMLElement[]} */
+      var listItems = [];
+      /** @type {LLTeam_NormalGemListItemController[]} */
+      var listItemControllers = [];
+      /** @param {number} normalGemMetaId */
+      var getAttributeForGem = function (normalGemMetaId) {
+         if (LLConst.Gem.isGemFollowMemberAttribute(normalGemMetaId)) {
+            // these gems use member attribute
+            return memberAttribute;
+         } else {
+            // other gems use map attribute
+            return mapAttribute;
+         }
+      };
+      var updateColor = function () {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            var curController = listItemControllers[i];
+            curController.resetAttribute(getAttributeForGem(curController.getMetaId()));
+         }
+      };
+      var callbackListChange = function () {
+         if (controller.onListChange) {
+            var totalSlot = 0;
+            for (var i = 0; i < listItemControllers.length; i++) {
+               var meta = LLConst.Gem.getNormalGemMeta(listItemControllers[i].getMetaId());
+               if (meta) {
+                  totalSlot += meta.slot;
+               }
+            }
+            controller.onListChange(index, totalSlot);
+         }
+      };
+      /**
+       * @param {LLTeam_NormalGemListItemController} [controller] delete by controller ref
+       * @param {number} [index] delete by index
+       * @param {boolean} doCallback
+       */
+      var deleteListItem = function (controller, index, doCallback) {
+         if (index === undefined) {
+            for (var i = 0; i < listItemControllers.length; i++) {
+               if (controller === listItemControllers[i]) {
+                  index = i;
+                  break;
+               }
+            }
+         }
+         if (index === undefined) {
+            console.error('Not found index to delete');
+            console.info(controller);
+            return;
+         }
+         listContainer.removeChild(listItems[index]);
+         listItems.splice(index, 1);
+         listItemControllers.splice(index, 1);
+         if (doCallback) {
+            callbackListChange();
+         }
+      };
+      /**
+       * @param {number} normalGemMetaId 
+       * @param {boolean} doCallback 
+       */
+      var addListItem = function (normalGemMetaId, doCallback) {
+         /** @type {LLTeam_NormalGemListItemController} */
+         var itemController = {
+            'onDelete': () => deleteListItem(itemController, undefined, true)
+         };
+         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), index >= 7);
+         listItems.push(item);
+         listItemControllers.push(itemController);
+         updateSubElements(listContainer, item);
+         if (doCallback) {
+            callbackListChange();
+         }
+      };
+      controller.get = function () {
+         return listItemControllers.map((c) => LLConst.Gem.getNormalGemMeta(c.getMetaId()).key);
+      };
+      controller.set = function (normalGemMetaKeyList) {
+         var i = 0;
+         for (; i < normalGemMetaKeyList.length; i++) {
+            var curId = LLConst.GemType[normalGemMetaKeyList[i]];
+            if (i < listItemControllers.length) {
+               var curController = listItemControllers[i];
+               if (curController.getMetaId() != curId) {
+                  curController.resetMetaId(curId);
+                  curController.resetAttribute(getAttributeForGem(curId))
+               }
+            } else {
+               addListItem(curId, false);
+            }
+         }
+         for (; i < listItemControllers.length;) {
+            deleteListItem(undefined, i, false);
+         }
+         callbackListChange();
+      };
+      controller.setAttributes = function (memberAttr, mapAttr) {
+         if (memberAttr !== undefined) {
+            memberAttribute = memberAttr;
+         }
+         if (mapAttr !== undefined) {
+            mapAttribute = mapAttr;
+         }
+         updateColor();
+      };
+      controller.add = function (normalGemMetaKey) {
+         var gemId = LLConst.GemType[normalGemMetaKey];
+         if (gemId === undefined) return;
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (listItemControllers[i].getMetaId() == gemId) {
+               console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
+               return;
+            }
+         }
+         addListItem(gemId, true);
+      };
+      return [listContainer];
+   }
+
+   /**
+    * @template CellController
+    * @typedef LLTeam_RowController
+    * @property {string} [headColor] (in)
+    * @property {string} [cellColor] (in)
+    * @property {() => void} [fold] (in)
+    * @property {() => void} [unfold] (in)
+    * @property {CellController[]} cells (out) index 0-8
+    * @property {() => void} show (out)
+    * @property {() => void} hide (out)
+    * @property {() => void} [toggleFold] (out)
+    */
+   /**
+    * @template CellController
+    * @param {string} head 
+    * @param {(controller: CellController, index: number) => HTMLElement[]} cellCreator 
+    * @param {LLTeam_RowController<CellController>} controller 
+    * @param {(controller: CellController, index: number) => void} cellControllerDeco
+    * @returns {HTMLElement}
+    */
+   function createRowFor9(head, cellCreator, controller, cellControllerDeco) {
       var headElement;
       if (controller.fold) {
          var arrowSpan = createElement('span', {'className': 'tri-down'});
@@ -6944,6 +7333,9 @@ var LLTeamComponent = (function () {
          var tdElement = createElement('td', undefined, cellCreator(cellController, i));
          if (controller.cellColor) {
             tdElement.style.color = controller.cellColor;
+         }
+         if (cellControllerDeco) {
+            cellControllerDeco(cellController, i);
          }
          cells.push(tdElement);
          cellControllers.push(cellController);
@@ -6994,7 +7386,7 @@ var LLTeamComponent = (function () {
    //    setMember: function(i, member) alias putMember
    //    setMembers: function(members)
    //    getMember(i), getMembers()
-   //    setMemberGem(i, g), setMemberGems(g)
+   //    setMemberGem(i, g)
    //    getCardId(i), getCardIds()
    //    getWeight(i), getWeights(), setWeight(i,w), setWeights(i,w)
    //    setStrengthAttribute(i,s), setStrengthAttributes(s)
@@ -7005,6 +7397,7 @@ var LLTeamComponent = (function () {
    //    setHeal(i,s)
    //    setSwapper: function(swapper)
    //    getSwapper: function()
+   //    setMapAttribute: function(attr)
    //    saveData: function()
    //    loadData: function(data)
    // }
@@ -7022,14 +7415,9 @@ var LLTeamComponent = (function () {
          'pure': {'headColor': 'green', 'cellColor': 'green', 'memberKey': 'pure', 'memberDefault': 0},
          'cool': {'headColor': 'blue', 'cellColor': 'blue', 'memberKey': 'cool', 'memberDefault': 0},
          'skill_level': {'memberKey': 'skilllevel'},
-         'slot': {'owning': ['gem_num', 'gem_single_percent', 'gem_all_percent', 'gem_score', 'gem_acc', 'gem_member', 'gem_nonet']},
-         'gem_num': {'memberKey': 'gemnum'},
-         'gem_single_percent': {'memberKey': 'gemsinglepercent'},
-         'gem_all_percent': {'memberKey': 'gemallpercent'},
-         'gem_score': {'memberKey': 'gemskill'},
-         'gem_acc': {'memberKey': 'gemacc'},
-         'gem_member': {'memberKey': 'gemmember'},
-         'gem_nonet': {'memberKey': 'gemnonet'},
+         'slot': {'owning': ['put_gem', 'gem_list']},
+         'put_gem': {},
+         'gem_list': {'memberKey': 'gemlist'},
          'str_attr': {},
          'str_skill_theory': {},
          'str_card_theory': {},
@@ -7061,16 +7449,8 @@ var LLTeamComponent = (function () {
       var doSetToMember = function(i, member) {
          member[this.memberKey] = this.cells[i].get();
       };
-      var calcSlot = function(i) {
-         var result = 0;
-         result += LLSisGem.parseSADDSlot(controllers.gem_num.cells[i].get());
-         result += LLSisGem.parseSMULSlot(controllers.gem_single_percent.cells[i].get()*100);
-         result += LLSisGem.parseAMULSlot(controllers.gem_all_percent.cells[i].get()*100);
-         result += controllers.gem_score.cells[i].get()*4;
-         result += controllers.gem_acc.cells[i].get()*4;
-         result += (controllers.gem_member.cells[i].get() > 0 ? 4 : 0);
-         result += controllers.gem_nonet.cells[i].get()*4;
-         controllers.slot.cells[i].setUsedSlot(result);
+      var updateSlot = function(i, slots) {
+         controllers.slot.cells[i].setUsedSlot(slots);
       };
       for (var i in controllers) {
          if (controllers[i].owning) {
@@ -7084,7 +7464,6 @@ var LLTeamComponent = (function () {
       }
       var number3Config = {'type': 'number', 'step': 'any', 'size': 3, 'autocomplete': 'off', 'className': 'form-control num-size-3', 'value': '0'};
       var number1Config = {'type': 'number', 'step': '1', 'size': 1, 'autocomplete': 'off', 'className': 'form-control num-size-1', 'value': '1'};
-      var selConfig = {'className': 'form-control'};
       rows.push(createRowFor9('权重', makeInputCreator(number3Config, parseFloat), controllers.weight));
       rows.push(createRowFor9('放卡', makeButtonCreator('放卡', function(i) {
          controller.onPutCardClicked && controller.onPutCardClicked(i);
@@ -7101,13 +7480,15 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('cool', makeInputCreator(number3Config, parseInt), controllers.cool));
       rows.push(createRowFor9('技能等级', skillLevelCreator, controllers.skill_level));
       rows.push(createRowFor9('使用槽数', slotCreator, controllers.slot));
-      rows.push(createRowFor9('单体数值', makeSelectCreator(selConfig, gemNumOptions, calcSlot, parseInt), controllers.gem_num));
-      rows.push(createRowFor9('单体百分比', makeSelectCreator(selConfig, gemSinglePercentOptions, calcSlot), controllers.gem_single_percent));
-      rows.push(createRowFor9('全体百分比', makeSelectCreator(selConfig, gemAllPercentOptions, calcSlot), controllers.gem_all_percent));
-      rows.push(createRowFor9('奶/分宝石', makeSelectCreator(selConfig, gemYesNoOptions, calcSlot, parseInt), controllers.gem_score));
-      rows.push(createRowFor9('判定宝石', makeSelectCreator(selConfig, gemYesNoOptions, calcSlot, parseInt), controllers.gem_acc));
-      rows.push(createRowFor9('个人宝石', makeSelectCreator(selConfig, gemMemberOptions, calcSlot, parseInt), controllers.gem_member));
-      rows.push(createRowFor9('九重奏宝石', makeSelectCreator(selConfig, gemYesNoOptions, calcSlot, parseInt), controllers.gem_nonet));
+      rows.push(createRowFor9('放宝石', makeButtonCreator('放宝石', function (i) {
+         if (controller.onPutGemClicked) {
+            var gemKey = controller.onPutGemClicked(i);
+            if (LLConst.GemType[gemKey] !== undefined) {
+               controllers.gem_list.cells[i].add(gemKey);
+            }
+         }
+      }), controllers.put_gem));
+      rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
       rows.push(createRowFor9('换位', makeSwapCreator(controller), {}));
       rows.push(createRowFor9('属性强度', textCreator, controllers.str_attr));
       rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
@@ -7145,11 +7526,13 @@ var LLTeamComponent = (function () {
             if (member.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
+            controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
          } else {
             controllers.info.cells[i].reset();
             controllers.info_name.cells[i].reset();
             controllers.skill_trigger.cells[i].reset();
             controllers.skill_effect.cells[i].reset();
+            controllers.gem_list.cells[i].setAttributes('');
          }
          if (member.maxcost !== undefined) {
             controllers.slot.cells[i].setMaxSlot(parseInt(member.maxcost));
@@ -7173,39 +7556,20 @@ var LLTeamComponent = (function () {
          return retMember;
       };
       controller.getMembers = makeGet9Function(controller.getMember);
+      /**
+       * @param {number} i 
+       * @param {LLSisGem[]} gems 
+       */
       controller.setMemberGem = function(i, gems) {
-         var sumSADD = 0;
-         var sumSMUL = 0;
-         var sumAMUL = 0;
-         var sumSKILL = 0;
-         var sumMEMBER = 0;
-         var sumNONET = 0;
+         /** @type {string[]} */
+         var gemList = [];
          for (var j = 0; j < gems.length; j++) {
+            /** @type {LLSisGem} */
             var curGem = gems[j];
-            if (curGem.attr_add && curGem.isEffectRangeSelf()) {
-               sumSADD += curGem.effect_value;
-            } else if (curGem.attr_mul) {
-               if (curGem.per_member) {
-                  sumMEMBER++;
-               } else if (curGem.per_unit) {
-                  sumNONET++;
-               } else if (curGem.isEffectRangeSelf()) {
-                  sumSMUL += curGem.effect_value;
-               } else {
-                  sumAMUL += Math.round(curGem.effect_value*10);
-               }
-            } else if (curGem.isSkillGem()) {
-               sumSKILL++;
-            }
+            gemList.push(LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType()).key);
          }
-         controllers.gem_num.cells[i].set(sumSADD);
-         controllers.gem_single_percent.cells[i].set(String(sumSMUL/100));
-         controllers.gem_all_percent.cells[i].set(String(sumAMUL/1000));
-         controllers.gem_score.cells[i].set(sumSKILL);
-         controllers.gem_member.cells[i].set(sumMEMBER);
-         controllers.gem_nonet.cells[i].set(sumNONET);
+         controllers.gem_list.cells[i].set(gemList);
       };
-      controller.setMemberGems = makeSet9Function(controller.setMemberGem);
       controller.getCardId = function(i) { return controllers.avatar.cells[i].getCardId(); };
       controller.getCardIds = makeGet9Function(controller.getCardId);
       controller.getWeight = function(i) { return controllers.weight.cells[i].get(); };
@@ -7232,6 +7596,8 @@ var LLTeamComponent = (function () {
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
       controller.getSwapper = function() { return swapper; };
+      /** @param {AttributeType} mapAttr */
+      controller.setMapAttribute = function (mapAttr) { controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr)); };
       /** @returns {boolean} */
       controller.isAllMembersPresent = function () {
          var cardIds = controller.getCardIds();
@@ -7242,7 +7608,10 @@ var LLTeamComponent = (function () {
       };
 
       controller.saveData = controller.getMembers;
-      controller.loadData = controller.setMembers;
+      controller.loadData = function (members) {
+         LLSaveData.normalizeMemberGemList(members);
+         controller.setMembers(members);
+      };
       return createElement('table', {'className': 'table table-bordered table-hover table-condensed team-table'}, [
          createElement('tbody', undefined, rows)
       ]);
@@ -7259,6 +7628,7 @@ var LLTeamComponent = (function () {
       var element = LLUnit.getElement(id);
       element.appendChild(createTeamTable(this));
       this.onPutCardClicked = callbacks && callbacks.onPutCardClicked;
+      this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
       this.onCenterChanged = callbacks && callbacks.onCenterChanged;
    }
    var cls = LLTeamComponent_cls;
@@ -7715,4 +8085,49 @@ var LLSongSelectorComponent = (function () {
 
    LLSaveLoadJsonMixin(LLSongSelectorComponent_cls.prototype);
    return LLSongSelectorComponent_cls;
+})();
+
+/**
+ * @typedef LLGemSelectorComponent_SaveDataType
+ */
+var LLGemSelectorComponent = (function () {
+   var createElement = LLUnit.createElement;
+   var updateSubElements = LLUnit.updateSubElements;
+   var createFormInlineGroup = LLUnit.createFormInlineGroup;
+
+   /** @returns {HTMLElement} */
+   function createFormSelect() {
+      return createElement('select', {'className': 'form-control no-padding'});
+   }
+
+   /**
+    * @constructor
+    * @param {string | HTMLElement} id 
+    * @param {SisDictDataType} gemData
+    */
+   function LLGemSelectorComponent_cls(id, gemData) {
+      var container = LLUnit.getElement(id);
+
+      var gemChoice = createFormSelect();
+      var gemChoiceComponent = new LLSelectComponent(gemChoice);
+      var gemOptions = [{'value': '', 'text': '选择宝石'}];
+      var normalGems = LLConst.Gem.getNormalGemTypeKeys();
+      var i;
+      for (i = 0; i < normalGems.length; i++) {
+         var normalGemKey = normalGems[i];
+         var normalGemId = LLConst.GemType[normalGemKey];
+         gemOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
+      }
+      gemChoiceComponent.setOptions(gemOptions);
+
+      updateSubElements(container, [
+         createFormInlineGroup('宝石：', gemChoice)
+      ], true);
+
+      this.getGemId = function () {
+         return gemChoiceComponent.get();
+      };
+   }
+
+   return LLGemSelectorComponent_cls;
 })();

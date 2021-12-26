@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-#import sae.kvdb
-#from sae.storage import Bucket
-from flask import Flask, render_template, redirect, session, request, send_file
-import string
-import random
+from flask import Flask, render_template, request
 import json
 import sys
 from lldata import LLData, LLDataMix
@@ -24,6 +20,8 @@ g_llcarddata_cn = LLData('newcardsjson-20181021.txt', 3600)
 g_llcarddata_mix = LLDataMix([g_llcarddata_cn, g_llcarddata], 'cn-mix', 60)
 # metadata
 g_llmetadata = LLData('metadata.txt', 60)
+# sisdata
+g_llsisdata = LLData('sisdata.json', 60)
 
 
 ### activity ###
@@ -121,6 +119,14 @@ def lldata_songdetail(index):
 @app.route("/lldata/metadata", methods=['GET'])
 def lldata_metadata():
     return json.dumps(g_llmetadata.queryByIndexes(request.args['keys']))
+
+@app.route("/lldata/sisbrief", methods=['GET'])
+def lldata_sisdata():
+    return json.dumps(g_llsisdata.queryByKeys(request.args['keys']))
+
+@app.route("/lldata/sis/<index>", methods=['GET'])
+def lldata_sisdetail(index):
+    return json.dumps(g_llsisdata.queryByIndex(index))
 
 ### data api ###
 @app.route("/llcardapiwiki")

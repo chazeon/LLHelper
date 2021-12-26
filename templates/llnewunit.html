@@ -22,6 +22,7 @@
    var comp_skill = 0;
    var comp_cardselector = 0;
    var comp_songselector = 0;
+   var comp_gemselector = 0;
    var comp_cardavatar = 0;
    var comp_distribution_param = 0;
    var comp_distribution_chart = 0;
@@ -44,8 +45,10 @@
       comp_cskill_team = new LLCSkillComponent('cskill_team');
       comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
       comp_result = new LLUnitResultComponent('unit_result');
+      comp_gemselector = new LLGemSelectorComponent('gem_filter');
 
       comp_songselector.onSongSettingChange = (songSettingId, songSetting) => songSetting && comp_team.setWeights(songSetting.positionweight);
+      comp_songselector.onSongColorChange = (songAttribute) => comp_team.setMapAttribute(songAttribute);
       comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
@@ -72,6 +75,9 @@
             memberData[curMain] += parseInt(document.getElementById("kizuna").value);
             comp_team.putMember(i, memberData);
          },
+         'onPutGemClicked': function (i) {
+            return comp_gemselector.getGemId();
+         },
          'onCenterChanged': function() {
             LoadingUtil.startSingle(LLCardData.getDetailedData(this.getCardId(4) || 0)).then(function(card) {
                comp_cskill_team.setCSkill(card);
@@ -85,6 +91,7 @@
       // load
       comp_cardselector.loadLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
       comp_songselector.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageSongSelectKey));
+      comp_team.setMapAttribute(comp_songselector.getSongAttribute());
 
       // addition script
       {{additional_script|safe}}
@@ -118,12 +125,12 @@
    }
 
    function makeSaveData() {
-      return new LLSaveData({'version': 103, 'team': comp_team.getMembers(), 'gemstock': {}, 'submember': []});
+      return new LLSaveData({'version': 104, 'team': comp_team.getMembers(), 'gemstock': {}, 'submember': []});
    }
 
    function saveunit(){
       var saveData = makeSaveData();
-      var unitjson = saveData.serializeV1();
+      var unitjson = saveData.serializeV104();
       window.location.href="/llsaveunit/"+unitjson;
    }
 
@@ -195,8 +202,7 @@
 
       for (var i = 0; i < 9; i++) {
          member[i].card = cards[member[i].cardid];
-         member[i].gems = LLSisGem.parseMemberGems(member[i], mainatt);
-         llmembers.push(new LLMember(member[i]));
+         llmembers.push(new LLMember(member[i], mainatt));
       }
 
       var distParam = comp_distribution_param.saveData();
@@ -301,6 +307,10 @@
 {% include 'components/card-selector.html' %}
 
 <div style="clear:both"></div>
+
+<h3>宝石选择</h3>
+<div id="gem_filter" class="filter-form">载入中...</div>
+
 <h3>队伍属性</h3>
 <div class="col-xs-12 col-lg-9" style="overflow-x:auto" id="unit-team"></div>
 <div class="col-xs-12 col-lg-3">
