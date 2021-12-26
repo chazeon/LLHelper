@@ -982,6 +982,7 @@ var LLConst = (function () {
       'エマ・ヴェルデ': 208,
       '天王寺璃奈': 209,
       '三船栞子': 212,
+      'ミア・テイラー': 214,
       'MEMBER_AYUMU': 201,
       'MEMBER_KASUMI': 202,
       'MEMBER_SHIZUKU': 203,
@@ -992,6 +993,7 @@ var LLConst = (function () {
       'MEMBER_EMMA': 208,
       'MEMBER_RINA': 209,
       'MEMBER_SHIORIKO': 212,
+      'MEMBER_MIA': 214,
 
       '澁谷かのん': 301,
       '唐可可': 302,
@@ -1430,7 +1432,7 @@ var LLConst = (function () {
    var MemberUtils = {
       /**
        * @param {MemberIdType} memberId
-       * @returns {BigGroupIdType}
+       * @returns {BigGroupIdType | undefined}
        */
       getBigGroupId: function (memberId) {
          var bigGroups = ret.Group.getBigGroupIds();
@@ -1441,6 +1443,32 @@ var LLConst = (function () {
             }
          }
          return undefined;
+      },
+      /**
+       * @param {LLMember[]} members 
+       * @returns {BigGroupIdType | undefined}
+       */
+      isNonetTeam: function (members) {
+         if ((!members) || (members.length != 9)) {
+            console.error('isNonetTeam: invalid members', members);
+            return undefined;
+         }
+         var curMemberName = members[0].card.jpname;
+         var bigGroup = MemberUtils.getBigGroupId(curMemberName);
+         if (bigGroup === undefined) return undefined;
+         var memberFlag = {};
+         memberFlag[curMemberName] = 1;
+         for (var i = 1; i < members.length; i++) {
+            curMemberName = members[i].card.jpname;
+            if (!ret.isMemberInGroup(curMemberName, bigGroup)) return undefined;
+            memberFlag[curMemberName] = 1;
+         }
+         var distinctMemberCount = Object.keys(memberFlag).length;
+         if (bigGroup == ret.GROUP_LIELLA) {
+            return (distinctMemberCount == 5 ? bigGroup : undefined);
+         } else {
+            return (distinctMemberCount == 9 ? bigGroup : undefined);
+         }
       }
    };
    ret.Member = MemberUtils;
@@ -3426,8 +3454,6 @@ var LLMap = (function () {
  * @property {function(AttributeType)} setAttributeType
  */
 var LLSisGem = (function () {
-   var GEM_MEMBER_COLOR = ['', '', 'smile', 'pure', 'cool'];
-   var EPSILON = 1e-8;
    /**
     * @constructor
     * @param {number} type
@@ -3451,85 +3477,8 @@ var LLSisGem = (function () {
    };
    var cls = LLSisGem_cls;
 
-   var bitSplit = function (val, candidate) {
-      var ret = [];
-      // assume candidate sort by value desending
-      for (var i = 0; i < candidate.length; i++) {
-         var cur_type = LLConst.Gem.getNormalGemMeta(candidate[i]);
-         if (val >= cur_type.effect_value) {
-            val -= cur_type.effect_value;
-            ret.push(candidate[i]);
-         }
-      }
-      return ret;
-   };
-   var sumSlot = function (types) {
-      var ret = 0;
-      for (var i = 0; i < types.length; i++) {
-         ret += LLConst.Gem.getNormalGemMeta(types[i]).slot;
-      }
-      return ret;
-   };
-   var createGems = function (types, options) {
-      var ret = [];
-      for (var i = 0; i < types.length; i++) {
-         ret.push(new LLSisGem(types[i], options));
-      }
-      return ret;
-   };
-   cls.createGems = createGems;
    cls.getGemSlot = function (type) {
       return LLConst.Gem.getNormalGemMeta(type).slot;
-   };
-   cls.parseSADDSlot = function (val) {
-      return sumSlot(bitSplit(parseInt(val), [LLConst.GemType.SADD_1400, LLConst.GemType.SADD_450, LLConst.GemType.SADD_200]));
-   };
-   cls.parseSMULSlot = function (val) {
-      return sumSlot(bitSplit(parseInt(val), [LLConst.GemType.SMUL_28, LLConst.GemType.SMUL_16, LLConst.GemType.SMUL_10]));
-   };
-   cls.parseAMULSlot = function (val) {
-      val = parseFloat(val);
-      if (Math.abs(val - 4.2) < EPSILON) return sumSlot([LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18]);
-      return sumSlot(bitSplit(val+EPSILON, [LLConst.GemType.AMUL_40, LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18]));
-   };
-   cls.parseSADD = function (val, color) {
-      return createGems(bitSplit(parseInt(val), [LLConst.GemType.SADD_1400, LLConst.GemType.SADD_450, LLConst.GemType.SADD_200]), {'color': color});
-   };
-   cls.parseSMUL = function (val, color, grade) {
-      return createGems(bitSplit(parseInt(val), [LLConst.GemType.SMUL_28, LLConst.GemType.SMUL_16, LLConst.GemType.SMUL_10]), {'color': color, 'grade': grade});
-   };
-   cls.parseAMUL = function (val, color) {
-      val = parseFloat(val);
-      if (Math.abs(val - 4.2) < EPSILON) return createGems([LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18], {'color': color});
-      return createGems(bitSplit(val+EPSILON, [LLConst.GemType.AMUL_40, LLConst.GemType.AMUL_24, LLConst.GemType.AMUL_18]), {'color': color});
-   };
-   cls.parseMemberGems = function (member, color) {
-      var ret = [];
-      ret = ret.concat(cls.parseSADD(member.gemnum, color));
-      ret = ret.concat(cls.parseSMUL(parseFloat(member.gemsinglepercent)*100, color, LLConst.getMemberGrade(member.card.jpname)));
-      ret = ret.concat(cls.parseAMUL(parseFloat(member.gemallpercent)*100, color));
-      if (parseInt(member.gemskill) == 1) {
-         ret.push(new LLSisGem(LLConst.GemType.SCORE_250, {'color': color}));
-      }
-      if (parseInt(member.gemacc) == 1) {
-         ret.push(new LLSisGem(LLConst.GemType.EMUL_33, {'color': color}));
-      }
-      var gemMemberInt = parseInt(member.gemmember);
-      if (gemMemberInt == 1) {
-         ret.push(new LLSisGem(LLConst.GemType.MEMBER_29, {'member': member.card.jpname, 'color': color}));
-      } else if (gemMemberInt >= 2) {
-         ret.push(new LLSisGem(LLConst.GemType.MEMBER_29, {'member': member.card.jpname, 'color': GEM_MEMBER_COLOR[gemMemberInt]}));
-      }
-      if (parseInt(member.gemnonet) == 1) {
-         var unit = undefined;
-         if (LLConst.isMemberInGroup(member.card.jpname, LLConst.GROUP_MUSE)) {
-            unit = 'muse';
-         } else if (LLConst.isMemberInGroup(member.card.jpname, LLConst.GROUP_AQOURS)) {
-            unit = 'aqours';
-         }
-         ret.push(new LLSisGem(LLConst.GemType.NONET_42, {'color': color, 'unit':unit}));
-      }
-      return ret;
    };
    cls.getGemStockCount = function (gemStock, gemStockKeys) {
       var cur = gemStock;
@@ -4703,17 +4652,7 @@ var LLTeam = (function() {
       //((基本属性+绊)*百分比宝石加成+数值宝石加成)*主唱技能加成
       var teamgem = [];
       var i, j;
-      var unitMemberCount = {'muse':{}, 'aqours':{}};
-      for (i = 0; i < 9; i++) {
-         var curMember = this.members[i];
-         if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_MUSE)) {
-            unitMemberCount.muse[curMember.card.jpname] = 1;
-         } else if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_AQOURS)) {
-            unitMemberCount.aqours[curMember.card.jpname] = 1;
-         }
-      }
-      var allMuse = (Object.keys(unitMemberCount.muse).length == 9);
-      var allAqours = (Object.keys(unitMemberCount.aqours).length == 9);
+      var isNonetTeam = LLConst.Member.isNonetTeam(this.members);
       //数值和单体百分比宝石
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
@@ -4725,7 +4664,7 @@ var LLTeam = (function() {
             var curGem = curMember.gems[j];
             if (curGem.isAttrMultiple() && curGem.isEffectRangeAll() && curGem.getAttributeType() == mapcolor) {
                if (curGem.isNonet()) {
-                  if (!(allMuse || allAqours)) continue;
+                  if (!isNonetTeam) continue;
                }
                curGems.push(curGem);
             }
@@ -5112,24 +5051,15 @@ var LLTeam = (function() {
       var gradeInfo = [];
       var gradeCount = [0, 0, 0];
       var unitInfo = [];
-      var unitMemberCount = {'muse':{}, 'aqours':{}};
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          var curMemberGrade = curMember.getGrade();
+         var curBigGroupId = LLConst.Member.getBigGroupId(curMember.card.jpname);
          gradeInfo.push(curMemberGrade);
          gradeCount[curMemberGrade]++;
-         if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_MUSE)) {
-            unitInfo.push('muse');
-            unitMemberCount.muse[curMember.card.jpname] = 1;
-         } else if (LLConst.isMemberInGroup(curMember.card.jpname, LLConst.GROUP_AQOURS)) {
-            unitInfo.push('aqours');
-            unitMemberCount.aqours[curMember.card.jpname] = 1;
-         } else {
-            unitInfo.push('');
-         }
+         unitInfo.push((curBigGroupId ? curBigGroupId.toFixed() : ''));
       }
-      var allMuse = (Object.keys(unitMemberCount.muse).length == 9);
-      var allAqours = (Object.keys(unitMemberCount.aqours).length == 9);
+      var isNonetTeam = LLConst.Member.isNonetTeam(this.members);
       // 计算每种宝石带来的增益
       var gemStockSubset = [];
       var gemStockKeyToIndex = {};
@@ -5168,7 +5098,7 @@ var LLTeam = (function() {
                   } else if (curGem.isEffectRangeAll()) {
                      var takeEffect = 0;
                      if (curGem.isNonet()) {
-                        if (allMuse || allAqours) {
+                        if (isNonetTeam) {
                            takeEffect = 1;
                         }
                      } else {
@@ -5499,15 +5429,6 @@ var LLSaveData = (function () {
       if (data.length == 10) return 2;
       return 0;
    };
-   var calculateSlot = function (member){
-      var ret = 0;
-      ret += LLSisGem.parseSADDSlot(member.gemnum || 0);
-      ret += LLSisGem.parseSMULSlot(parseFloat(member.gemsinglepercent || 0)*100);
-      ret += LLSisGem.parseAMULSlot(parseFloat(member.gemallpercent || 0)*100);
-      ret += parseInt(member.gemskill || 0)*4;
-      ret += parseInt(member.gemacc || 0)*4;
-      return ret;
-   }
    var getTeamMemberV1V2 = function (data) {
       var ret = [];
       for (var i = 0; i < 9; i++) {
@@ -5516,7 +5437,14 @@ var LLSaveData = (function () {
          for (var j in cur) {
             member[j] = cur[j];
          }
-         if (member.maxcost === undefined) member.maxcost = calculateSlot(member);
+         if (member.maxcost === undefined) {
+            var totalCost = 0;
+            convertMemberV103ToV104(member);
+            for (var j = 0; j < member.gemlist.length; j++) {
+               totalCost += LLConst.Gem.getNormalGemMeta(LLConst.GemType[member.gemlist[j]]).slot;
+            }
+            member.maxcost = totalCost;
+         }
          ret.push(member);
       }
       return ret;
@@ -7214,7 +7142,6 @@ var LLTeamComponent = (function () {
    /**
     * @typedef LLTeam_NormalGemListController
     * @property {() => string[]} get (out) normal gem meta key list
-    * @property {(memberId: MemberIdType) => LLSisGem[]} getSisGemList (out)
     * @property {(normalGemMetaKeyList: string[]) => void} set (out)
     * @property {(memberAttribute?: AttributeType, mapAttribute?: AttributeType) => void} setAttributes (out)
     * @property {(normalGemMetaKey: string) => void} add (out)
@@ -7308,19 +7235,6 @@ var LLTeamComponent = (function () {
       };
       controller.get = function () {
          return listItemControllers.map((c) => LLConst.Gem.getNormalGemMeta(c.getMetaId()).key);
-      };
-      /** @deprecated */
-      controller.getSisGemList = function (memberId) {
-         /** @type {LLSisGem[]} */
-         var ret = [];
-         var grade = LLConst.getMemberGrade(memberId);
-         var bigGroup = LLCosnt.Member.getBigGroupId(memberId);
-         for (var i = 0; i < listItemControllers.length; i++) {
-            var gemMetaId = listItemControllers[i].getMetaId();
-            var attribute = getAttributeForGem(gemMetaId);
-            ret.push(new LLSisGem(gemMetaId, {'grade': grade, 'member': memberId, 'color': attribute, 'unit': bigGroup}));
-         }
-         return ret;
       };
       controller.set = function (normalGemMetaKeyList) {
          var i = 0;

@@ -673,6 +673,122 @@
             });
          }
       });
+      addTestItem({
+         'name': 'Nonet check - muse',
+         'after': test1,
+         'cardConfigs': [
+            [2980, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2605, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2585, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2784, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [980, 1, 8, 4, [LLConst.GemType.NONET_42]],
+            [2571, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2695, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2620, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2802, 1, 1, 4, [LLConst.GemType.NONET_42]]
+         ],
+         'version': 'latest',
+         'run': function (cards, noteData) {
+            var mapdata = new LLMap(buildMapOptionById('55', '661'));
+            var llteam = buildTeam(cards, this.cardConfigs, mapdata);
+            llteam.calculateAttributeStrength(mapdata);
+            llteam.calculateSkillStrength(mapdata);
+            console.log(llteam);
+            assertAttributeP(llteam.finalAttr, 90012, 37310, 37560);
+            assertAttributeP(llteam.bonusAttr, 8927, 0, 0);
+            assertEqual(llteam.totalStrength, 95696);
+            assertEqual(llteam.totalAttrStrength, 90012);
+            assertEqual(llteam.totalSkillStrength, 5684);
+            return 0;
+         }
+      });
+      addTestItem({
+         'name': 'Nonet check - aqours',
+         'after': test1,
+         'cardConfigs': [
+            [2815, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2634, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2482, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2791, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2598, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2697, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2609, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2491, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2635, 1, 1, 4, [LLConst.GemType.NONET_42]]
+         ],
+         'version': 'latest',
+         'run': function (cards, noteData) {
+            var mapdata = new LLMap(buildMapOptionById('452', '996'));
+            var llteam = buildTeam(cards, this.cardConfigs, mapdata);
+            llteam.calculateAttributeStrength(mapdata);
+            llteam.calculateSkillStrength(mapdata);
+            console.log(llteam);
+            assertAttributeP(llteam.finalAttr, 34860, 36880, 94263);
+            assertAttributeP(llteam.bonusAttr, 0, 0, 9385);
+            assertEqual(llteam.totalStrength, 94263);
+            assertEqual(llteam.totalAttrStrength, 94263);
+            assertEqual(llteam.totalSkillStrength, 0);
+            return 0;
+         }
+      });
+      addTestItem({
+         'name': 'Nonet check - nijigasaki',
+         'after': test1,
+         'cardConfigs': [
+            [2971, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2783, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3019, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2757, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2724, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2874, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3004, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3010, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3079, 1, 1, 4, [LLConst.GemType.NONET_42]]
+         ],
+         'version': 'latest',
+         'run': function (cards, noteData) {
+            var mapdata = new LLMap(buildMapOptionById('549', '1008'));
+            var llteam = buildTeam(cards, this.cardConfigs, mapdata);
+            llteam.calculateAttributeStrength(mapdata);
+            llteam.calculateSkillStrength(mapdata);
+            console.log(llteam);
+            assertAttributeP(llteam.finalAttr, 35630, 95573, 38330);
+            assertAttributeP(llteam.bonusAttr, 0, 12470, 0);
+            assertEqual(llteam.totalStrength, 98895);
+            assertEqual(llteam.totalAttrStrength, 94867);
+            assertEqual(llteam.totalSkillStrength, 4028);
+            return 0;
+         }
+      });
+      addTestItem({
+         'name': 'Nonet check - liella',
+         'after': test1,
+         'cardConfigs': [
+            [3094, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3057, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2939, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2919, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2918, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2951, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [2981, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3058, 1, 1, 4, [LLConst.GemType.NONET_42]],
+            [3095, 1, 1, 4, [LLConst.GemType.NONET_42]]
+         ],
+         'version': 'latest',
+         'run': function (cards, noteData) {
+            var mapdata = new LLMap(buildMapOptionById('631', '1446'));
+            var llteam = buildTeam(cards, this.cardConfigs, mapdata);
+            llteam.calculateAttributeStrength(mapdata);
+            llteam.calculateSkillStrength(mapdata);
+            console.log(llteam);
+            assertAttributeP(llteam.finalAttr, 61288, 44880, 50962);
+            assertAttributeP(llteam.bonusAttr, 0, 0, 6652);
+            assertEqual(llteam.totalStrength, 58810);
+            assertEqual(llteam.totalAttrStrength, 57755);
+            assertEqual(llteam.totalSkillStrength, 1055);
+            return 0;
+         }
+      });
       // run tests
       var defers = [];
       for (var i = 1; i < testSet.length; i++) {

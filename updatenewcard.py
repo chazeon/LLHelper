@@ -59,6 +59,9 @@ if __name__ == "__main__":
     while jptmp:
         card_count_in_db += 1
         card_id = jptmp[0]
+        if card_id <= 0:
+            jptmp = jptc.fetchone()
+            continue
         card_key = str(card_id)
         if card_key not in cards:
             print('New card %d' % card_id)
