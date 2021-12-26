@@ -5439,7 +5439,7 @@ var LLSaveData = (function () {
          }
          if (member.maxcost === undefined) {
             var totalCost = 0;
-            convertMemberV103ToV104(member);
+            convertMemberV103ToV104([member]);
             for (var j = 0; j < member.gemlist.length; j++) {
                totalCost += LLConst.Gem.getNormalGemMeta(LLConst.GemType[member.gemlist[j]]).slot;
             }
