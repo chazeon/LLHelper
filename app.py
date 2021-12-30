@@ -90,6 +90,10 @@ def llurcardrank():
         cardsjson = open('newcardsjson.txt', 'r', encoding='utf-8').read()
     return render_template('llurcardrank.html', cardsjson = cardsjson)
 
+@app.route('/llnewsisdata')
+def llnewsisdata():
+    return render_template('llnewsisdata.html')
+
 @app.route("/lldata/cardbrief", methods=['GET'])
 def lldata_cardbrief():
     if request.args['version'] == 'cn':

@@ -45,6 +45,22 @@
  * By ben1222
  */
 "use strict";
+
+/** @type {LLH.Depends.Utils} */
+var LLDepends = {
+   createDeferred: function () {
+      return $.Deferred();
+   },
+   whenAll: function (...args) {
+      // var arr = [];
+      // for (var i = 0; i < arguments.length; i++) {
+      //    arr.push(arguments[i]);
+      // }
+      // return $.when.apply($, arr);
+      return $.when.apply($, args);
+   }
+};
+
 /*
  * LoadingUtil: utility to show loading box when defers are not resolved
  * and hide the loading box when defers are resolved or rejected
@@ -57,7 +73,7 @@ var LoadingUtil = {
       return LoadingUtil.startImpl([defer], 'loadingbox', 'loadingbox_progress').then(function (data) { return data[0]; });
    },
    startImpl: function (defers, loadingboxid, progressboxid, merger) {
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       var result = {};
       if ((!defers) || defers.length == 0) {
          defer.resolve(result);
@@ -192,6 +208,7 @@ var LLHelperLocalStorage = {
  * LLMetaData: instance for LLSimpleKeyData, load meta data
  * require jQuery
  */
+/** @type {typeof LLH.LLData} */
 var LLData = (function () {
    function LLData_cls(brief_url, detail_url, brief_keys, version) {
       this.briefUrl = brief_url;
@@ -231,7 +248,7 @@ var LLData = (function () {
       if (url === undefined) url = this.briefUrl;
       var me = this;
       var missingKeys = [];
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       me.initVersion(version);
       for (var i = 0; i < keys.length; i++) {
          var key = keys[i];
@@ -285,7 +302,7 @@ var LLData = (function () {
 
    proto.getDetailedDataWithVersion = function(version, index, url) {
       if (url === undefined) url = this.detailUrl;
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       if (index === undefined) {
          console.error("Index not specified");
          defer.reject();
@@ -336,7 +353,7 @@ var LLSimpleKeyData = (function () {
       if (url === undefined) url = this.url;
       var me = this;
       var missingKeys = [];
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       for (var i = 0; i < keys.length; i++) {
          var key = keys[i];
          if (!me.cache[key]) {
@@ -437,7 +454,7 @@ var LLMapNoteData = (function () {
       return false;
    }
    proto.getMapNoteData = function (song, songSetting) {
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       if (song.attribute == '') {
          // 默认曲目
          defer.resolve(createMapData(songSetting.combo, songSetting.time));
@@ -472,7 +489,7 @@ var LLMapNoteData = (function () {
    };
    proto.getLocalMapNoteData = function (song, songSetting) {
       var me = this;
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       if (song.attribute == '') {
          // 默认曲目
          defer.resolve(createMapData(songSetting.combo, songSetting.time));
@@ -880,6 +897,7 @@ var LLComponentCollection = (function() {
 /*
  * LLConst: static meta data
  */
+/** @type {LLH.LLConst} */
 var LLConst = (function () {
    var KEYS = {
       '高坂穂乃果': 1,

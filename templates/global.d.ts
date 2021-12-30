@@ -1,13 +1,18 @@
 declare namespace LLH {
-    declare namespace Core {
+    namespace Core {
         type AttributeType = 'smile'|'pure'|'cool';
         type AttributeAllType = AttributeType | 'all';
+        /** 1 for smile, 2 for pure, 3 for cool */
+        type AttributeIdType = 1|2|3;
         type GradeType = 1|2|3;
-
         /** 1 for muse, 2 for aqours, 3 for niji, 4 for liella */
         type SongGroupIdType = 1|2|3|4;
+
+        type UnitTypeIdType = number;
+        type MemberTagIdType = number;
+        type AlbumIdType = number;
     }
-    declare namespace API {
+    namespace API {
         interface SkillDetailDataType {
             score: number; // effect value
             time: number; // discharge time
@@ -19,7 +24,7 @@ declare namespace LLH {
             id: number;
             rarity: 'N'|'R'|'SR'|'SSR'|'UR';
             attribute: Core.AttributeAllType;
-            typeid: number; // unit type id
+            typeid: Core.UnitTypeIdType;
             jpeponym: string;
             eponym: string;
             jpname: string;
@@ -37,7 +42,7 @@ declare namespace LLH {
             special: 0|1;
             minslot: number;
             maxslot: number;
-            album: number; // album id
+            album: Core.AlbumIdType;
             Cskillattribute: Core.AttributeType; // add from
             Cskillpercentage: number;
             Csecondskillattribute?: number; // effect value
@@ -118,6 +123,73 @@ declare namespace LLH {
         }
         type SisDictDataType = {[id: string]: SisDataType};
         
+        interface AlbumDataType {
+            name: string;
+            cnname?: string;
+        }
+        type AlbumDictDataType = {[id: string]: AlbumDataType};
+
+        interface MemberTagDataType {
+            name: string;
+            cnname?: string;
+            members: Core.UnitTypeIdType[];
+        }
+        type MemberTagDictDataType = {[id: string]: MemberTagDataType};
+
+        interface UnitTypeDataType {
+            name: string;
+            cnname?: string;
+            color?: Core.AttributeIdType;
+            background_color?: string; // rrggbb
+        }
+        type UnitTypeDictDataType = {[id: string]: UnitTypeDataType};
+
+        interface MetaDataType {
+            album: AlbumDictDataType;
+            member_tag: MemberTagDictDataType;
+            unit_type: UnitTypeDictDataType;
+            cskill_groups: Core.MemberTagIdType;
+        }
+    }
+
+    namespace Depends {
+        interface Promise<DoneT, FailT> {
+            then<DoneU, FailU>(doneCallback: (arg: DoneT) => DoneU, failCallback: (arg: FailT) => FailU): Promise<DoneU, FailU>;
+        }
+        interface Deferred<DoneT, FailT> extends Promise<DoneT, FailT> {
+            resolve(arg?: DoneT): void;
+            reject(arg?: FailT): void;
+        }
+
+        interface Utils {
+            createDeferred<DoneT, FailT>(): Deferred<DoneT, FailT>;
+            whenAll(...args: Promise<any, any>[]): Promise<any, any>;
+        }
+    }
+
+    class LLData<DataT> {
+        constructor(brief_url: string, detail_url: string, brief_keys: string[], version?: string);
+
+        getAllBriefData(keys?: string[], url?: string): Depends.Promise<{[id: string]: DataT}, void>;
+        getDetailedData(index: string, url?: string): Depends.Promise<DataT, void>;
+    }
+
+    class LLSimpleKeyData<T> {
+        constructor(url: string, keys: string[]);
+
+        get(keys?: string[], url?: string): Depends.Promise<T, void>;
     }
     
+    interface LLConst {
+        initMetadata(metaData: API.MetaDataType): void;
+        // TODO
+    }
+
 }
+
+declare var LLCardData: LLH.LLData<LLH.API.CardDataType>;
+declare var LLSongData: LLH.LLData<LLH.API.SongDataType>;
+declare var LLSisData: LLH.LLData<LLH.API.SisDataType>;
+declare var LLMetaData: LLH.LLSimpleKeyData<LLH.API.MetaDataType>;
+
+declare var LLDepends: LLH.Depends.Utils;
