@@ -7,7 +7,11 @@ function renderPage(loadDeferred) {
     function init(sisData, metaData) {
         LLConst.initMetadata(metaData);
         
-        var comp_gem_selector = new LLGemSelectorComponent('gem_selector', sisData);
+        var comp_gem_selector = new LLGemSelectorComponent('gem_selector', {
+            'gemData': sisData,
+            'includeLAGem': true,
+            'includeNormalGem': true
+        });
 
         // done
         document.getElementById('loadingbox').style.display = 'none';

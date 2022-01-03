@@ -504,28 +504,9 @@ var LLMapNoteData = (function () {
    return cls;
 })();
 
-/*
- * base components:
- *   LLComponentBase
- *     +- LLValuedComponent
- *     | +- LLSelectComponent
- *     +- LLImageComponent
- *   LLComponentCollection
- */
+// base components
+
 var LLComponentBase = (function () {
-   /* Properties:
-    *    id
-    *    exist
-    *    visible
-    *    element
-    * Methods:
-    *    show
-    *    hide
-    *    toggleVisible
-    *    serialize
-    *    deserialize
-    *    on
-    */
    function LLComponentBase_cls(id, options) {
       this.id = undefined;
       this.exist = false;
@@ -548,6 +529,7 @@ var LLComponentBase = (function () {
          }
       }
    };
+   /** @type {typeof LLH.Component.LLComponentBase} */
    var cls = LLComponentBase_cls;
    var proto = cls.prototype;
    proto.show = function () {
@@ -593,15 +575,6 @@ var LLComponentBase = (function () {
 })();
 
 var LLValuedComponent = (function() {
-   /* Properties:
-    *    value (serialize)
-    *    valueKey
-    * Methods:
-    *    get
-    *    set
-    *    serialize (override)
-    *    deserialize (override)
-    */
    function LLValuedComponent_cls(id, options) {
       LLComponentBase.call(this, id, options);
       if (!this.exist) {
@@ -630,9 +603,9 @@ var LLValuedComponent = (function() {
          me.set(me.element[me.valueKey]);
       });
    };
+   /** @type {typeof LLH.Component.LLValuedComponent} */
    var cls = LLValuedComponent_cls;
-   cls.prototype = new LLComponentBase();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLComponentBase);
    var proto = cls.prototype;
    proto.get = function () {
       return this.value;
@@ -654,14 +627,6 @@ var LLValuedComponent = (function() {
 })();
 
 var LLSelectComponent = (function() {
-   /* Properties:
-    *    options
-    *    filter
-    * Methods:
-    *    set (override)
-    *    setOptions
-    *    filterOptions
-    */
    function LLSelectComponent_cls(id, options) {
       LLValuedComponent.call(this, id, options);
       if (!this.exist) {
@@ -678,9 +643,9 @@ var LLSelectComponent = (function() {
       }
       this.options = opts;
    };
+   /** @type {typeof LLH.Component.LLSelectComponent} */
    var cls = LLSelectComponent_cls;
-   cls.prototype = new LLValuedComponent();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLValuedComponent);
    var proto = cls.prototype;
    proto.set = function (v) {
       if (!this.exist) return;
@@ -786,25 +751,10 @@ var LLImageComponent = (function() {
 })();
 
 var LLComponentCollection = (function() {
-   /* Properties:
-    *    components (serialize)
-    * Methods:
-    *    add(name, component)
-    *    getComponent(name)
-    *    serialize()
-    *    deserialize(v)
-    *    saveJson()
-    *    loadJson(json)
-    *    saveLocalStorage(key)
-    *    loadLocalStorage(key)
-    *    deleteLocalStorage(key)
-    *    saveCookie(key) (require setCookie)
-    *    loadCookie(key) (require getCookie)
-    *    deleteCookie(key) (require setCookie)
-    */
    function LLComponentCollection_cls() {
       this.components = {};
    };
+   /** @type {typeof LLH.Component.LLComponentCollection} */
    var cls = LLComponentCollection_cls;
    var proto = cls.prototype;
    proto.add = function (name, component) {
@@ -832,16 +782,6 @@ var LLComponentCollection = (function() {
          }
       }
    };
-   proto.saveCookie = function (key) {
-      setCookie(key, this.saveJson(), 1);
-   };
-   proto.loadCookie = function (key) {
-      var data = getCookie(key);
-      this.loadJson(data);
-   };
-   proto.deleteCookie = function (key) {
-      setCookie(key, '', -1);
-   };
    proto.saveJson = function () {
       return JSON.stringify(this.serialize());
    };
@@ -863,6 +803,157 @@ var LLComponentCollection = (function() {
    };
    proto.deleteLocalStorage = function (key) {
       LLHelperLocalStorage.clearData(key);
+   };
+   return cls;
+})();
+
+var LLFiltersComponent = (function() {
+   function LLFiltersComponent_cls() {
+      LLComponentCollection.call(this);
+      this.filters = {};
+      this.freeze = false;
+   };
+
+   /**
+    * @param {LLH.Component.LLFiltersComponent} me
+    * @param {string} targetName
+    * @param {boolean} checkCallbacks
+    * @param {boolean} checkOptionGroups
+    */
+   function handleFilter(me, targetName, checkCallbacks, checkOptionGroups) {
+      var filter = me.getFilter(targetName);
+      if (!filter) {
+         console.warn('Not found filter for ' + targetName, me);
+         return;
+      }
+      /** @type {LLH.Component.LLSelectComponent_FilterCallback} */
+      var newFilter = undefined;
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var newOptions = undefined;
+      var i;
+      if (checkCallbacks && filter.reverseCallbacks) {
+         /** @type {LLH.Component.LLFiltersComponent_FilterCallback[]} */
+         var filterCallbacks = [];
+         /** @type {string[]} */
+         var values = [];
+         /** @type {LLH.Component.LLValuedComponent} */
+         var comp = undefined;
+         for (i in filter.reverseCallbacks) {
+            comp = me.getComponent(i);
+            if (!comp) {
+               console.error('Not found component for ' + i, me);
+               continue;
+            }
+            filterCallbacks.push(filter.reverseCallbacks[i]);
+            values.push(comp.get());
+         }
+         if (filterCallbacks.length > 0) {
+            newFilter = function (option) {
+               if (!option) return true;
+               var data = undefined;
+               if (filter.dataGetter) data = filter.dataGetter(option);
+               for (var j = 0; j < filterCallbacks.length; j++) {
+                  if (!filterCallbacks[j](option, values[j], data)) return false;
+               }
+               return true;
+            };
+         }
+      }
+      if (checkOptionGroups && filter.groupGetter) {
+         var groupId = filter.groupGetter();
+         if (groupId !== filter.currentOptionGroup) {
+            newOptions = filter.optionGroups[groupId] || [];
+            filter.currentOptionGroup = groupId;
+         }
+      }
+      if (newFilter || newOptions) {
+         /** @type {LLH.Component.LLSelectComponent} */
+         var selComp = me.getComponent(targetName);
+         if (!selComp) {
+            console.error('Not found select component for ' + targetName, me);
+            return;
+         }
+         if (newOptions) {
+            selComp.setOptions(newOptions, newFilter);
+         } else {
+            selComp.filterOptions(newFilter);
+         }
+      }
+   }
+
+   /** @type {typeof LLH.Component.LLFiltersComponent} */
+   var cls = LLFiltersComponent_cls;
+   LLClassUtil.setSuper(cls, LLComponentCollection);
+   var proto = cls.prototype;
+   proto.addFilterable = function (name, component) {
+      var me = this;
+      me.add(name, component);
+      me.getFilter(name, true);
+      component.onValueChange = function (v) {
+         if (!me.freeze) me.handleFilters(name);
+      };
+   };
+   proto.getFilter = function (name, createIfAbsent) {
+      if (createIfAbsent && this.filters[name] === undefined) {
+         this.filters[name] = {};
+      }
+      return this.filters[name];
+   };
+   proto.addFilterCallback = function (sourceName, targetName, callback) {
+      var sourceFilter = this.getFilter(sourceName, true);
+      var targetFilter = this.getFilter(targetName, true);
+      if (!sourceFilter.callbacks) {
+         sourceFilter.callbacks = {};
+      }
+      if (!targetFilter.reverseCallbacks) {
+         targetFilter.reverseCallbacks = {};
+      }
+      sourceFilter.callbacks[targetName] = callback;
+      targetFilter.reverseCallbacks[sourceName] = callback;
+   };
+   proto.setFilterOptionGroups = function (name, groups, groupGetter, affectedBy) {
+      var curFilter = this.getFilter(name, true);
+      curFilter.optionGroups = groups;
+      curFilter.groupGetter = groupGetter;
+      if (affectedBy) {
+         for (var i = 0; i < affectedBy.length; i++) {
+            var affectedFilter = this.getFilter(affectedBy[i], true);
+            if (!affectedFilter.affectOptionGroupFilters) {
+               affectedFilter.affectOptionGroupFilters = [name];
+            } else {
+               affectedFilter.affectOptionGroupFilters.push(name);
+            }
+         }
+      }
+   };
+   proto.setFilterOptions = function (name, options) {
+      var curFilter = this.getFilter(name, true);
+      curFilter.optionGroups = undefined;
+      curFilter.groupGetter = undefined;
+      /** @type {LLH.Component.LLSelectComponent} */
+      var curComp = this.getComponent(name);
+      curComp.setOptions(options);
+   };
+   proto.handleFilters = function (name) {
+      var i;
+      if (name) {
+         var filter = this.getFilter(name);
+         if (filter.callbacks) {
+            for (i in filter.callbacks) {
+               handleFilter(this, i, true, false);
+            }
+         }
+         if (filter.affectOptionGroupFilters) {
+            var affectFilters = filter.affectOptionGroupFilters;
+            for (i = 0; i < affectFilters.length; i++) {
+               handleFilter(this, affectFilters[i], false, true);
+            }
+         }
+      } else {
+         for (i in this.filters) {
+            handleFilter(this, i, true, true);
+         }
+      }
    };
    return cls;
 })();
@@ -7980,13 +8071,16 @@ var LLSongSelectorComponent = (function () {
    return LLSongSelectorComponent_cls;
 })();
 
-/**
- * @typedef LLGemSelectorComponent_SaveDataType
- */
 var LLGemSelectorComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
+
+   var SEL_ID_GEM_CHOICE = 'gem_choice';
+   var SEL_ID_GEM_TYPE = 'gem_type';
+   var GEM_GROUP_NORMAL_CATEGORY = 0;
+   var GEM_GROUP_NORMAL = 1;
+   var GEM_GROUP_LA = 2;
 
    /** @returns {HTMLElement} */
    function createFormSelect() {
@@ -7996,31 +8090,102 @@ var LLGemSelectorComponent = (function () {
    /**
     * @constructor
     * @param {string | HTMLElement} id 
-    * @param {LLH.API.SisDictDataType} gemData
+    * @param {LLH.Selector.LLGemSelectorComponent_Options} options
+    * @this {LLH.Selector.LLGemSelectorComponent}
     */
-   function LLGemSelectorComponent_cls(id, gemData) {
+   function LLGemSelectorComponent_cls(id, options) {
+      LLFiltersComponent.call(this);
       var container = LLUnit.getElement(id);
+      if (!options) options = {};
+      this.gemData = undefined;
+      this.includeNormalGemCategory = options.includeNormalGemCategory || false;
+      this.includeNormalGem = options.includeNormalGem || false;
+      this.includeLAGem = options.includeLAGem || false;
 
       var gemChoice = createFormSelect();
-      var gemChoiceComponent = new LLSelectComponent(gemChoice);
-      var gemOptions = [{'value': '', 'text': '选择宝石'}];
-      var normalGems = LLConst.Gem.getNormalGemTypeKeys();
-      var i;
-      for (i = 0; i < normalGems.length; i++) {
-         var normalGemKey = normalGems[i];
-         var normalGemId = LLConst.GemType[normalGemKey];
-         gemOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
-      }
-      gemChoiceComponent.setOptions(gemOptions);
+      var gemType = createFormSelect();
+      this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice));
+      this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
 
       updateSubElements(container, [
+         createFormInlineGroup('筛选条件：', gemType),
          createFormInlineGroup('宝石：', gemChoice)
       ], true);
 
-      this.getGemId = function () {
-         return gemChoiceComponent.get();
-      };
+      this.setGemData(options.gemData);
    }
 
-   return LLGemSelectorComponent_cls;
+   /** @type {typeof LLH.Selector.LLGemSelectorComponent} */
+   var cls = LLGemSelectorComponent_cls;
+   LLClassUtil.setSuper(cls, LLFiltersComponent);
+   var proto = cls.prototype;
+
+   /** @this {LLH.Selector.LLGemSelectorComponent} */
+   proto.setGemData = function (gemData) {
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[][]} */
+      var gemOptionGroups = [];
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var gemTypeOptions = [];
+      var i;
+      var me = this;
+
+      this.freeze = true;
+      this.gemData = gemData;
+
+      if (this.includeNormalGemCategory) {
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemNormalCatOptions = [{'value': '', 'text': '选择宝石'}];
+         var normalGems = LLConst.Gem.getNormalGemTypeKeys();
+         for (i = 0; i < normalGems.length; i++) {
+            var normalGemKey = normalGems[i];
+            var normalGemId = LLConst.GemType[normalGemKey];
+            gemNormalCatOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
+         }
+         gemOptionGroups.push(gemNormalCatOptions);
+         gemTypeOptions.push({'value': GEM_GROUP_NORMAL_CATEGORY.toFixed(), 'text': '普通宝石（大类）'});
+      } else {
+         gemOptionGroups.push([]);
+      }
+      if (gemData) {
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemNormalOptions = [{'value': '', 'text': '选择宝石'}];
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemLAOptions = [{'value': '', 'text': '选择宝石'}];
+         var gemDataKeys = Object.keys(gemData).sort((a, b) => parseInt(a) - parseInt(b));
+         for (i = 0; i < gemDataKeys.length; i++) {
+            var curGemData = gemData[gemDataKeys[i]];
+            if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
+               if (this.includeNormalGem) {
+                  gemNormalOptions.push({'value': gemDataKeys[i], 'text': curGemData.jpname});
+               }
+            } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
+               if (this.includeLAGem) {
+                  gemLAOptions.push({'value': gemDataKeys[i], 'text': curGemData.jpname})
+               }
+            }
+         }
+         if (this.includeNormalGem) {
+            gemOptionGroups.push(gemNormalOptions);
+            gemTypeOptions.push({'value': GEM_GROUP_NORMAL.toFixed(), 'text': '普通宝石'});
+         } else {
+            gemOptionGroups.push([]);
+         }
+         if (this.includeLAGem) {
+            gemOptionGroups.push(gemLAOptions);
+            gemTypeOptions.push({'value': GEM_GROUP_LA.toFixed(), 'text': '演唱会竞技场宝石'});
+         }
+      } else {
+         gemOptionGroups.push([], []);
+      }
+      this.setFilterOptions(SEL_ID_GEM_TYPE, gemTypeOptions);
+      this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups, () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()), [SEL_ID_GEM_TYPE]);
+
+      this.freeze = false;
+
+      this.handleFilters();
+   };
+   proto.getGemId = function () {
+      return this.getComponent(SEL_ID_GEM_CHOICE).get();
+   };
+   return cls;
 })();

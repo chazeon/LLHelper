@@ -45,7 +45,7 @@
       comp_cskill_team = new LLCSkillComponent('cskill_team');
       comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
       comp_result = new LLUnitResultComponent('unit_result');
-      comp_gemselector = new LLGemSelectorComponent('gem_filter');
+      comp_gemselector = new LLGemSelectorComponent('gem_filter', {'includeNormalGemCategory': true});
 
       comp_songselector.onSongSettingChange = (songSettingId, songSetting) => songSetting && comp_team.setWeights(songSetting.positionweight);
       comp_songselector.onSongColorChange = (songAttribute) => comp_team.setMapAttribute(songAttribute);

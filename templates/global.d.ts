@@ -111,7 +111,7 @@ declare namespace LLH {
             effect_type: number;
             effect_value: number;
             fixed?: 1;
-            color?: 1 | 2 | 3; // 1 for smile, 2 for pure, 3 for cool
+            color?: Core.AttributeIdType;
             member?: number; // member id
             grade?: Core.GradeType;
             group?: number;
@@ -164,6 +164,131 @@ declare namespace LLH {
         interface Utils {
             createDeferred<DoneT, FailT>(): Deferred<DoneT, FailT>;
             whenAll(...args: Promise<any, any>[]): Promise<any, any>;
+        }
+    }
+
+    /**
+     * components:
+     *   LLComponentBase
+     *     +- LLValuedComponent
+     *     | +- LLSelectComponent
+     *     +- LLImageComponent
+     *   LLComponentCollection
+     *     +- LLFiltersComponent
+     */
+    namespace Component {
+        interface LLComponentBase_Options {
+            listen: {[e: string]: (event: Event) => void};
+        }
+        class LLComponentBase {
+            constructor(id: string | HTMLElement, options: LLComponentBase_Options);
+
+            id?: string;
+            exist: boolean;
+            visible: boolean;
+            element?: HTMLElement;
+
+            show(): void;
+            hide(): void;
+            toggleVisible(): void;
+            serialize(): any;
+            deserialize(data: any): void;
+            on(eventName: string, callback: (event: Event) => void): void;
+            isInDocument(): boolean;
+        }
+        interface LLValuedComponent_Options extends LLComponentBase_Options{
+            valueKey: string;
+        }
+        class LLValuedComponent extends LLComponentBase {
+            constructor(id: string | HTMLElement, options: LLValuedComponent_Options);
+
+            value: string;
+            valueKey: string;
+            onValueChange?: (newValue: string) => void;
+
+            get(): string;
+            set(val: string): void;
+        }
+        interface LLSelectComponent_OptionDef {
+            text: string;
+            value: string;
+            color?: string;
+            background?: string;
+        }
+        /** returns true if keep the option, false to filter out the option */
+        type LLSelectComponent_FilterCallback = (opt: LLSelectComponent_OptionDef) => boolean;
+        class LLSelectComponent extends LLValuedComponent {
+            constructor(id: string | HTMLElement, options: LLValuedComponent_Options);
+
+            options: LLSelectComponent_OptionDef[];
+            filter?: LLSelectComponent_FilterCallback;
+
+            setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
+            filterOptions(filter?: LLSelectComponent_FilterCallback): void;
+        }
+        class LLComponentCollection {
+            constructor();
+
+            components: {[name: string]: LLComponentBase};
+
+            add(name: string, component: LLComponentBase): void;
+            getComponent(name: string): LLComponentBase;
+            serialize(): any;
+            deserialize(data: any): void;
+            saveJson(): string;
+            loadJson(json: string): void;
+            saveLocalStorage(key: string): void;
+            loadLocalStorage(key: string): void;
+            deleteLocalStorage(key: string): void;
+        }
+        /** returns false to filter out the option */
+        type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue: string, targetData?: any) => boolean;
+        interface LLFiltersComponent_FilterDef {
+            callbacks?: {[targetName: string]: LLFiltersComponent_FilterCallback};
+            reverseCallbacks?: {[sourceName: string]: LLFiltersComponent_FilterCallback};
+            dataGetter?: (opt: LLSelectComponent_OptionDef) => any;
+
+            optionGroups?: LLSelectComponent_OptionDef[][];
+            groupGetter?: () => number;
+            currentOptionGroup?: number;
+            affectOptionGroupFilters?: string[];
+        }
+        class LLFiltersComponent extends LLComponentCollection {
+            constructor();
+
+            filters: {[name: string]: LLFiltersComponent_FilterDef};
+            freeze: boolean;
+
+            addFilterable(name: string, component: LLValuedComponent): void;
+            addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
+            setFilterOptionGroups(name: string, groups: LLSelectComponent_OptionDef[][], groupGetter: () => number, affectedBy: string[]): void;
+            setFilterOptions(name: string, options: LLSelectComponent_OptionDef[]): void;
+            getFilter(name: string, createIfAbsent?: boolean): LLFiltersComponent_FilterDef;
+            /** handle changes when specified component's value change, when not provided name, handle all component's filters */
+            handleFilters(name?: string): void;
+        }
+    }
+
+    namespace Selector {
+        class LLCardSelector extends Component.LLFiltersComponent {
+
+        }
+        interface LLGemSelectorComponent_Options {
+            gemData?: API.SisDictDataType;
+            includeNormalGemCategory: boolean;
+            includeNormalGem: boolean;
+            includeLAGem: boolean;
+        }
+        class LLGemSelectorComponent extends Component.LLFiltersComponent {
+            constructor(id: string | HTMLElement, options: LLGemSelectorComponent_Options);
+
+            gemData?: API.SisDictDataType;
+            includeNormalGemCategory: boolean;
+            includeNormalGem: boolean;
+            includeLAGem: boolean;
+
+            setGemData(gemData: API.SisDictDataType): void;
+            getGemId(): string;
         }
     }
 
