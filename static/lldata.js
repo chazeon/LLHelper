@@ -859,7 +859,7 @@ var LLFiltersComponent = (function() {
             };
          }
       }
-      if (checkOptionGroups && filter.groupGetter) {
+      if (checkOptionGroups && filter.groupGetter && filter.optionGroups) {
          var groupId = filter.groupGetter();
          if (groupId !== filter.currentOptionGroup) {
             newOptions = filter.optionGroups[groupId] || [];
@@ -885,12 +885,19 @@ var LLFiltersComponent = (function() {
    var cls = LLFiltersComponent_cls;
    LLClassUtil.setSuper(cls, LLComponentCollection);
    var proto = cls.prototype;
+   proto.setFreezed = function (isFreezed) {
+      this.freeze = isFreezed;
+   };
+   proto.isFreezed = function () {
+      return this.freeze;
+   };
    proto.addFilterable = function (name, component) {
       var me = this;
       me.add(name, component);
       me.getFilter(name, true);
       component.onValueChange = function (v) {
-         if (!me.freeze) me.handleFilters(name);
+         if (!me.isFreezed()) me.handleFilters(name);
+         if (me.onValueChange) me.onValueChange(name, v);
       };
    };
    proto.getFilter = function (name, createIfAbsent) {
@@ -911,9 +918,8 @@ var LLFiltersComponent = (function() {
       sourceFilter.callbacks[targetName] = callback;
       targetFilter.reverseCallbacks[sourceName] = callback;
    };
-   proto.setFilterOptionGroups = function (name, groups, groupGetter, affectedBy) {
+   proto.setFilterOptionGroupCallback = function (name, groupGetter, affectedBy) {
       var curFilter = this.getFilter(name, true);
-      curFilter.optionGroups = groups;
       curFilter.groupGetter = groupGetter;
       if (affectedBy) {
          for (var i = 0; i < affectedBy.length; i++) {
@@ -926,10 +932,13 @@ var LLFiltersComponent = (function() {
          }
       }
    };
+   proto.setFilterOptionGroups = function (name, groups) {
+      var curFilter = this.getFilter(name, true);
+      curFilter.optionGroups = groups;
+   };
    proto.setFilterOptions = function (name, options) {
       var curFilter = this.getFilter(name, true);
       curFilter.optionGroups = undefined;
-      curFilter.groupGetter = undefined;
       /** @type {LLH.Component.LLSelectComponent} */
       var curComp = this.getComponent(name);
       curComp.setOptions(options);
@@ -1199,6 +1208,14 @@ var LLConst = (function () {
       'SIS_EFFECT_TYPE_LA_SCORE': 24,
       'SIS_EFFECT_TYPE_LA_DEBUFF': 25,
 
+      'SIS_TRIGGER_REF_HP_PERCENT': 9,
+      'SIS_TRIGGER_REF_FULL_COMBO': 11,
+      'SIS_TRIGGER_REF_OVERHEAL': 12,
+      'SIS_TRIGGER_REF_ALL_SMILE': 13,
+      'SIS_TRIGGER_REF_ALL_COOL': 14,
+      'SIS_TRIGGER_REF_ALL_PURE': 15,
+      'SIS_TRIGGER_REF_PERFECT_COUNT': 20,
+
       'SIS_LIVE_EFFECT_TYPE_DAMAGE': 1,
       'SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN': 2
    };
@@ -1216,7 +1233,7 @@ var LLConst = (function () {
    /** @type {{[id: number]: MemberDataType}} */
    var MEMBER_DATA = {};
 
-   /** @type {NormalGemMetaType[]} */
+   /** @type {LLH.Internal.NormalGemMetaType[]} */
    var GEM_NORMAL_TYPE_DATA = [
       {'name': 'kiss', 'cnname': '吻', 'key': 'SADD_200', 'slot': 1, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
       {'name': 'perfume', 'cnname': '香水', 'key': 'SADD_450', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
@@ -1293,7 +1310,7 @@ var LLConst = (function () {
       return memberid;
    };
    /**
-    * @param {MemberIdType} member 
+    * @param {LLH.Core.MemberIdType} member 
     * @returns {MemberDataType | undefined}
     */
    var mGetMemberData = function (member) {
@@ -1425,13 +1442,8 @@ var LLConst = (function () {
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_RANDOM] = 8;
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_MASTER] = 9;
 
+   /** @type {LLH.LLConst} */
    var ret = KEYS;
-   ret.getGroupName = function (groupid) {
-      mCheckInited('member_tag');
-      if (!GROUP_DATA[groupid]) return '<Unknown(' + groupid + ')>';
-      if (GROUP_DATA[groupid].cnname) return GROUP_DATA[groupid].cnname;
-      return GROUP_DATA[groupid].name;
-   };
    ret.isMemberInGroup = function (member, group) {
       if (group === undefined || group == '') return false;
       var memberId = mGetMemberId(member);
@@ -1460,12 +1472,6 @@ var LLConst = (function () {
       var memberData = mGetMemberData(member);
       if (!memberData) return KEYS.BACKGROUND_COLOR_DEFAULT;
       return memberData.background_color;
-   };
-   ret.getMemberName = function (member, iscn) {
-      var memberData = mGetMemberData(member);
-      if (!memberData) return '<未知成员(' + member + ')>';
-      if (iscn && memberData.cnname) return memberData.cnname;
-      return memberData.name;
    };
    ret.getMemberNamesInGroups = function (groups) {
       mCheckInited('unit_type');
@@ -1498,11 +1504,15 @@ var LLConst = (function () {
       }
       return ret;
    };
+
+   /** @type {LLH.ConstUtil.Member} */
    var MemberUtils = {
-      /**
-       * @param {MemberIdType} memberId
-       * @returns {BigGroupIdType | undefined}
-       */
+      getMemberName: function (member, iscn) {
+         var memberData = mGetMemberData(member);
+         if (!memberData) return '<未知成员(' + member + ')>';
+         if (iscn && memberData.cnname) return memberData.cnname;
+         return memberData.name;
+      },
       getBigGroupId: function (memberId) {
          var bigGroups = ret.Group.getBigGroupIds();
          for (var i = 0; i < bigGroups.length; i++) {
@@ -1513,10 +1523,6 @@ var LLConst = (function () {
          }
          return undefined;
       },
-      /**
-       * @param {LLMember[]} members 
-       * @returns {BigGroupIdType | undefined}
-       */
       isNonetTeam: function (members) {
          if ((!members) || (members.length != 9)) {
             console.error('isNonetTeam: invalid members', members);
@@ -1542,30 +1548,29 @@ var LLConst = (function () {
    };
    ret.Member = MemberUtils;
 
+   /** @type {LLH.ConstUtil.Group} */
    var GroupUtils = {
-      /** @returns {BigGroupIdType[]} */
+      getGroupName: function (groupid) {
+         mCheckInited('member_tag');
+         if (!GROUP_DATA[groupid]) return '<Unknown(' + groupid + ')>';
+         if (GROUP_DATA[groupid].cnname) return GROUP_DATA[groupid].cnname;
+         return GROUP_DATA[groupid].name;
+      },
       getBigGroupIds: function () {
          return [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
       }
    };
    ret.Group = GroupUtils;
 
+   /** @type {LLH.ConstUtil.Gem} */
    var GemUtils = {
       getMemberGemList: function () { return MEMBER_GEM_LIST; },
       getUnitGemList: function () { return UNIT_GEM_LIST; },
-      /**
-       * @param {MemberIdType} member 
-       * @returns 
-       */
       isMemberGemExist: function (member) {
          var memberData = mGetMemberData(member);
          if (!memberData) return false;
          return (memberData.member_gem ? true : false);
       },
-      /**
-       * @param {number | NormalGemMetaType} typeOrMeta 
-       * @returns {NormalGemMetaType}
-       */
       getNormalGemMeta: function (typeOrMeta) {
          if (typeof(typeOrMeta) == 'number') {
             if (typeOrMeta < 0 || typeOrMeta >= GEM_NORMAL_TYPE_DATA.length) {
@@ -1585,12 +1590,10 @@ var LLConst = (function () {
          }
          return function () { return keys; };
       })(GEM_NORMAL_TYPE_DATA),
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       getNormalGemName: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          return meta && meta.cnname;
       },
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       getNormalGemBriefDescription: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          if (!meta) return undefined;
@@ -1608,19 +1611,193 @@ var LLConst = (function () {
          }
          return str;
       },
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       getNormalGemNameAndDescription: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          var gemName = GemUtils.getNormalGemName(meta)
          var gemDesc = GemUtils.getNormalGemBriefDescription(meta);
          return gemName + ' （' + gemDesc + '）';
       },
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       isGemFollowMemberAttribute: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          if (!meta) return false;
          if (meta.heal_mul || meta.skill_mul || meta.ease_attr_mul) return true;
          return false;
+      },
+      getGemDescription: function (gemData, iscn) {
+         var desc = gemData.id;
+         while (desc.length < 3) desc = '0' + desc;
+         desc += ' ';
+         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
+            desc += '●';
+         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
+            desc += '■';
+         }
+         desc += gemData.size + ' ';
+         var effect_type = gemData.effect_type;
+         var effect_value = gemData.effect_value;
+         if (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_COOL) {
+            if (gemData.fixed) {
+               desc += '[' + effect_value + ']';
+            } else {
+               desc += '[' + effect_value + '%]';
+            }
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_SCORE_BOOST) {
+            desc += '[' + (effect_value + 100)/100 + 'x]';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_HEAL_SCORE) {
+            desc += '[' + effect_value + 'x]';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_COOL) {
+            desc += '[' + effect_value + '%/判]';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_SCORE) {
+            desc += '[' + effect_value + '%';
+            var sub_skill = gemData.sub_skill_data;
+            while (sub_skill) {
+               desc += '+' + sub_skill.effect_value + '%';
+               sub_skill = sub_skill.sub_skill;
+            }
+            desc += ']';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
+            if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_DAMAGE) {
+               desc += '[-' + effect_value + '/' + gemData.live_effect_interval + 's]';
+            } else if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN) {
+               desc += '[-' + effect_value + '%]';
+            } else {
+               desc += '[-?]';
+            }
+         } else {
+            desc += '[?]';
+         }
+         if (gemData.level) {
+            desc += '[Lv' + gemData.level + ']';
+         }
+         desc += gemData.jpname;
+         if (gemData.member) {
+            desc += '[' + ret.Member.getMemberName(gemData.member, iscn) + ']';
+         }
+         return desc;
+      },
+      getGemFullDescription: function (gemData) {
+         var desc = '';
+         var effect_type = gemData.effect_type;
+         var isAttributeEffect = (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_COOL);
+         // 限制可装备的成员
+         if (gemData.member) {
+            var memberName = ret.Member.getMemberName(gemData.member);
+            desc += '仅限' + memberName + '装备，';
+         }
+         if (gemData.grade) {
+            desc += '仅限' + gemData.grade + '年级装备，';
+         }
+         if ((!isAttributeEffect) && gemData.color) {
+            desc += '仅限' + COLOR_ID_TO_NAME[gemData.color] + '社员装备，';
+         }
+         // 发动条件
+         if (gemData.group) {
+            var groupName = ret.Group.getGroupName(gemData.group);
+            if (gemData.group == KEYS.GROUP_NIJIGASAKI) {
+               desc += '不同的9名' + groupName + '成员参加时，';
+            } else if (gemData.group == KEYS.GROUP_LIELLA) {
+               desc += '队伍中成员均为' + groupName + '成员并全员参加时，';
+            } else {
+               desc += '队伍中成员为' + groupName + '全员时，';
+            }
+         }
+         if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_HP_PERCENT) {
+            desc += '歌曲结束时若体力高于' + gemData.trigger_value + '%，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_FULL_COMBO) {
+            desc += '全连击时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_OVERHEAL) {
+            desc += '歌曲结束时若体力槽高于' + gemData.trigger_value + '，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_SMILE) {
+            desc += '队伍成员属性全为smile时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_PURE) {
+            desc += '队伍成员属性全为pure时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_COOL) {
+            desc += '队伍成员属性全为cool时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_PERFECT_COUNT) {
+            desc += '歌曲结束时，若perfect次数高于' + gemData.trigger_value + '，';
+         } else if (gemData.trigger_ref) {
+            desc += '<未知发动条件(' + gemData.trigger_ref + ')>';
+         }
+         // 效果
+         if (isAttributeEffect) {
+            if (gemData.range == KEYS.SIS_RANGE_SELF) {
+               desc += '装备此技能的社员的'
+            } else if (gemData.range == KEYS.SIS_RANGE_TEAM) {
+               desc += '队伍中的所有社员的'
+            }
+            desc += COLOR_ID_TO_NAME[gemData.color] + '提升'
+            if (gemData.fixed) {
+               desc += gemData.effect_value;
+            } else {
+               desc += gemData.effect_value + '%';
+            }
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_SCORE_BOOST) {
+            desc += '装备此技能的社员的得分提升技能效果变为' + (gemData.effect_value + 100)/100 + '倍';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_HEAL_SCORE) {
+            desc += '体力最大时，装备此技能的社员发动体力回复技能，可增加（回复量 x ' + gemData.effect_value + '）的得分';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_COOL) {
+            desc += '判定强化技能发动时，装备此技能的社员的' + COLOR_ID_TO_NAME[gemData.color] + '变为' + (gemData.effect_value + 100)/100 + '倍';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_SCORE) {
+            desc += '得分增加' + gemData.effect_value + '%';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
+            if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_DAMAGE) {
+               desc += '每隔' + gemData.live_effect_interval + '秒，对手的体力减少' + gemData.effect_value;
+            } else if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN) {
+               desc += '对手的技能发动率下降' + gemData.effect_value + '%';
+            }
+         } else if (effect_type) {
+            desc += '<未知效果(' + effect_type + ')>';
+         }
+         // sub skill
+         if (gemData.sub_skill_data) {
+            desc += '；' + ret.Gem.getGemFullDescription(gemData.sub_skill_data);
+         } else if (gemData.sub_skill) {
+            desc += '；<未知子效果(' + gemData.sub_skill + ')>';
+         }
+         return desc;
+      },
+      getGemColor: function (gemData) {
+         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
+            return COLOR_NAME_TO_COLOR[COLOR_ID_TO_NAME[gemData.color]];
+         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
+            var trigger_ref = gemData.trigger_ref;
+            if (trigger_ref == KEYS.SIS_TRIGGER_REF_HP_PERCENT
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_OVERHEAL) {
+               return '#4c4';
+            } else if (trigger_ref == KEYS.SIS_TRIGGER_REF_FULL_COMBO
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_PERFECT_COUNT) {
+               return '#f0c';
+            } else if (trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_SMILE
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_PURE
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_COOL) {
+               return '#f60';
+            } else if (gemData.group) {
+               return '#eb0';
+            } else if (gemData.effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
+               return '#f00';
+            } else if (trigger_ref) {
+               return '#888';
+            } else {
+               return '#fa0';
+            }
+         }
+      },
+      postProcessGemData: function (gemData) {
+         if (!gemData) return;
+         for (var i in gemData) {
+            var curGemData = gemData[i];
+            if (curGemData.sub_skill) {
+               curGemData.sub_skill_data = gemData[curGemData.sub_skill.toFixed()];
+            }
+         }
       }
    };
    ret.Gem = GemUtils;
@@ -1884,9 +2061,9 @@ var LLConst = (function () {
       }
       var albumGroupJpName = (albumGroup.name ? "("+albumGroup.name+")" : '');
       if (isJp) {
-         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.getMemberName(curTypeId) + ' ' + albumGroupJpName;
+         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
       } else {
-        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
+        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
       }
       return desc;
    };
@@ -2136,7 +2313,7 @@ var LLUnit = {
       if (!targets) return '(数据缺失)';
       var ret = '';
       for (var i = 0; i < targets.length; i++) {
-         ret += LLConst.getGroupName(parseInt(targets[i]));
+         ret += LLConst.Group.getGroupName(parseInt(targets[i]));
       }
       return ret;
    },
@@ -2188,7 +2365,7 @@ var LLUnit = {
          majorEffect = card.attribute + '属性提升' + card.Cskillattribute + '的' + majorPercentage +  '%';
       }
       if (card.Csecondskilllimit !== undefined) {
-         secondEffect = (withbr ? '<br/>' : '+') + LLConst.getGroupName(parseInt(card.Csecondskilllimit)) + '的社员进一步将' + card.attribute + '属性提升' + card.Csecondskillattribute + '%';
+         secondEffect = (withbr ? '<br/>' : '+') + LLConst.Group.getGroupName(parseInt(card.Csecondskilllimit)) + '的社员进一步将' + card.attribute + '属性提升' + card.Csecondskillattribute + '%';
       }
       return card.attribute + nameSuffix + '：' + (withbr ? '<br/>' : '') + majorEffect + secondEffect;
    },
@@ -2616,13 +2793,13 @@ var LLCardSelector = (function() {
       addSelect(SEL_ID_RARITY, selRarity, function (card, v) { return (v == '' || card.rarity == v); });
 
       var charaFilters = {};
-      charaFilters[SEL_ID_CARD_CHOICE] = function (card, v) { return (v == '' || LLConst.getMemberName(card.typeid) == v); };
+      charaFilters[SEL_ID_CARD_CHOICE] = function (card, v) { return (v == '' || LLConst.Member.getMemberName(card.typeid) == v); };
       charaFilters[SEL_ID_SET_NAME] = function (opt, v) {
          if (v == '' || opt.value === '') return true;
          var members = me.albumGroupMemberCache[opt.value];
          if (!members) return false;
          for (var i = 0; i < members.length; i++) {
-            if (LLConst.getMemberName(members[i]) == v) return true;
+            if (LLConst.Member.getMemberName(members[i]) == v) return true;
          }
          return false;
       };
@@ -2811,7 +2988,7 @@ var LLCardSelector = (function() {
          var curTypeId = parseInt(typeIds[i]);
          if (curTypeId < 0) continue;
          // some member has more than 1 id, we need normalize the ids using LLConst
-         var jpName = LLConst.getMemberName(curTypeId);
+         var jpName = LLConst.Member.getMemberName(curTypeId);
          if (typeNameId[jpName] === undefined) {
             if (LLConst[jpName] !== undefined) {
                curTypeId = LLConst[jpName];
@@ -2823,8 +3000,8 @@ var LLCardSelector = (function() {
       normalizedTypeIds = normalizedTypeIds.sort(function (a, b) {return a - b});
       for (i = 0; i < normalizedTypeIds.length; i++) {
          var curTypeId = normalizedTypeIds[i];
-         var jpName = LLConst.getMemberName(curTypeId);
-         var cnName = LLConst.getMemberName(curTypeId, true);
+         var jpName = LLConst.Member.getMemberName(curTypeId);
+         var cnName = LLConst.Member.getMemberName(curTypeId, true);
          var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
          charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
          charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
@@ -5479,7 +5656,7 @@ var LLSaveData = (function () {
             var members = LLConst.Gem.getMemberGemList();
             if (m29['ALL'] === undefined) {
                for (var i = 0; i < members.length; i++) {
-                  var curMemberName = LLConst.getMemberName(members[i]);
+                  var curMemberName = LLConst.Member.getMemberName(members[i]);
                   if (m29[curMemberName] !== undefined) {
                      var memberGemCount = m29[curMemberName];
                      if (memberGemCount > 0) {
@@ -5499,7 +5676,7 @@ var LLSaveData = (function () {
                var memberGemCount = m29['ALL'];
                stock['MEMBER_29'] = {};
                for (var i = 0; i < members.length; i++) {
-                  var curMemberName = LLConst.getMemberName(members[i]);
+                  var curMemberName = LLConst.Member.getMemberName(members[i]);
                   stock['MEMBER_29'][curMemberName] = {'ALL': memberGemCount};
                }
             }
@@ -5590,7 +5767,7 @@ var LLSaveData = (function () {
                var newM29 = {};
                var members = LLConst.Gem.getMemberGemList();
                for (i = 0; i < members.length; i++) {
-                  var curMemberName = LLConst.getMemberName(members[i]);
+                  var curMemberName = LLConst.Member.getMemberName(members[i]);
                   if (m29[curMemberName] !== undefined) {
                      newM29[i.toFixed()] = m29[curMemberName];
                   } else {
@@ -5805,11 +5982,11 @@ var LLGemStockComponent = (function () {
          var gemType = LLConst.GemType[curKey];
          return LLConst.Gem.getNormalGemNameAndDescription(gemType);
       } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
-         return LLConst.getGroupName(parseInt(curKey));
+         return LLConst.Group.getGroupName(parseInt(curKey));
       } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
-         return LLConst.getMemberName(parseInt(curKey), true);
+         return LLConst.Member.getMemberName(parseInt(curKey), true);
       } else if (curSubType == STOCK_SUB_TYPE_UNIT) {
-         return LLConst.getGroupName(parseInt(curKey));
+         return LLConst.Group.getGroupName(parseInt(curKey));
       }
       return curKey;
    }
@@ -7504,7 +7681,7 @@ var LLTeamComponent = (function () {
          cardsBrief[i] = cardbrief;
          if (cardbrief) {
             controllers.info.cells[i].set(cardbrief.attribute);
-            controllers.info_name.cells[i].set(LLConst.getMemberName(cardbrief.typeid, true));
+            controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, true));
             controllers.skill_trigger.cells[i].set(LLConst.getSkillTriggerText(cardbrief.triggertype));
             controllers.skill_effect.cells[i].set(LLConst.getSkillEffectText(cardbrief.skilleffect));
             if (member.hp === undefined) {
@@ -7652,7 +7829,7 @@ var LLCSkillComponent = (function () {
       var ret = [];
       var groups = LLConst.getCSkillGroups();
       for (var i = 0; i < groups.length; i++) {
-         ret.push({'value': groups[i], 'text': LLConst.getGroupName(groups[i])});
+         ret.push({'value': groups[i], 'text': LLConst.Group.getGroupName(groups[i])});
       }
       return ret;
    };
@@ -8087,6 +8264,19 @@ var LLGemSelectorComponent = (function () {
       return createElement('select', {'className': 'form-control no-padding'});
    }
 
+   /** @param {{set: (data: string | LLH.API.SisDataType) => void}} controller */
+   function renderGemDetail(controller) {
+      var container = createElement('div');
+      controller.set = function (data) {
+         if (typeof(data) == 'string') {
+            container.innerHTML = '';
+         } else {
+            container.innerHTML = LLConst.Gem.getGemFullDescription(data);
+         }
+      }
+      return container;
+   }
+
    /**
     * @constructor
     * @param {string | HTMLElement} id 
@@ -8096,6 +8286,7 @@ var LLGemSelectorComponent = (function () {
    function LLGemSelectorComponent_cls(id, options) {
       LLFiltersComponent.call(this);
       var container = LLUnit.getElement(id);
+      var me = this;
       if (!options) options = {};
       this.gemData = undefined;
       this.includeNormalGemCategory = options.includeNormalGemCategory || false;
@@ -8106,11 +8297,33 @@ var LLGemSelectorComponent = (function () {
       var gemType = createFormSelect();
       this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice));
       this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
+      this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE, () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()), [SEL_ID_GEM_TYPE]);
 
       updateSubElements(container, [
          createFormInlineGroup('筛选条件：', gemType),
          createFormInlineGroup('宝石：', gemChoice)
       ], true);
+
+      var detailController = undefined;
+      if (options.includeLAGem || options.includeNormalGem) {
+         detailController = {};
+         updateSubElements(container, [
+            createElement('h3', undefined, '详细信息'),
+            renderGemDetail(detailController)
+         ], false);
+      }
+
+      this.onValueChange = function (name, newValue) {
+         if (name == SEL_ID_GEM_CHOICE) {
+            if (detailController && detailController.set) {
+               if (options.gemData && options.gemData[newValue]) {
+                  detailController.set(options.gemData[newValue]);
+               } else {
+                  detailController.set(newValue);
+               }
+            }
+         }
+      };
 
       this.setGemData(options.gemData);
    }
@@ -8122,6 +8335,10 @@ var LLGemSelectorComponent = (function () {
 
    /** @this {LLH.Selector.LLGemSelectorComponent} */
    proto.setGemData = function (gemData) {
+      if (gemData) {
+         LLConst.Gem.postProcessGemData(gemData);
+      }
+
       /** @type {LLH.Component.LLSelectComponent_OptionDef[][]} */
       var gemOptionGroups = [];
       /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
@@ -8129,7 +8346,7 @@ var LLGemSelectorComponent = (function () {
       var i;
       var me = this;
 
-      this.freeze = true;
+      this.setFreezed(true);
       this.gemData = gemData;
 
       if (this.includeNormalGemCategory) {
@@ -8146,21 +8363,22 @@ var LLGemSelectorComponent = (function () {
       } else {
          gemOptionGroups.push([]);
       }
-      if (gemData) {
+      if (gemData && (this.includeNormalGem || this.includeLAGem)) {
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
          var gemNormalOptions = [{'value': '', 'text': '选择宝石'}];
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
          var gemLAOptions = [{'value': '', 'text': '选择宝石'}];
          var gemDataKeys = Object.keys(gemData).sort((a, b) => parseInt(a) - parseInt(b));
          for (i = 0; i < gemDataKeys.length; i++) {
-            var curGemData = gemData[gemDataKeys[i]];
+            var curKey = gemDataKeys[i];
+            var curGemData = gemData[curKey];
             if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
                if (this.includeNormalGem) {
-                  gemNormalOptions.push({'value': gemDataKeys[i], 'text': curGemData.jpname});
+                  gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData), 'color': LLConst.Gem.getGemColor(curGemData)});
                }
             } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
                if (this.includeLAGem) {
-                  gemLAOptions.push({'value': gemDataKeys[i], 'text': curGemData.jpname})
+                  gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData), 'color': LLConst.Gem.getGemColor(curGemData)});
                }
             }
          }
@@ -8178,10 +8396,9 @@ var LLGemSelectorComponent = (function () {
          gemOptionGroups.push([], []);
       }
       this.setFilterOptions(SEL_ID_GEM_TYPE, gemTypeOptions);
-      this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups, () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()), [SEL_ID_GEM_TYPE]);
+      this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups);
 
-      this.freeze = false;
-
+      this.setFreezed(false);
       this.handleFilters();
    };
    proto.getGemId = function () {

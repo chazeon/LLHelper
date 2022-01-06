@@ -7,10 +7,16 @@ declare namespace LLH {
         type GradeType = 1|2|3;
         /** 1 for muse, 2 for aqours, 3 for niji, 4 for liella */
         type SongGroupIdType = 1|2|3|4;
+        /** 4 for muse, 5 for aqours, 60 for niji, 143 for liella */
+        type BigGroupIdType = 4 | 5 | 60 | 143;
 
+        /** member unit id */
         type UnitTypeIdType = number;
+        /** group id */
         type MemberTagIdType = number;
         type AlbumIdType = number;
+        /** the number id or jp name */
+        type MemberIdType = UnitTypeIdType | string;
     }
     namespace API {
         interface SkillDetailDataType {
@@ -112,14 +118,17 @@ declare namespace LLH {
             effect_value: number;
             fixed?: 1;
             color?: Core.AttributeIdType;
-            member?: number; // member id
+            member?: Core.UnitTypeIdType;
             grade?: Core.GradeType;
-            group?: number;
+            group?: Core.MemberTagIdType;
             trigger_ref?: number;
             trigger_value?: number;
             sub_skill?: number; // sub sis id
             live_effect_type?: number;
             live_effect_interval?: number;
+
+            /** only available after post processed */
+            sub_skill_data?: SisDataType;
         }
         type SisDictDataType = {[id: string]: SisDataType};
         
@@ -150,6 +159,41 @@ declare namespace LLH {
             unit_type: UnitTypeDictDataType;
             cskill_groups: Core.MemberTagIdType;
         }
+    }
+
+    namespace Internal {
+        type NormalGemCategoryIdType = number;
+        type NormalGemCategoryKeyType = string;
+        interface NormalGemMetaType {
+            /** en name */
+            name: string;
+            /** cn name */
+            cnname: string;
+            key: NormalGemCategoryKeyType;
+            slot: number;
+            /** 1 for self, 2 for team */
+            effect_range: 1 | 2;
+            effect_value: number;
+            /** 1 means exist gem for 3 kinds of color */
+            per_color?: 0 | 1;
+            /** 1 means exist gem for 3 grades */
+            per_grade?: 0 | 1;
+            /** 1 means exist gem for different members */
+            per_member?: 0 | 1;
+            /** 1 means exist gem for different units */
+            per_unit?: 0 | 1;
+            /** 1 means effect_value is fixed value to add attribute */
+            attr_add?: 0 | 1;
+            /** 1 means effect_value is percentage buff to attribute */
+            attr_mul?: 0 | 1;
+            /** 1 means effect_value is percentage buff to score skill */
+            skill_mul?: 0 | 1;
+            /** 1 means effect_value is rate of heal to score on overheal */
+            heal_mul?: 0 | 1;
+            /** 1 means effect_value is percentage buff to attr when covered by ease */
+            ease_attr_mul?: 0 | 1;
+        }
+        type NormalGemCategoryIdOrMetaType = NormalGemCategoryIdType | NormalGemMetaType;
     }
 
     namespace Depends {
@@ -258,10 +302,14 @@ declare namespace LLH {
 
             filters: {[name: string]: LLFiltersComponent_FilterDef};
             freeze: boolean;
+            onValueChange: (name: string, newValue: string) => void;
 
+            setFreezed(isFreezed: boolean): void;
+            isFreezed(): boolean;
             addFilterable(name: string, component: LLValuedComponent): void;
             addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
-            setFilterOptionGroups(name: string, groups: LLSelectComponent_OptionDef[][], groupGetter: () => number, affectedBy: string[]): void;
+            setFilterOptionGroupCallback(name: string, groupGetter: () => number, affectedBy: string[]): void;
+            setFilterOptionGroups(name: string, groups: LLSelectComponent_OptionDef[][]): void;
             setFilterOptions(name: string, options: LLSelectComponent_OptionDef[]): void;
             getFilter(name: string, createIfAbsent?: boolean): LLFiltersComponent_FilterDef;
             /** handle changes when specified component's value change, when not provided name, handle all component's filters */
@@ -292,6 +340,36 @@ declare namespace LLH {
         }
     }
 
+    namespace ConstUtil {
+        interface Member {
+            getMemberName(memberId: Core.MemberIdType, iscn?: boolean): string;
+            getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
+            isNonetTeam(members: TODO.LLMember[]): Core.BigGroupIdType;
+        }
+        interface Group {
+            getBigGroupIds(): Core.BigGroupIdType[];
+            getGroupName(groupId: Core.MemberTagIdType): string;
+        }
+        interface Gem {
+            getMemberGemList(): Core.UnitTypeIdType[];
+            getUnitGemList(): Core.MemberTagIdType[];
+            isMemberGemExist(memberId: Core.MemberIdType): boolean;
+            getNormalGemMeta(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): Internal.NormalGemMetaType;
+            getNormalGemTypeKeys(): Internal.NormalGemCategoryKeyType[];
+            getNormalGemName(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string;
+            getNormalGemBriefDescription(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string;
+            getNormalGemNameAndDescription(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string;
+            /** true if gem color should follow member attribute, false if follow map attribute */
+            isGemFollowMemberAttribute(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): boolean;
+
+            getGemDescription(gemData: API.SisDataType, iscn?: boolean): string;
+            getGemFullDescription(gemData: API.SisDataType): string;
+            getGemColor(gemData: API.SisDataType): string;
+
+            postProcessGemData(gemData: API.SisDictDataType): void;
+        }
+    }
+
     class LLData<DataT> {
         constructor(brief_url: string, detail_url: string, brief_keys: string[], version?: string);
 
@@ -307,9 +385,16 @@ declare namespace LLH {
     
     interface LLConst {
         initMetadata(metaData: API.MetaDataType): void;
+
+        Member: ConstUtil.Member;
+        Group: ConstUtil.Group;
+        Gem: ConstUtil.Gem;
         // TODO
     }
 
+    namespace TODO {
+        type LLMember = any;
+    }
 }
 
 declare var LLCardData: LLH.LLData<LLH.API.CardDataType>;

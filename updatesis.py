@@ -51,11 +51,11 @@ def main():
             sisItem['fixed'] = sisRow[8]
 
         if sisRow[9] == 1: # target reference by attribute
-            sisItem['color'] = sisRow[10]
+            sisItem['grade'] = sisRow[10]
         elif sisRow[9] == 2: # target reference by member
             sisItem['member'] = sisRow[10]
         elif sisRow[9] == 3: # target reference by grade
-            sisItem['grade'] = sisRow[10]
+            sisItem['color'] = sisRow[10]
 
         if sisRow[11] == 4: # trigger reference by group
             sisItem['group'] = sisRow[12]
