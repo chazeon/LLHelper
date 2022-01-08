@@ -17,6 +17,10 @@ declare namespace LLH {
         type AlbumIdType = number;
         /** the number id or jp name */
         type MemberIdType = UnitTypeIdType | string;
+        /** the number id for card */
+        type CardIdType = number;
+        /** the number id or string of number id */
+        type CardIdOrStringType = CardIdType | string;
     }
     namespace API {
         interface SkillDetailDataType {
@@ -27,7 +31,7 @@ declare namespace LLH {
             limit?: number; // trigger limit
         }
         interface CardDataType {
-            id: number;
+            id: Core.CardIdType;
             rarity: 'N'|'R'|'SR'|'SSR'|'UR';
             attribute: Core.AttributeAllType;
             typeid: Core.UnitTypeIdType;
@@ -199,6 +203,18 @@ declare namespace LLH {
             ease_attr_mul?: 0 | 1;
         }
         type NormalGemCategoryIdOrMetaType = NormalGemCategoryIdType | NormalGemMetaType;
+
+        interface MemberSaveDataType {
+            cardid: Core.CardIdOrStringType; // int
+            mezame: 0 | 1;
+            smile: number; // int
+            pure: number; // int
+            cool: number; // int
+            skilllevel: number; // 1~8
+            maxcost: number; // 0~8
+            hp: number; // int
+            gemlist: NormalGemCategoryKeyType[];
+        }
     }
 
     namespace Depends {
@@ -216,6 +232,13 @@ declare namespace LLH {
         }
     }
 
+    namespace Mixin {
+        interface SaveLoadJson {
+            saveJson(): string;
+            loadJson(jsonData: string): void;
+        }
+    }
+
     /**
      * components:
      *   LLComponentBase
@@ -226,11 +249,12 @@ declare namespace LLH {
      *     +- LLFiltersComponent
      */
     namespace Component {
+        type HTMLElementOrId = string | HTMLElement;
         interface LLComponentBase_Options {
             listen: {[e: string]: (event: Event) => void};
         }
         class LLComponentBase {
-            constructor(id: string | HTMLElement, options: LLComponentBase_Options);
+            constructor(id: HTMLElementOrId, options: LLComponentBase_Options);
 
             id?: string;
             exist: boolean;
@@ -249,7 +273,7 @@ declare namespace LLH {
             valueKey: string;
         }
         class LLValuedComponent extends LLComponentBase {
-            constructor(id: string | HTMLElement, options: LLValuedComponent_Options);
+            constructor(id: HTMLElementOrId, options: LLValuedComponent_Options);
 
             value: string;
             valueKey: string;
@@ -267,7 +291,7 @@ declare namespace LLH {
         /** returns true if keep the option, false to filter out the option */
         type LLSelectComponent_FilterCallback = (opt: LLSelectComponent_OptionDef) => boolean;
         class LLSelectComponent extends LLValuedComponent {
-            constructor(id: string | HTMLElement, options: LLValuedComponent_Options);
+            constructor(id: HTMLElementOrId, options: LLValuedComponent_Options);
 
             options: LLSelectComponent_OptionDef[];
             filter?: LLSelectComponent_FilterCallback;
@@ -333,7 +357,7 @@ declare namespace LLH {
             includeLAGem: boolean;
         }
         class LLGemSelectorComponent extends Component.LLFiltersComponent {
-            constructor(id: string | HTMLElement, options: LLGemSelectorComponent_Options);
+            constructor(id: Component.HTMLElementOrId, options: LLGemSelectorComponent_Options);
 
             gemData?: API.SisDictDataType;
             includeNormalGemCategory: boolean;
@@ -375,6 +399,106 @@ declare namespace LLH {
         }
     }
 
+    namespace Model {
+        interface LLSisGem_Options {
+            grade?: Core.GradeType;
+            member?: Core.MemberIdType;
+            color?: Core.AttributeType;
+            unit?: Core.BigGroupIdType;
+        }
+        class LLSisGem {
+            constructor(type: Internal.NormalGemCategoryIdType, options: LLSisGem_Options);
+
+            isEffectRangeSelf(): boolean;
+            isEffectRangeAll(): boolean;
+            isSkillGem(): boolean;
+            isAccuracyGem(): boolean;
+            isValid(): boolean;
+            isAttrMultiple(): boolean;
+            isAttrAdd(): boolean;
+            isHealToScore(): boolean;
+            isScoreMultiple(): boolean;
+            isNonet(): boolean;
+            isMemberGem(): boolean;
+            getEffectValue(): number;
+            getNormalGemType(): Internal.NormalGemCategoryIdType;
+            getGemStockKeys(): string[];
+            getGemStockCount(gemStock: TODO.GemStockType): number;
+            getAttributeType(): Core.AttributeType;
+            setAttributeType(newAttribute: Core.AttributeType): void;
+
+            static getGemSlot(type: Internal.NormalGemCategoryIdType): number;
+            static getGemStockCount(gemStock: TODO.GemStockType, gemStockKeys: string[]): number;
+
+            private type: Internal.NormalGemCategoryIdType;
+            private color?: Core.AttributeType;
+            private grade?: Core.GradeType;
+            private member?: Core.MemberIdType;
+            private unit?: Core.BigGroupIdType;
+            private meta: Internal.NormalGemMetaType;
+            private gemStockKeys: string[];
+        }
+    }
+
+    namespace Layout {
+        namespace Team {
+            type IndexType = number; // 0~8
+            interface LLTeamComponent_Options {
+                onPutCardClicked?: (i: IndexType) => void;
+                onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
+                onCenterChanged?: () => void;
+            }
+            class LLTeamComponent implements Mixin.SaveLoadJson {
+                constructor(id: Component.HTMLElementOrId, options: LLTeamComponent_Options);
+
+                putMember(i: IndexType, member?: Internal.MemberSaveDataType): void;
+                /** alias of putMember */
+                setMember(i: IndexType, member?: Internal.MemberSaveDataType): void;
+                setMembers(members?: Internal.MemberSaveDataType[]): void;
+                getMember(i: IndexType): Internal.MemberSaveDataType;
+                getMembers(): Internal.MemberSaveDataType[];
+                setMemberGem(i: IndexType, gem: Model.LLSisGem): void;
+                getCardId(i: IndexType): Core.CardIdType;
+                getCardIds(): Core.CardIdType[];
+                getWeight(i: IndexType): number;
+                getWeights(): number[];
+                setWeight(i: IndexType, w: number): void;
+                setWeights(weights: number[]): void;
+                setSwapper(swapper: TODO.LLSwapper): void;
+                getSwapper(): TODO.LLSwapper;
+                setMapAttribute(attribute: Core.AttributeType): void;
+                isAllMembersPresent(): boolean;
+
+                // results
+                setStrengthAttribute(i: IndexType, strength: number): void;
+                setStrengthAttributes(strengths: number[]): void;
+                setStrengthDebuff(i: IndexType, strength: number): void;
+                setStrengthDebuffs(strengths: number[]): void;
+                setStrengthCardTheories(strengths: number[]): void;
+                setStrengthTotalTheories(strengths: number[]): void;
+                setStrengthSkillTheory(i: IndexType, strength: number, strengthSupported: boolean): void;
+                setSkillActiveCountSim(i: IndexType, count: number): void;
+                setSkillActiveCountSims(counts: number[]): void;
+                setSkillActiveChanceSim(i: IndexType, count: number): void;
+                setSkillActiveChanceSims(counts: number[]): void;
+                setSkillActiveNoEffectSim(i: IndexType, count: number): void;
+                setSkillActiveNoEffectSims(counts: number[]): void;
+                setSkillActiveHalfEffectSim(i: IndexType, count: number): void;
+                setSkillActiveHalfEffectSims(counts: number[]): void;
+                setHeal(i: IndexType, heal: number): void;
+                setResult(result: TODO.LLTeam): void;
+
+                saveData(): Internal.MemberSaveDataType[];
+                loadData(members: Internal.MemberSaveDataType[]): void;
+
+                // callbacks
+                onPutCardClicked?: (i: IndexType) => void;
+                onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
+                onCenterChanged?: () => void;
+            }
+        }
+    }
+
     class LLData<DataT> {
         constructor(brief_url: string, detail_url: string, brief_keys: string[], version?: string);
 
@@ -399,6 +523,9 @@ declare namespace LLH {
 
     namespace TODO {
         type LLMember = any;
+        type GemStockType = any;
+        type LLSwapper = any;
+        type LLTeam = any;
     }
 }
 

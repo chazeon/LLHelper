@@ -3601,34 +3601,14 @@ var LLMap = (function () {
    return cls;
 })();
 
-/**
- * @typedef LLSisGem
- * @property {function(): boolean} isEffectRangeSelf
- * @property {function(): boolean} isEffectRangeAll
- * @property {function(): boolean} isSkillGem
- * @property {function(): boolean} isAccuracyGem
- * @property {function(): boolean} isValid
- * @property {function(): boolean} isAttrMultiple
- * @property {function(): boolean} isAttrAdd
- * @property {function(): boolean} isHealToScore
- * @property {function(): boolean} isScoreMultiple
- * @property {function(): boolean} isNonet
- * @property {function(): boolean} isMemberGem
- * @property {function(): number} getEffectValue
- * @property {function(): number} getNormalGemType
- * @property {function(): string[]} getGemStockKeys
- * @property {function(GemStockType): number} getGemStockCount
- * @property {function(): AttributeType} getAttributeType
- * @property {function(AttributeType)} setAttributeType
- */
 var LLSisGem = (function () {
    /**
     * @constructor
     * @param {number} type
-    * @param {{grade: LLH.Core.GradeType, member: MemberIdType, color: AttributeType, unit: string}} options
+    * @param {LLH.Model.LLSisGem_Options} options
+    * @this {LLH.Model.LLSisGem}
     */
    function LLSisGem_cls(type, options) {
-      /** @type {NormalGemMetaType} */
       var meta = LLConst.Gem.getNormalGemMeta(type);
       if (!meta) throw 'Unknown type: ' + type;
       this.type = type;
@@ -3643,6 +3623,7 @@ var LLSisGem = (function () {
       if (meta.per_color && options.color) this.color = options.color;
       if (meta.per_unit && options.unit) this.unit = options.unit;
    };
+   /** @type {typeof LLH.Model.LLSisGem} */
    var cls = LLSisGem_cls;
 
    cls.getGemSlot = function (type) {
@@ -3709,9 +3690,7 @@ var LLSisGem = (function () {
    proto.getGemStockCount = function (gemStock) {
       return cls.getGemStockCount(gemStock, this.getGemStockKeys());
    };
-   /** @returns {AttributeType} */
    proto.getAttributeType = function () { return this.color; };
-   /** @param {AttributeType} newColor */
    proto.setAttributeType = function (newColor) { this.color = newColor; };
    return cls;
 })();
@@ -4172,6 +4151,7 @@ var LLSimulateContext = (function() {
       this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.skillsActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.currentAccuracyCoverNote = 0;
       this.totalPerfectScoreUp = 0; // capped at SKILL_LIMIT_PERFECT_SCORE_UP
       this.remainingPerfect = mapdata.perfect;
@@ -4482,9 +4462,13 @@ var LLSimulateContext = (function() {
             if (this.lastActiveSkill[IDX_LAST_FRAME] != this.currentFrame) {
                this.lastActiveSkill[IDX_LAST_REPEAT_FRAME] = this.currentFrame;
             }
+            // 半哑火: 被复读的技能哑火了
+            if (this.isSkillNoEffect(realMemberId)) {
+               return false;
+            }
          } else {
             // no effect
-            return;
+            return false;
          }
       } else if (this.hasRepeatSkill) {
          if (this.lastActiveSkill === undefined || this.lastActiveSkill[IDX_LAST_FRAME] != this.currentFrame) {
@@ -4557,7 +4541,9 @@ var LLSimulateContext = (function() {
          this.markTriggerActive(memberId, 1);
       } else {
          console.warn('Unknown skill effect ' + skillEffect);
+         return false;
       }
+      return true;
    };
    var makeDeltaTriggerCheck = function(key) {
       return function(context, data) {
@@ -4665,8 +4651,11 @@ var LLSimulateContext = (function() {
                var possibility = this.getSkillPossibility(nextActiveChance);
                if (Math.random() < possibility/100) {
                   // activate
-                  this.skillsActiveCount[nextActiveChance]++;
-                  this.onSkillActive(nextActiveChance);
+                  if (this.onSkillActive(nextActiveChance)) {
+                     this.skillsActiveCount[nextActiveChance]++;
+                  } else {
+                     this.skillsActiveHalfEffectCount[nextActiveChance]++;
+                  }
                }
             }
          }
@@ -4824,10 +4813,10 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          curMember.calcDisplayAttr(mapcolor);
-         /** @type {LLSisGem[]} */
+         /** @type {LLH.Model.LLSisGem[]} */
          var curGems = [];
          for (j = 0; j < curMember.gems.length; j++) {
-            /** @type {LLSisGem} */
+            /** @type {LLH.Model.LLSisGem} */
             var curGem = curMember.gems[j];
             if (curGem.isAttrMultiple() && curGem.isEffectRangeAll() && curGem.getAttributeType() == mapcolor) {
                if (curGem.isNonet()) {
@@ -5100,6 +5089,7 @@ var LLTeam = (function() {
       var skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var skillsActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var totalHeal = 0;
       var totalAccuracyCoverNote = 0;
       for (i = 0; i < simCount; i++) {
@@ -5117,12 +5107,14 @@ var LLTeam = (function() {
             skillsActiveCount[j] += env.skillsActiveCount[j];
             skillsActiveChanceCount[j] += env.skillsActiveChanceCount[j];
             skillsActiveNoEffectCount[j] += env.skillsActiveNoEffectCount[j];
+            skillsActiveHalfEffectCount[j] += env.skillsActiveHalfEffectCount[j];
          }
       }
       for (i = 0; i < 9; i++) {
          skillsActiveCount[i] /= simCount;
          skillsActiveChanceCount[i] /= simCount;
          skillsActiveNoEffectCount[i] /= simCount;
+         skillsActiveHalfEffectCount[i] /= simCount;
       }
       var scoreValues = Object.keys(scores).sort(function(a,b){return parseInt(a) - parseInt(b);});
       var minScore = parseInt(scoreValues[0]);
@@ -5139,6 +5131,7 @@ var LLTeam = (function() {
       this.averageSkillsActiveCount = skillsActiveCount;
       this.averageSkillsActiveChanceCount = skillsActiveChanceCount;
       this.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
+      this.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
       this.averageHeal = totalHeal / simCount;
       this.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
    };
@@ -5237,7 +5230,6 @@ var LLTeam = (function() {
          var curPowerUps = {};
          var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': curMember.card.jpname, 'unit': unitInfo[i]};
          for (j = 0; j < gemTypes.length; j++) {
-            /** @type {LLSisGem} */
             var curGem = new LLSisGem(j, gemOption);
             if (!curGem.isValid()) continue;
             var curStrengthBuff = 0;
@@ -5937,6 +5929,7 @@ var LLSaveLoadJsonMixin = (function () {
    var saveJson = function() {
       return JSON.stringify(this.saveData());
    }
+   /** @param {LLH.Mixin.SaveLoadJson} obj */
    return function(obj) {
       obj.loadJson = loadJson;
       obj.saveJson = saveJson;
@@ -7544,30 +7537,8 @@ var LLTeamComponent = (function () {
          }
       };
    }
-   // controller
-   // {
-   //    onPutCardClicked: callback function(i)
-   //    onCenterChanged: callback function()
-   //    putMember: function(i, member)
-   //      member: {main, smile, pure, cool, skilllevel(1-8), mezame(0/1), cardid, maxcost}
-   //    setMember: function(i, member) alias putMember
-   //    setMembers: function(members)
-   //    getMember(i), getMembers()
-   //    setMemberGem(i, g)
-   //    getCardId(i), getCardIds()
-   //    getWeight(i), getWeights(), setWeight(i,w), setWeights(i,w)
-   //    setStrengthAttribute(i,s), setStrengthAttributes(s)
-   //    setStrengthDebuff(i,s), setStrengthDebuffs(s)
-   //    setStrengthCardTheories(s)
-   //    setStrengthTotalTheories(s)
-   //    setStrengthSkillTheory(i,s,strengthSupported)
-   //    setHeal(i,s)
-   //    setSwapper: function(swapper)
-   //    getSwapper: function()
-   //    setMapAttribute: function(attr)
-   //    saveData: function()
-   //    loadData: function(data)
-   // }
+
+   /** @param {LLH.Layout.Team.LLTeamComponent} controller */
    function createTeamTable(controller) {
       var rows = [];
       var controllers = {
@@ -7590,9 +7561,10 @@ var LLTeamComponent = (function () {
          'str_card_theory': {},
          'str_debuff': {},
          'str_total_theory': {},
-         'skill_active_count_sim': {'owning': ['skill_active_chance_sim', 'skill_active_no_effect_sim']},
+         'skill_active_count_sim': {'owning': ['skill_active_chance_sim', 'skill_active_no_effect_sim', 'skill_active_half_effect_sim']},
          'skill_active_chance_sim': {},
          'skill_active_no_effect_sim': {},
+         'skill_active_half_effect_sim': {},
          'heal': {},
       };
       var cardsBrief = new Array(9);
@@ -7665,6 +7637,7 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('技能发动次数（模拟）', textCreator, controllers.skill_active_count_sim));
       rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
       rows.push(createRowFor9('技能哑火次数（模拟）', textCreator, controllers.skill_active_no_effect_sim));
+      rows.push(createRowFor9('技能半哑火次数（模拟）', textCreator, controllers.skill_active_half_effect_sim));
       rows.push(createRowFor9('回复', textCreator, controllers.heal));
 
       controllers.info.toggleFold();
@@ -7723,15 +7696,10 @@ var LLTeamComponent = (function () {
          return retMember;
       };
       controller.getMembers = makeGet9Function(controller.getMember);
-      /**
-       * @param {number} i 
-       * @param {LLSisGem[]} gems 
-       */
       controller.setMemberGem = function(i, gems) {
          /** @type {string[]} */
          var gemList = [];
          for (var j = 0; j < gems.length; j++) {
-            /** @type {LLSisGem} */
             var curGem = gems[j];
             gemList.push(LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType()).key);
          }
@@ -7759,13 +7727,14 @@ var LLTeamComponent = (function () {
       controller.setSkillActiveChanceSims = makeSet9Function(controller.setSkillActiveChanceSim);
       controller.setSkillActiveNoEffectSim = function(i, count) { controllers.skill_active_no_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
       controller.setSkillActiveNoEffectSims = makeSet9Function(controller.setSkillActiveNoEffectSim);
+      controller.setSkillActiveHalfEffectSim = function(i, count) { controllers.skill_active_half_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
+      controller.setSkillActiveHalfEffectSims = makeSet9Function(controller.setSkillActiveHalfEffectSim);
       controller.setHeal = function(i, heal) { controllers.heal.cells[i].set(heal); };
+
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
       controller.getSwapper = function() { return swapper; };
-      /** @param {AttributeType} mapAttr */
       controller.setMapAttribute = function (mapAttr) { controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr)); };
-      /** @returns {boolean} */
       controller.isAllMembersPresent = function () {
          var cardIds = controller.getCardIds();
          for (var i = 0; i < cardIds.length; i++) {
@@ -7783,14 +7752,13 @@ var LLTeamComponent = (function () {
          createElement('tbody', undefined, rows)
       ]);
    }
-   // LLTeamComponent
-   // {
-   //    callbacks:
-   //       onPutCardClicked: function(i)
-   //       onCenterChanged: function()
-   //    :createTeamTable
-   //    :LLSaveLoadJsonMixin
-   // }
+
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Layout.Team.LLTeamComponent_Options} callbacks 
+    * @this {LLH.Layout.Team.LLTeamComponent}
+    */
    function LLTeamComponent_cls(id, callbacks) {
       var element = LLUnit.getElement(id);
       element.appendChild(createTeamTable(this));
@@ -7798,9 +7766,29 @@ var LLTeamComponent = (function () {
       this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
       this.onCenterChanged = callbacks && callbacks.onCenterChanged;
    }
+   /** @type {typeof LLH.Layout.Team.LLTeamComponent} */
    var cls = LLTeamComponent_cls;
    var proto = cls.prototype;
    LLSaveLoadJsonMixin(proto);
+
+   proto.setResult = function (result) {
+      var cardStrengthList = [], totalStrengthList = [];
+      for (var i=0;i<9;i++){
+         var curCardStrength = result.attrStrength[i]+result.avgSkills[i].strength;
+         var curStrength = curCardStrength - result.attrDebuff[i];
+         cardStrengthList.push(curCardStrength);
+         totalStrengthList.push(curStrength);
+         this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLUnit.isStrengthSupported(result.members[i].card));
+         this.setHeal(i, LLUnit.healNumberToString(result.avgSkills[i].averageHeal));
+      }
+
+      this.setStrengthCardTheories(cardStrengthList);
+      this.setStrengthTotalTheories(totalStrengthList);
+      this.setSkillActiveCountSims(result.averageSkillsActiveCount);
+      this.setSkillActiveChanceSims(result.averageSkillsActiveChanceCount);
+      this.setSkillActiveNoEffectSims(result.averageSkillsActiveNoEffectCount);
+      this.setSkillActiveHalfEffectSims(result.averageSkillsActiveHalfEffectCount);
+   };
    return cls;
 })();
 

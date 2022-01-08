@@ -283,22 +283,7 @@
          comp_result.hideError();
       }
 
-      var cardStrengthList = [], totalStrengthList = [];
-      for (var i=0;i<9;i++){
-         var curCardStrength = llteam.attrStrength[i]+llteam.avgSkills[i].strength;
-         var curStrength = curCardStrength - llteam.attrDebuff[i];
-         cardStrengthList.push(curCardStrength);
-         totalStrengthList.push(curStrength);
-         comp_team.setStrengthSkillTheory(i, llteam.avgSkills[i].strength, LLUnit.isStrengthSupported(llteam.members[i].card));
-         comp_team.setHeal(i, LLUnit.healNumberToString(llteam.avgSkills[i].averageHeal));
-      }
-
-      comp_team.setStrengthCardTheories(cardStrengthList);
-      comp_team.setStrengthTotalTheories(totalStrengthList);
-      comp_team.setSkillActiveCountSims(llteam.averageSkillsActiveCount);
-      comp_team.setSkillActiveChanceSims(llteam.averageSkillsActiveChanceCount);
-      comp_team.setSkillActiveNoEffectSims(llteam.averageSkillsActiveNoEffectCount);
-
+      comp_team.setResult(llteam);
       comp_result.showResult(llteam);
    }
 
