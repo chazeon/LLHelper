@@ -82,6 +82,17 @@ def main():
 
         sisRow = sisCursor.fetchone()
 
+    sisLevelUpCols = ['unit_removable_skill_id', 'next_unit_removable_skill_id']
+    sisCursor = queryTableCols(unitConn, 'unit_removable_skill_exchange_m', sisLevelUpCols)
+    sisRow = sisCursor.fetchone()
+    while sisRow:
+        sisId = str(sisRow[0])
+        if sisId in sisData:
+            sisItem = sisData[sisId]
+            sisItem['level_up_skill'] = sisRow[1]
+
+        sisRow = sisCursor.fetchone()
+
     unitConn.close()
     jsonFile.save(sisData)
 

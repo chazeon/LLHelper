@@ -126,9 +126,14 @@ declare namespace LLH {
             sub_skill?: number; // sub sis id
             live_effect_type?: number;
             live_effect_interval?: number;
+            level_up_skill?: number; // next sis id
 
             /** only available after post processed */
             sub_skill_data?: SisDataType;
+            /** only available after post processed */
+            level_up_skill_data?: SisDataType;
+            /** only available after post processed */
+            level_down_skill_data?: SisDataType;
         }
         type SisDictDataType = {[id: string]: SisDataType};
         

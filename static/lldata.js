@@ -396,7 +396,7 @@ var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
 var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
-    'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval']);
+    'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -1796,6 +1796,12 @@ var LLConst = (function () {
             var curGemData = gemData[i];
             if (curGemData.sub_skill) {
                curGemData.sub_skill_data = gemData[curGemData.sub_skill.toFixed()];
+            }
+            if (curGemData.level_up_skill) {
+               curGemData.level_up_skill_data = gemData[curGemData.level_up_skill.toFixed()];
+               if (curGemData.level_up_skill_data) {
+                  curGemData.level_up_skill_data.level_down_skill_data = curGemData;
+               }
             }
          }
       }
@@ -8271,10 +8277,92 @@ var LLGemSelectorComponent = (function () {
          if (typeof(data) == 'string') {
             container.innerHTML = '';
          } else {
-            container.innerHTML = LLConst.Gem.getGemFullDescription(data);
+            var elements = [LLConst.Gem.getGemFullDescription(data)];
+            if (data.level_up_skill_data) {
+               var nextData = data.level_up_skill_data;
+               elements.push(
+                  createElement('br'),
+                  createElement('b', undefined, '可升级为：'),
+                  createElement('br'),
+                  createElement('span', {'style': {'color': LLConst.Gem.getGemColor(nextData)}}, LLConst.Gem.getGemDescription(nextData)),
+                  createElement('br'),
+                  LLConst.Gem.getGemFullDescription(nextData)
+               );
+            }
+            updateSubElements(container, elements, true);
          }
       }
       return container;
+   }
+
+   /** @param {LLH.API.SisDataType} data */
+   function renderGemSeriesRow(data) {
+      return createElement('tr', undefined, [
+         createElement('td', {'style': {'color': LLConst.Gem.getGemColor(data)}}, LLConst.Gem.getGemDescription(data)),
+         createElement('td', undefined, LLConst.Gem.getGemFullDescription(data))
+      ]);
+   }
+
+   /** @param {{set: (data: string | LLH.API.SisDataType) => void}} controller */
+   function renderGemSeries(controller) {
+      /** @type {LLH.API.SisDataType[]} */
+      var seriesData = [];
+      /** @type {HTMLElement[]} */
+      var seriesRows = [];
+      var focusedIndex = -1;
+      var headerRow = createElement('tr', undefined, [
+         createElement('th', {'style': {'width': '50%'}}, '宝石'),
+         createElement('th', undefined, '描述')
+      ]);
+      var tbody = createElement('tbody', undefined, [headerRow]);
+      var table = createElement('table', {'className': 'table table-bordered table-hover table-condensed gem-series', 'style': {'display': 'none'}}, tbody);
+      controller.set = function (data) {
+         if (typeof(data) == 'string') {
+            table.style.display = 'none';
+         } else if ((!data.level_up_skill_data) && (!data.level_down_skill_data)) {
+            table.style.display = 'none';
+         } else {
+            var found = -1;
+            var i;
+            for (i = 0; i < seriesData.length; i++) {
+               if (seriesData[i] === data) {
+                  found = i;
+                  break;
+               }
+            }
+            if (found < 0) {
+               // rebuild the rows
+               var curData = data;
+               while (curData.level_down_skill_data) curData = curData.level_down_skill_data;
+               seriesData = [curData];
+               seriesRows = [renderGemSeriesRow(curData)];
+               while (curData.level_up_skill_data) {
+                  curData = curData.level_up_skill_data;
+                  seriesData.push(curData);
+                  seriesRows.push(renderGemSeriesRow(curData));
+               }
+               for (i = 0; i < seriesData.length; i++) {
+                  if (seriesData[i] === data) {
+                     seriesRows[i].className = 'focused';
+                     focusedIndex = i;
+                     break;
+                  }
+               }
+               updateSubElements(tbody, [headerRow].concat(seriesRows), true);
+            } else {
+               // reuse the rows
+               if (found != focusedIndex) {
+                  if (seriesRows[focusedIndex]) {
+                     seriesRows[focusedIndex].className = '';
+                  }
+                  seriesRows[found].className = 'focused';
+                  focusedIndex = found;
+               }
+            }
+            table.style.display = '';
+         }
+      };
+      return table;
    }
 
    /**
@@ -8305,23 +8393,36 @@ var LLGemSelectorComponent = (function () {
       ], true);
 
       var detailController = undefined;
+      var seriesController = undefined;
       if (options.includeLAGem || options.includeNormalGem) {
          detailController = {};
+         seriesController = {};
          updateSubElements(container, [
             createElement('h3', undefined, '详细信息'),
-            renderGemDetail(detailController)
+            renderGemDetail(detailController),
+            createElement('h3', undefined, '升级序列'),
+            renderGemSeries(seriesController)
          ], false);
       }
 
+      /**
+       * @param {{set: (data: string | LLH.API.SisDataType) => void}} controller
+       * @param {string} gemId
+       */
+      var setDetail = function (controller, gemId) {
+         if (controller && controller.set) {
+            if (options.gemData && options.gemData[gemId]) {
+               controller.set(options.gemData[gemId]);
+            } else {
+               controller.set(gemId);
+            }
+         }
+      };
+
       this.onValueChange = function (name, newValue) {
          if (name == SEL_ID_GEM_CHOICE) {
-            if (detailController && detailController.set) {
-               if (options.gemData && options.gemData[newValue]) {
-                  detailController.set(options.gemData[newValue]);
-               } else {
-                  detailController.set(newValue);
-               }
-            }
+            setDetail(detailController, newValue);
+            setDetail(seriesController, newValue);
          }
       };
 
