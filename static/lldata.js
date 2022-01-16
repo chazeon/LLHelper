@@ -45,6 +45,22 @@
  * By ben1222
  */
 "use strict";
+
+/** @type {LLH.Depends.Utils} */
+var LLDepends = {
+   createDeferred: function () {
+      return $.Deferred();
+   },
+   whenAll: function (...args) {
+      // var arr = [];
+      // for (var i = 0; i < arguments.length; i++) {
+      //    arr.push(arguments[i]);
+      // }
+      // return $.when.apply($, arr);
+      return $.when.apply($, args);
+   }
+};
+
 /*
  * LoadingUtil: utility to show loading box when defers are not resolved
  * and hide the loading box when defers are resolved or rejected
@@ -57,7 +73,7 @@ var LoadingUtil = {
       return LoadingUtil.startImpl([defer], 'loadingbox', 'loadingbox_progress').then(function (data) { return data[0]; });
    },
    startImpl: function (defers, loadingboxid, progressboxid, merger) {
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       var result = {};
       if ((!defers) || defers.length == 0) {
          defer.resolve(result);
@@ -184,31 +200,6 @@ var LLHelperLocalStorage = {
    }
 };
 
-/**
- * @typedef SisDataType
- * @property {string} id
- * @property {1|2} type 1 for normal (circle), 2 for live arena (square)
- * @property {string} jpname
- * @property {number} [level] (LA only) level 1~5
- * @property {number} size 
- * @property {1|2} [range] (normal only) 1 for self, 2 for team
- * @property {number} effect_type 
- * @property {number} effect_value 
- * @property {1} [fixed] 
- * @property {1|2|3} [color] 1 for smile, 2 for pure, 3 for cool
- * @property {number} [member] member id
- * @property {1|2|3} [grade] grade 1~3
- * @property {number} [group]
- * @property {number} [trigger_ref]
- * @property {number} [trigger_value]
- * @property {number} [sub_skill] sub sis id
- * @property {number} [live_effect_type]
- * @property {number} [live_effect_interval]
- */
-/**
- * @typedef {{[id: string]: SisDataType}} SisDictDataType
- */
-
 /*
  * LLData: class to load json data from backend
  * LLSimpleKeyData: class to load json data from backend
@@ -217,6 +208,7 @@ var LLHelperLocalStorage = {
  * LLMetaData: instance for LLSimpleKeyData, load meta data
  * require jQuery
  */
+/** @type {typeof LLH.LLData} */
 var LLData = (function () {
    function LLData_cls(brief_url, detail_url, brief_keys, version) {
       this.briefUrl = brief_url;
@@ -256,7 +248,7 @@ var LLData = (function () {
       if (url === undefined) url = this.briefUrl;
       var me = this;
       var missingKeys = [];
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       me.initVersion(version);
       for (var i = 0; i < keys.length; i++) {
          var key = keys[i];
@@ -310,7 +302,7 @@ var LLData = (function () {
 
    proto.getDetailedDataWithVersion = function(version, index, url) {
       if (url === undefined) url = this.detailUrl;
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       if (index === undefined) {
          console.error("Index not specified");
          defer.reject();
@@ -361,7 +353,7 @@ var LLSimpleKeyData = (function () {
       if (url === undefined) url = this.url;
       var me = this;
       var missingKeys = [];
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       for (var i = 0; i < keys.length; i++) {
          var key = keys[i];
          if (!me.cache[key]) {
@@ -404,17 +396,9 @@ var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
 var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
-    'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval']);
+    'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
-/**
- * @typedef NoteDataType
- * @property {number} timing_sec float
- * @property {number} notes_level
- * @property {number} effect LLConst.NOTE_TYPE_*
- * @property {number} effect_value float, hold time
- * @property {number} position 1~9, 1 for right most, 9 for left most
- */
 var LLMapNoteData = (function () {
    function LLMapNoteData_cls(base_url) {
       this.baseUrl = (base_url || 'https://rawfile.loveliv.es/livejson/');
@@ -470,7 +454,7 @@ var LLMapNoteData = (function () {
       return false;
    }
    proto.getMapNoteData = function (song, songSetting) {
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       if (song.attribute == '') {
          // 默认曲目
          defer.resolve(createMapData(songSetting.combo, songSetting.time));
@@ -505,7 +489,7 @@ var LLMapNoteData = (function () {
    };
    proto.getLocalMapNoteData = function (song, songSetting) {
       var me = this;
-      var defer = $.Deferred();
+      var defer = LLDepends.createDeferred();
       if (song.attribute == '') {
          // 默认曲目
          defer.resolve(createMapData(songSetting.combo, songSetting.time));
@@ -520,28 +504,9 @@ var LLMapNoteData = (function () {
    return cls;
 })();
 
-/*
- * base components:
- *   LLComponentBase
- *     +- LLValuedComponent
- *     | +- LLSelectComponent
- *     +- LLImageComponent
- *   LLComponentCollection
- */
+// base components
+
 var LLComponentBase = (function () {
-   /* Properties:
-    *    id
-    *    exist
-    *    visible
-    *    element
-    * Methods:
-    *    show
-    *    hide
-    *    toggleVisible
-    *    serialize
-    *    deserialize
-    *    on
-    */
    function LLComponentBase_cls(id, options) {
       this.id = undefined;
       this.exist = false;
@@ -564,6 +529,7 @@ var LLComponentBase = (function () {
          }
       }
    };
+   /** @type {typeof LLH.Component.LLComponentBase} */
    var cls = LLComponentBase_cls;
    var proto = cls.prototype;
    proto.show = function () {
@@ -609,15 +575,6 @@ var LLComponentBase = (function () {
 })();
 
 var LLValuedComponent = (function() {
-   /* Properties:
-    *    value (serialize)
-    *    valueKey
-    * Methods:
-    *    get
-    *    set
-    *    serialize (override)
-    *    deserialize (override)
-    */
    function LLValuedComponent_cls(id, options) {
       LLComponentBase.call(this, id, options);
       if (!this.exist) {
@@ -646,9 +603,9 @@ var LLValuedComponent = (function() {
          me.set(me.element[me.valueKey]);
       });
    };
+   /** @type {typeof LLH.Component.LLValuedComponent} */
    var cls = LLValuedComponent_cls;
-   cls.prototype = new LLComponentBase();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLComponentBase);
    var proto = cls.prototype;
    proto.get = function () {
       return this.value;
@@ -670,14 +627,6 @@ var LLValuedComponent = (function() {
 })();
 
 var LLSelectComponent = (function() {
-   /* Properties:
-    *    options
-    *    filter
-    * Methods:
-    *    set (override)
-    *    setOptions
-    *    filterOptions
-    */
    function LLSelectComponent_cls(id, options) {
       LLValuedComponent.call(this, id, options);
       if (!this.exist) {
@@ -694,9 +643,9 @@ var LLSelectComponent = (function() {
       }
       this.options = opts;
    };
+   /** @type {typeof LLH.Component.LLSelectComponent} */
    var cls = LLSelectComponent_cls;
-   cls.prototype = new LLValuedComponent();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLValuedComponent);
    var proto = cls.prototype;
    proto.set = function (v) {
       if (!this.exist) return;
@@ -802,25 +751,10 @@ var LLImageComponent = (function() {
 })();
 
 var LLComponentCollection = (function() {
-   /* Properties:
-    *    components (serialize)
-    * Methods:
-    *    add(name, component)
-    *    getComponent(name)
-    *    serialize()
-    *    deserialize(v)
-    *    saveJson()
-    *    loadJson(json)
-    *    saveLocalStorage(key)
-    *    loadLocalStorage(key)
-    *    deleteLocalStorage(key)
-    *    saveCookie(key) (require setCookie)
-    *    loadCookie(key) (require getCookie)
-    *    deleteCookie(key) (require setCookie)
-    */
    function LLComponentCollection_cls() {
       this.components = {};
    };
+   /** @type {typeof LLH.Component.LLComponentCollection} */
    var cls = LLComponentCollection_cls;
    var proto = cls.prototype;
    proto.add = function (name, component) {
@@ -848,16 +782,6 @@ var LLComponentCollection = (function() {
          }
       }
    };
-   proto.saveCookie = function (key) {
-      setCookie(key, this.saveJson(), 1);
-   };
-   proto.loadCookie = function (key) {
-      var data = getCookie(key);
-      this.loadJson(data);
-   };
-   proto.deleteCookie = function (key) {
-      setCookie(key, '', -1);
-   };
    proto.saveJson = function () {
       return JSON.stringify(this.serialize());
    };
@@ -883,6 +807,166 @@ var LLComponentCollection = (function() {
    return cls;
 })();
 
+var LLFiltersComponent = (function() {
+   function LLFiltersComponent_cls() {
+      LLComponentCollection.call(this);
+      this.filters = {};
+      this.freeze = false;
+   };
+
+   /**
+    * @param {LLH.Component.LLFiltersComponent} me
+    * @param {string} targetName
+    * @param {boolean} checkCallbacks
+    * @param {boolean} checkOptionGroups
+    */
+   function handleFilter(me, targetName, checkCallbacks, checkOptionGroups) {
+      var filter = me.getFilter(targetName);
+      if (!filter) {
+         console.warn('Not found filter for ' + targetName, me);
+         return;
+      }
+      /** @type {LLH.Component.LLSelectComponent_FilterCallback} */
+      var newFilter = undefined;
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var newOptions = undefined;
+      var i;
+      if (checkCallbacks && filter.reverseCallbacks) {
+         /** @type {LLH.Component.LLFiltersComponent_FilterCallback[]} */
+         var filterCallbacks = [];
+         /** @type {string[]} */
+         var values = [];
+         /** @type {LLH.Component.LLValuedComponent} */
+         var comp = undefined;
+         for (i in filter.reverseCallbacks) {
+            comp = me.getComponent(i);
+            if (!comp) {
+               console.error('Not found component for ' + i, me);
+               continue;
+            }
+            filterCallbacks.push(filter.reverseCallbacks[i]);
+            values.push(comp.get());
+         }
+         if (filterCallbacks.length > 0) {
+            newFilter = function (option) {
+               if (!option) return true;
+               var data = undefined;
+               if (filter.dataGetter) data = filter.dataGetter(option);
+               for (var j = 0; j < filterCallbacks.length; j++) {
+                  if (!filterCallbacks[j](option, values[j], data)) return false;
+               }
+               return true;
+            };
+         }
+      }
+      if (checkOptionGroups && filter.groupGetter && filter.optionGroups) {
+         var groupId = filter.groupGetter();
+         if (groupId !== filter.currentOptionGroup) {
+            newOptions = filter.optionGroups[groupId] || [];
+            filter.currentOptionGroup = groupId;
+         }
+      }
+      if (newFilter || newOptions) {
+         /** @type {LLH.Component.LLSelectComponent} */
+         var selComp = me.getComponent(targetName);
+         if (!selComp) {
+            console.error('Not found select component for ' + targetName, me);
+            return;
+         }
+         if (newOptions) {
+            selComp.setOptions(newOptions, newFilter);
+         } else {
+            selComp.filterOptions(newFilter);
+         }
+      }
+   }
+
+   /** @type {typeof LLH.Component.LLFiltersComponent} */
+   var cls = LLFiltersComponent_cls;
+   LLClassUtil.setSuper(cls, LLComponentCollection);
+   var proto = cls.prototype;
+   proto.setFreezed = function (isFreezed) {
+      this.freeze = isFreezed;
+   };
+   proto.isFreezed = function () {
+      return this.freeze;
+   };
+   proto.addFilterable = function (name, component) {
+      var me = this;
+      me.add(name, component);
+      me.getFilter(name, true);
+      component.onValueChange = function (v) {
+         if (!me.isFreezed()) me.handleFilters(name);
+         if (me.onValueChange) me.onValueChange(name, v);
+      };
+   };
+   proto.getFilter = function (name, createIfAbsent) {
+      if (createIfAbsent && this.filters[name] === undefined) {
+         this.filters[name] = {};
+      }
+      return this.filters[name];
+   };
+   proto.addFilterCallback = function (sourceName, targetName, callback) {
+      var sourceFilter = this.getFilter(sourceName, true);
+      var targetFilter = this.getFilter(targetName, true);
+      if (!sourceFilter.callbacks) {
+         sourceFilter.callbacks = {};
+      }
+      if (!targetFilter.reverseCallbacks) {
+         targetFilter.reverseCallbacks = {};
+      }
+      sourceFilter.callbacks[targetName] = callback;
+      targetFilter.reverseCallbacks[sourceName] = callback;
+   };
+   proto.setFilterOptionGroupCallback = function (name, groupGetter, affectedBy) {
+      var curFilter = this.getFilter(name, true);
+      curFilter.groupGetter = groupGetter;
+      if (affectedBy) {
+         for (var i = 0; i < affectedBy.length; i++) {
+            var affectedFilter = this.getFilter(affectedBy[i], true);
+            if (!affectedFilter.affectOptionGroupFilters) {
+               affectedFilter.affectOptionGroupFilters = [name];
+            } else {
+               affectedFilter.affectOptionGroupFilters.push(name);
+            }
+         }
+      }
+   };
+   proto.setFilterOptionGroups = function (name, groups) {
+      var curFilter = this.getFilter(name, true);
+      curFilter.optionGroups = groups;
+   };
+   proto.setFilterOptions = function (name, options) {
+      var curFilter = this.getFilter(name, true);
+      curFilter.optionGroups = undefined;
+      /** @type {LLH.Component.LLSelectComponent} */
+      var curComp = this.getComponent(name);
+      curComp.setOptions(options);
+   };
+   proto.handleFilters = function (name) {
+      var i;
+      if (name) {
+         var filter = this.getFilter(name);
+         if (filter.callbacks) {
+            for (i in filter.callbacks) {
+               handleFilter(this, i, true, false);
+            }
+         }
+         if (filter.affectOptionGroupFilters) {
+            var affectFilters = filter.affectOptionGroupFilters;
+            for (i = 0; i < affectFilters.length; i++) {
+               handleFilter(this, affectFilters[i], false, true);
+            }
+         }
+      } else {
+         for (i in this.filters) {
+            handleFilter(this, i, true, true);
+         }
+      }
+   };
+   return cls;
+})();
+
 /**
  * @typedef {number | string} MemberIdType
  * the number id or jp name
@@ -891,13 +975,6 @@ var LLComponentCollection = (function() {
  * @typedef {4 | 5 | 60 | 143} BigGroupIdType
  * 4 for muse, 5 for aqours, 60 for niji, 143 for liella
  */
-/**
- * @typedef {1 | 2 | 3 | 4} SongGroupIdType
- * 1 for muse, 2 for aqours, 3 for niji, 4 for liella
- */
-/**
- * @typedef {1 | 2 | 3} GradeType
-  */
 /**
  * @typedef NormalGemMetaType
  * @property {string} name en name
@@ -920,6 +997,7 @@ var LLComponentCollection = (function() {
 /*
  * LLConst: static meta data
  */
+/** @type {LLH.LLConst} */
 var LLConst = (function () {
    var KEYS = {
       '高坂穂乃果': 1,
@@ -1130,6 +1208,14 @@ var LLConst = (function () {
       'SIS_EFFECT_TYPE_LA_SCORE': 24,
       'SIS_EFFECT_TYPE_LA_DEBUFF': 25,
 
+      'SIS_TRIGGER_REF_HP_PERCENT': 9,
+      'SIS_TRIGGER_REF_FULL_COMBO': 11,
+      'SIS_TRIGGER_REF_OVERHEAL': 12,
+      'SIS_TRIGGER_REF_ALL_SMILE': 13,
+      'SIS_TRIGGER_REF_ALL_COOL': 14,
+      'SIS_TRIGGER_REF_ALL_PURE': 15,
+      'SIS_TRIGGER_REF_PERFECT_COUNT': 20,
+
       'SIS_LIVE_EFFECT_TYPE_DAMAGE': 1,
       'SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN': 2
    };
@@ -1141,13 +1227,13 @@ var LLConst = (function () {
     * @property {string} name
     * @property {string} cnname
     * @property {string} background_color
-    * @property {GradeType} [grade]
+    * @property {LLH.Core.GradeType} [grade]
     * @property {0|1} [member_gem]
     */
    /** @type {{[id: number]: MemberDataType}} */
    var MEMBER_DATA = {};
 
-   /** @type {NormalGemMetaType[]} */
+   /** @type {LLH.Internal.NormalGemMetaType[]} */
    var GEM_NORMAL_TYPE_DATA = [
       {'name': 'kiss', 'cnname': '吻', 'key': 'SADD_200', 'slot': 1, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 200, 'per_color': 1, 'attr_add': 1},
       {'name': 'perfume', 'cnname': '香水', 'key': 'SADD_450', 'slot': 2, 'effect_range': KEYS.SIS_RANGE_SELF, 'effect_value': 450, 'per_color': 1, 'attr_add': 1},
@@ -1224,7 +1310,7 @@ var LLConst = (function () {
       return memberid;
    };
    /**
-    * @param {MemberIdType} member 
+    * @param {LLH.Core.MemberIdType} member 
     * @returns {MemberDataType | undefined}
     */
    var mGetMemberData = function (member) {
@@ -1356,13 +1442,8 @@ var LLConst = (function () {
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_RANDOM] = 8;
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_MASTER] = 9;
 
+   /** @type {LLH.LLConst} */
    var ret = KEYS;
-   ret.getGroupName = function (groupid) {
-      mCheckInited('member_tag');
-      if (!GROUP_DATA[groupid]) return '<Unknown(' + groupid + ')>';
-      if (GROUP_DATA[groupid].cnname) return GROUP_DATA[groupid].cnname;
-      return GROUP_DATA[groupid].name;
-   };
    ret.isMemberInGroup = function (member, group) {
       if (group === undefined || group == '') return false;
       var memberId = mGetMemberId(member);
@@ -1391,12 +1472,6 @@ var LLConst = (function () {
       var memberData = mGetMemberData(member);
       if (!memberData) return KEYS.BACKGROUND_COLOR_DEFAULT;
       return memberData.background_color;
-   };
-   ret.getMemberName = function (member, iscn) {
-      var memberData = mGetMemberData(member);
-      if (!memberData) return '<未知成员(' + member + ')>';
-      if (iscn && memberData.cnname) return memberData.cnname;
-      return memberData.name;
    };
    ret.getMemberNamesInGroups = function (groups) {
       mCheckInited('unit_type');
@@ -1429,11 +1504,15 @@ var LLConst = (function () {
       }
       return ret;
    };
+
+   /** @type {LLH.ConstUtil.Member} */
    var MemberUtils = {
-      /**
-       * @param {MemberIdType} memberId
-       * @returns {BigGroupIdType | undefined}
-       */
+      getMemberName: function (member, iscn) {
+         var memberData = mGetMemberData(member);
+         if (!memberData) return '<未知成员(' + member + ')>';
+         if (iscn && memberData.cnname) return memberData.cnname;
+         return memberData.name;
+      },
       getBigGroupId: function (memberId) {
          var bigGroups = ret.Group.getBigGroupIds();
          for (var i = 0; i < bigGroups.length; i++) {
@@ -1444,10 +1523,6 @@ var LLConst = (function () {
          }
          return undefined;
       },
-      /**
-       * @param {LLMember[]} members 
-       * @returns {BigGroupIdType | undefined}
-       */
       isNonetTeam: function (members) {
          if ((!members) || (members.length != 9)) {
             console.error('isNonetTeam: invalid members', members);
@@ -1473,30 +1548,29 @@ var LLConst = (function () {
    };
    ret.Member = MemberUtils;
 
+   /** @type {LLH.ConstUtil.Group} */
    var GroupUtils = {
-      /** @returns {BigGroupIdType[]} */
+      getGroupName: function (groupid) {
+         mCheckInited('member_tag');
+         if (!GROUP_DATA[groupid]) return '<Unknown(' + groupid + ')>';
+         if (GROUP_DATA[groupid].cnname) return GROUP_DATA[groupid].cnname;
+         return GROUP_DATA[groupid].name;
+      },
       getBigGroupIds: function () {
          return [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
       }
    };
    ret.Group = GroupUtils;
 
+   /** @type {LLH.ConstUtil.Gem} */
    var GemUtils = {
       getMemberGemList: function () { return MEMBER_GEM_LIST; },
       getUnitGemList: function () { return UNIT_GEM_LIST; },
-      /**
-       * @param {MemberIdType} member 
-       * @returns 
-       */
       isMemberGemExist: function (member) {
          var memberData = mGetMemberData(member);
          if (!memberData) return false;
          return (memberData.member_gem ? true : false);
       },
-      /**
-       * @param {number | NormalGemMetaType} typeOrMeta 
-       * @returns {NormalGemMetaType}
-       */
       getNormalGemMeta: function (typeOrMeta) {
          if (typeof(typeOrMeta) == 'number') {
             if (typeOrMeta < 0 || typeOrMeta >= GEM_NORMAL_TYPE_DATA.length) {
@@ -1516,12 +1590,10 @@ var LLConst = (function () {
          }
          return function () { return keys; };
       })(GEM_NORMAL_TYPE_DATA),
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       getNormalGemName: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          return meta && meta.cnname;
       },
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       getNormalGemBriefDescription: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          if (!meta) return undefined;
@@ -1539,19 +1611,199 @@ var LLConst = (function () {
          }
          return str;
       },
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       getNormalGemNameAndDescription: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          var gemName = GemUtils.getNormalGemName(meta)
          var gemDesc = GemUtils.getNormalGemBriefDescription(meta);
          return gemName + ' （' + gemDesc + '）';
       },
-      /** @param {number | NormalGemMetaType} typeOrMeta */
       isGemFollowMemberAttribute: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
          if (!meta) return false;
          if (meta.heal_mul || meta.skill_mul || meta.ease_attr_mul) return true;
          return false;
+      },
+      getGemDescription: function (gemData, iscn) {
+         var desc = gemData.id;
+         while (desc.length < 3) desc = '0' + desc;
+         desc += ' ';
+         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
+            desc += '●';
+         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
+            desc += '■';
+         }
+         desc += gemData.size + ' ';
+         var effect_type = gemData.effect_type;
+         var effect_value = gemData.effect_value;
+         if (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_COOL) {
+            if (gemData.fixed) {
+               desc += '[' + effect_value + ']';
+            } else {
+               desc += '[' + effect_value + '%]';
+            }
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_SCORE_BOOST) {
+            desc += '[' + (effect_value + 100)/100 + 'x]';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_HEAL_SCORE) {
+            desc += '[' + effect_value + 'x]';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_COOL) {
+            desc += '[' + effect_value + '%/判]';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_SCORE) {
+            desc += '[' + effect_value + '%';
+            var sub_skill = gemData.sub_skill_data;
+            while (sub_skill) {
+               desc += '+' + sub_skill.effect_value + '%';
+               sub_skill = sub_skill.sub_skill;
+            }
+            desc += ']';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
+            if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_DAMAGE) {
+               desc += '[-' + effect_value + '/' + gemData.live_effect_interval + 's]';
+            } else if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN) {
+               desc += '[-' + effect_value + '%]';
+            } else {
+               desc += '[-?]';
+            }
+         } else {
+            desc += '[?]';
+         }
+         if (gemData.level) {
+            desc += '[Lv' + gemData.level + ']';
+         }
+         desc += gemData.jpname;
+         if (gemData.member) {
+            desc += '[' + ret.Member.getMemberName(gemData.member, iscn) + ']';
+         }
+         return desc;
+      },
+      getGemFullDescription: function (gemData) {
+         var desc = '';
+         var effect_type = gemData.effect_type;
+         var isAttributeEffect = (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_COOL);
+         // 限制可装备的成员
+         if (gemData.member) {
+            var memberName = ret.Member.getMemberName(gemData.member);
+            desc += '仅限' + memberName + '装备，';
+         }
+         if (gemData.grade) {
+            desc += '仅限' + gemData.grade + '年级装备，';
+         }
+         if ((!isAttributeEffect) && gemData.color) {
+            desc += '仅限' + COLOR_ID_TO_NAME[gemData.color] + '社员装备，';
+         }
+         // 发动条件
+         if (gemData.group) {
+            var groupName = ret.Group.getGroupName(gemData.group);
+            if (gemData.group == KEYS.GROUP_NIJIGASAKI) {
+               desc += '不同的9名' + groupName + '成员参加时，';
+            } else if (gemData.group == KEYS.GROUP_LIELLA) {
+               desc += '队伍中成员均为' + groupName + '成员并全员参加时，';
+            } else {
+               desc += '队伍中成员为' + groupName + '全员时，';
+            }
+         }
+         if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_HP_PERCENT) {
+            desc += '歌曲结束时若体力高于' + gemData.trigger_value + '%，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_FULL_COMBO) {
+            desc += '全连击时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_OVERHEAL) {
+            desc += '歌曲结束时若体力槽高于' + gemData.trigger_value + '，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_SMILE) {
+            desc += '队伍成员属性全为smile时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_PURE) {
+            desc += '队伍成员属性全为pure时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_COOL) {
+            desc += '队伍成员属性全为cool时，';
+         } else if (gemData.trigger_ref == KEYS.SIS_TRIGGER_REF_PERFECT_COUNT) {
+            desc += '歌曲结束时，若perfect次数高于' + gemData.trigger_value + '，';
+         } else if (gemData.trigger_ref) {
+            desc += '<未知发动条件(' + gemData.trigger_ref + ')>';
+         }
+         // 效果
+         if (isAttributeEffect) {
+            if (gemData.range == KEYS.SIS_RANGE_SELF) {
+               desc += '装备此技能的社员的'
+            } else if (gemData.range == KEYS.SIS_RANGE_TEAM) {
+               desc += '队伍中的所有社员的'
+            }
+            desc += COLOR_ID_TO_NAME[gemData.color] + '提升'
+            if (gemData.fixed) {
+               desc += gemData.effect_value;
+            } else {
+               desc += gemData.effect_value + '%';
+            }
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_SCORE_BOOST) {
+            desc += '装备此技能的社员的得分提升技能效果变为' + (gemData.effect_value + 100)/100 + '倍';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_HEAL_SCORE) {
+            desc += '体力最大时，装备此技能的社员发动体力回复技能，可增加（回复量 x ' + gemData.effect_value + '）的得分';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_SMILE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_PURE
+            || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_COOL) {
+            desc += '判定强化技能发动时，装备此技能的社员的' + COLOR_ID_TO_NAME[gemData.color] + '变为' + (gemData.effect_value + 100)/100 + '倍';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_SCORE) {
+            desc += '得分增加' + gemData.effect_value + '%';
+         } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
+            if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_DAMAGE) {
+               desc += '每隔' + gemData.live_effect_interval + '秒，对手的体力减少' + gemData.effect_value;
+            } else if (gemData.live_effect_type == KEYS.SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN) {
+               desc += '对手的技能发动率下降' + gemData.effect_value + '%';
+            }
+         } else if (effect_type) {
+            desc += '<未知效果(' + effect_type + ')>';
+         }
+         // sub skill
+         if (gemData.sub_skill_data) {
+            desc += '；' + ret.Gem.getGemFullDescription(gemData.sub_skill_data);
+         } else if (gemData.sub_skill) {
+            desc += '；<未知子效果(' + gemData.sub_skill + ')>';
+         }
+         return desc;
+      },
+      getGemColor: function (gemData) {
+         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
+            return COLOR_NAME_TO_COLOR[COLOR_ID_TO_NAME[gemData.color]];
+         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
+            var trigger_ref = gemData.trigger_ref;
+            if (trigger_ref == KEYS.SIS_TRIGGER_REF_HP_PERCENT
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_OVERHEAL) {
+               return '#4c4';
+            } else if (trigger_ref == KEYS.SIS_TRIGGER_REF_FULL_COMBO
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_PERFECT_COUNT) {
+               return '#f0c';
+            } else if (trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_SMILE
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_PURE
+               || trigger_ref == KEYS.SIS_TRIGGER_REF_ALL_COOL) {
+               return '#f60';
+            } else if (gemData.group) {
+               return '#eb0';
+            } else if (gemData.effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
+               return '#f00';
+            } else if (trigger_ref) {
+               return '#888';
+            } else {
+               return '#fa0';
+            }
+         }
+      },
+      postProcessGemData: function (gemData) {
+         if (!gemData) return;
+         for (var i in gemData) {
+            var curGemData = gemData[i];
+            if (curGemData.sub_skill) {
+               curGemData.sub_skill_data = gemData[curGemData.sub_skill.toFixed()];
+            }
+            if (curGemData.level_up_skill) {
+               curGemData.level_up_skill_data = gemData[curGemData.level_up_skill.toFixed()];
+               if (curGemData.level_up_skill_data) {
+                  curGemData.level_up_skill_data.level_down_skill_data = curGemData;
+               }
+            }
+         }
       }
    };
    ret.Gem = GemUtils;
@@ -1815,9 +2067,9 @@ var LLConst = (function () {
       }
       var albumGroupJpName = (albumGroup.name ? "("+albumGroup.name+")" : '');
       if (isJp) {
-         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.getMemberName(curTypeId) + ' ' + albumGroupJpName;
+         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
       } else {
-        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
+        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
       }
       return desc;
    };
@@ -2067,7 +2319,7 @@ var LLUnit = {
       if (!targets) return '(数据缺失)';
       var ret = '';
       for (var i = 0; i < targets.length; i++) {
-         ret += LLConst.getGroupName(parseInt(targets[i]));
+         ret += LLConst.Group.getGroupName(parseInt(targets[i]));
       }
       return ret;
    },
@@ -2119,7 +2371,7 @@ var LLUnit = {
          majorEffect = card.attribute + '属性提升' + card.Cskillattribute + '的' + majorPercentage +  '%';
       }
       if (card.Csecondskilllimit !== undefined) {
-         secondEffect = (withbr ? '<br/>' : '+') + LLConst.getGroupName(parseInt(card.Csecondskilllimit)) + '的社员进一步将' + card.attribute + '属性提升' + card.Csecondskillattribute + '%';
+         secondEffect = (withbr ? '<br/>' : '+') + LLConst.Group.getGroupName(parseInt(card.Csecondskilllimit)) + '的社员进一步将' + card.attribute + '属性提升' + card.Csecondskillattribute + '%';
       }
       return card.attribute + nameSuffix + '：' + (withbr ? '<br/>' : '') + majorEffect + secondEffect;
    },
@@ -2446,56 +2698,8 @@ var LLSkillContainer = (function() {
    return cls;
 })();
 
-/**
- * @typedef SkillDetailDataType
- * @property {number} score effect value
- * @property {number} time discharge time
- * @property {number} require trigger value
- * @property {number} possibility trigger rate
- * @property {number} [limit] trigger limit
- */
 /** @typedef {'smile'|'pure'|'cool'} AttributeType */
-/**
- * @typedef CardDataType
- * @property {number} id
- * @property {'N'|'R'|'SR'|'SSR'|'UR'} rarity
- * @property {AttributeType|'all'} attribute
- * @property {number} typeid unit type id
- * @property {string} jpeponym
- * @property {string} eponym
- * @property {string} jpname
- * @property {string} name
- * @property {number} hp
- * @property {number} smile
- * @property {number} pure
- * @property {number} cool
- * @property {number} smile2
- * @property {number} pure2
- * @property {number} cool2
- * @property {number} skill skill id
- * @property {number} Cskill leader skill id
- * @property {0|1} support
- * @property {0|1} special
- * @property {number} minslot
- * @property {number} maxslot
- * @property {number} album album id
- * @property {AttributeType} Cskillattribute add from
- * @property {number} Cskillpercentage
- * @property {number} [Csecondskillattribute] effect value
- * @property {number} [Csecondskilllimit] target
- * @property {string} jpskillname
- * @property {string} skillname
- * @property {number} skilleffect
- * @property {number} triggertype
- * @property {number} skillleveluppattern
- * @property {SkillDetailDataType[]} skilldetail
- * @property {number | string} triggerrequire <require> | <min>~<max>
- * @property {number[]} [triggertarget]
- * @property {number[]} [effecttarget]
- */
-/**
- * @typedef {{[id: string]: CardDataType}} CardsDataType
- */
+
 var LLCardSelector = (function() {
    var createElement = LLUnit.createElement;
    var SEL_ID_CARD_CHOICE = 'cardchoice';
@@ -2532,7 +2736,7 @@ var LLCardSelector = (function() {
     */
    /**
     * @constructor
-    * @param {CardsDataType} cards 
+    * @param {LLH.API.CardDictDataType} cards 
     * @param {string | HTMLElement} container 
     */
    function LLCardSelector_cls(cards, container) {
@@ -2595,13 +2799,13 @@ var LLCardSelector = (function() {
       addSelect(SEL_ID_RARITY, selRarity, function (card, v) { return (v == '' || card.rarity == v); });
 
       var charaFilters = {};
-      charaFilters[SEL_ID_CARD_CHOICE] = function (card, v) { return (v == '' || LLConst.getMemberName(card.typeid) == v); };
+      charaFilters[SEL_ID_CARD_CHOICE] = function (card, v) { return (v == '' || LLConst.Member.getMemberName(card.typeid) == v); };
       charaFilters[SEL_ID_SET_NAME] = function (opt, v) {
          if (v == '' || opt.value === '') return true;
          var members = me.albumGroupMemberCache[opt.value];
          if (!members) return false;
          for (var i = 0; i < members.length; i++) {
-            if (LLConst.getMemberName(members[i]) == v) return true;
+            if (LLConst.Member.getMemberName(members[i]) == v) return true;
          }
          return false;
       };
@@ -2790,7 +2994,7 @@ var LLCardSelector = (function() {
          var curTypeId = parseInt(typeIds[i]);
          if (curTypeId < 0) continue;
          // some member has more than 1 id, we need normalize the ids using LLConst
-         var jpName = LLConst.getMemberName(curTypeId);
+         var jpName = LLConst.Member.getMemberName(curTypeId);
          if (typeNameId[jpName] === undefined) {
             if (LLConst[jpName] !== undefined) {
                curTypeId = LLConst[jpName];
@@ -2802,8 +3006,8 @@ var LLCardSelector = (function() {
       normalizedTypeIds = normalizedTypeIds.sort(function (a, b) {return a - b});
       for (i = 0; i < normalizedTypeIds.length; i++) {
          var curTypeId = normalizedTypeIds[i];
-         var jpName = LLConst.getMemberName(curTypeId);
-         var cnName = LLConst.getMemberName(curTypeId, true);
+         var jpName = LLConst.Member.getMemberName(curTypeId);
+         var cnName = LLConst.Member.getMemberName(curTypeId, true);
          var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
          charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
          charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
@@ -2927,42 +3131,6 @@ var LLCardSelector = (function() {
  * @property {string | HTMLElement} [songstardiff]
  * @property {string | HTMLElement} [map]
  */
-/**
- * @typedef SongSettingDataType
- * @property {string} liveid
- * @property {number} difficulty
- * @property {number} stardifficulty
- * @property {number} combo
- * @property {number} cscore
- * @property {number} bscore
- * @property {number} ascore
- * @property {number} sscore
- * @property {string} jsonpath
- * @property {0 | 1} isac
- * @property {0 | 1} isswing
- * @property {string[9]} positionweight Float
- * @property {string[9]} positionnote Integer
- * @property {string[9]} positionslider Integer
- * @property {string[9]} positionswing Integer
- * @property {string[9]} positionswingslider Integer
- * @property {string} star Integer
- * @property {string} slider Integer
- * @property {string} swing Integer
- * @property {string} swingslider Integer
- * @property {string} time Float
- */
-/**
- * @typedef SongDataType
- * @property {string} id
- * @property {string} jpname
- * @property {string} name
- * @property {number} group 1(muse)|2(aqours)|3(niji)|4(liella)
- * @property {AttributeType|'all'} attribute 
- * @property {{[id: string]: SongSettingDataType}} settings
- */
-/**
- * @typedef {{[id: string]: SongDataType}} SongsDataType
- */
 var LLSongSelector = (function() {
 //  removed difficulty (easy, normal, hard, expert, master, arcade, expert_swing)
 //  added live settings (settings: {"<liveid>": {<similar to old difficulty>, difficulty: <difficulty id>, isac: <isac>, isswing: <isswing>}, ...})
@@ -3004,7 +3172,7 @@ var LLSongSelector = (function() {
     */
    /**
     * @constructor
-    * @param {string | SongsDataType} songjson 
+    * @param {string | LLH.API.SongDictDataType} songjson 
     * @param {boolean} includeDefaultSong 
     * @param {LLSongSelector_CompMapping} compMapping
     */
@@ -3078,11 +3246,11 @@ var LLSongSelector = (function() {
 
    /**
     * @this LLSongSelector
-    * @param {string | SongsDataType} songjson
+    * @param {string | LLH.API.SongDictDataType} songjson
     * @param {boolean} includeDefaultSong
     */
    proto.setSongData = function (songjson, includeDefaultSong) {
-      /** @type {SongsDataType} */
+      /** @type {LLH.API.SongDictDataType} */
       var songs = undefined;
       if (typeof(songjson) == "string") {
          songs = JSON.parse(songjson);
@@ -3100,7 +3268,7 @@ var LLSongSelector = (function() {
          }
       }
 
-      /** @type {{[id: string]: SongSettingDataType}} */
+      /** @type {LLH.API.SongSettingDictDataType} */
       var songSettings = {};
       for (var i in songs) {
          if (!songs[i].settings) continue;
@@ -3352,7 +3520,7 @@ var LLMap = (function () {
 
    /**
     * @constructor
-    * @param {{song?: SongDataType, songSetting?: SongSettingDataType, friendCSkill?: CSkillDataType}} options 
+    * @param {{song?: LLH.API.SongDataType, songSetting?: LLH.API.SongSettingDataType, friendCSkill?: CSkillDataType}} options 
     */
    function LLMap_cls(options) {
       if (options.song) {
@@ -3433,34 +3601,14 @@ var LLMap = (function () {
    return cls;
 })();
 
-/**
- * @typedef LLSisGem
- * @property {function(): boolean} isEffectRangeSelf
- * @property {function(): boolean} isEffectRangeAll
- * @property {function(): boolean} isSkillGem
- * @property {function(): boolean} isAccuracyGem
- * @property {function(): boolean} isValid
- * @property {function(): boolean} isAttrMultiple
- * @property {function(): boolean} isAttrAdd
- * @property {function(): boolean} isHealToScore
- * @property {function(): boolean} isScoreMultiple
- * @property {function(): boolean} isNonet
- * @property {function(): boolean} isMemberGem
- * @property {function(): number} getEffectValue
- * @property {function(): number} getNormalGemType
- * @property {function(): string[]} getGemStockKeys
- * @property {function(GemStockType): number} getGemStockCount
- * @property {function(): AttributeType} getAttributeType
- * @property {function(AttributeType)} setAttributeType
- */
 var LLSisGem = (function () {
    /**
     * @constructor
     * @param {number} type
-    * @param {{grade: GradeType, member: MemberIdType, color: AttributeType, unit: string}} options
+    * @param {LLH.Model.LLSisGem_Options} options
+    * @this {LLH.Model.LLSisGem}
     */
    function LLSisGem_cls(type, options) {
-      /** @type {NormalGemMetaType} */
       var meta = LLConst.Gem.getNormalGemMeta(type);
       if (!meta) throw 'Unknown type: ' + type;
       this.type = type;
@@ -3475,6 +3623,7 @@ var LLSisGem = (function () {
       if (meta.per_color && options.color) this.color = options.color;
       if (meta.per_unit && options.unit) this.unit = options.unit;
    };
+   /** @type {typeof LLH.Model.LLSisGem} */
    var cls = LLSisGem_cls;
 
    cls.getGemSlot = function (type) {
@@ -3541,9 +3690,7 @@ var LLSisGem = (function () {
    proto.getGemStockCount = function (gemStock) {
       return cls.getGemStockCount(gemStock, this.getGemStockKeys());
    };
-   /** @returns {AttributeType} */
    proto.getAttributeType = function () { return this.color; };
-   /** @param {AttributeType} newColor */
    proto.setAttributeType = function (newColor) { this.color = newColor; };
    return cls;
 })();
@@ -3551,16 +3698,15 @@ var LLSisGem = (function () {
 var LLSkill = (function () {
    /**
     * @constructor
-    * @param {CardDataType} card 
+    * @param {LLH.API.CardDataType} card 
     * @param {number} level base 0
     * @param {{gemskill?: number, skillup?: number}} [buff] 
     */
    function LLSkill_cls(card, level, buff) {
       this.card = card;
       this.level = level;
-      /** @type {SkillDetailDataType[]} */
       var skilldetails = card.skilldetail || [];
-      /** @type {SkillDetailDataType} */
+      /** @type {LLH.API.SkillDetailDataType} */
       var skilldetail = skilldetails[level]  || {};
       this.hasSkill = (card.skilldetail && skilldetail.possibility);
       this.require = skilldetail.require || 1;
@@ -3724,7 +3870,7 @@ var LLSkill = (function () {
  * @property {number} maxcost int 0~8
  * @property {number} hp int
  * @property {string[]} gemlist normal gem meta key list
- * @property {CardDataType} card
+ * @property {LLH.API.CardDataType} card
  */
 var LLMember = (function() {
    var int_attr = ["cardid", "smile", "pure", "cool", "skilllevel", "maxcost", "hp"];
@@ -3917,7 +4063,7 @@ var LLMember = (function() {
    };
    /**
     * @param {number} [levelBoost]
-    * @returns {SkillDetailDataType}
+    * @returns {LLH.API.SkillDetailDataType}
     */
    proto.getSkillDetail = function(levelBoost) {
       if (!levelBoost) {
@@ -3934,7 +4080,7 @@ var LLMember = (function() {
  * @typedef NoteTriggerDataType
  * @property {1|2|3|4} type 1 for enter, 2 for hit, 3 for hold, 4 for release
  * @property {number} time float
- * @property {NoteDataType} note
+ * @property {LLH.API.NoteDataType} note
  * @property {number} factor 0.5 for swing, 1 for other
  */
 var LLSimulateContext = (function() {
@@ -4005,6 +4151,7 @@ var LLSimulateContext = (function() {
       this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.skillsActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.currentAccuracyCoverNote = 0;
       this.totalPerfectScoreUp = 0; // capped at SKILL_LIMIT_PERFECT_SCORE_UP
       this.remainingPerfect = mapdata.perfect;
@@ -4036,7 +4183,7 @@ var LLSimulateContext = (function() {
          if ((!curMember.card.skill) || (curMember.skilleffect == 0)) continue;
          var triggerType = curMember.card.triggertype;
          var effectType = curMember.card.skilleffect;
-         /** @type {SkillDetailDataType} */
+         /** @type {LLH.API.SkillDetailDataType} */
          var skillDetail = curMember.getSkillDetail();
          var skillRequire = skillDetail.require;
          var targets;
@@ -4315,9 +4462,13 @@ var LLSimulateContext = (function() {
             if (this.lastActiveSkill[IDX_LAST_FRAME] != this.currentFrame) {
                this.lastActiveSkill[IDX_LAST_REPEAT_FRAME] = this.currentFrame;
             }
+            // 半哑火: 被复读的技能哑火了
+            if (this.isSkillNoEffect(realMemberId)) {
+               return false;
+            }
          } else {
             // no effect
-            return;
+            return false;
          }
       } else if (this.hasRepeatSkill) {
          if (this.lastActiveSkill === undefined || this.lastActiveSkill[IDX_LAST_FRAME] != this.currentFrame) {
@@ -4390,7 +4541,9 @@ var LLSimulateContext = (function() {
          this.markTriggerActive(memberId, 1);
       } else {
          console.warn('Unknown skill effect ' + skillEffect);
+         return false;
       }
+      return true;
    };
    var makeDeltaTriggerCheck = function(key) {
       return function(context, data) {
@@ -4498,8 +4651,11 @@ var LLSimulateContext = (function() {
                var possibility = this.getSkillPossibility(nextActiveChance);
                if (Math.random() < possibility/100) {
                   // activate
-                  this.skillsActiveCount[nextActiveChance]++;
-                  this.onSkillActive(nextActiveChance);
+                  if (this.onSkillActive(nextActiveChance)) {
+                     this.skillsActiveCount[nextActiveChance]++;
+                  } else {
+                     this.skillsActiveHalfEffectCount[nextActiveChance]++;
+                  }
                }
             }
          }
@@ -4657,10 +4813,10 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          curMember.calcDisplayAttr(mapcolor);
-         /** @type {LLSisGem[]} */
+         /** @type {LLH.Model.LLSisGem[]} */
          var curGems = [];
          for (j = 0; j < curMember.gems.length; j++) {
-            /** @type {LLSisGem} */
+            /** @type {LLH.Model.LLSisGem} */
             var curGem = curMember.gems[j];
             if (curGem.isAttrMultiple() && curGem.isEffectRangeAll() && curGem.getAttributeType() == mapcolor) {
                if (curGem.isNonet()) {
@@ -4933,6 +5089,7 @@ var LLTeam = (function() {
       var skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var skillsActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var totalHeal = 0;
       var totalAccuracyCoverNote = 0;
       for (i = 0; i < simCount; i++) {
@@ -4950,12 +5107,14 @@ var LLTeam = (function() {
             skillsActiveCount[j] += env.skillsActiveCount[j];
             skillsActiveChanceCount[j] += env.skillsActiveChanceCount[j];
             skillsActiveNoEffectCount[j] += env.skillsActiveNoEffectCount[j];
+            skillsActiveHalfEffectCount[j] += env.skillsActiveHalfEffectCount[j];
          }
       }
       for (i = 0; i < 9; i++) {
          skillsActiveCount[i] /= simCount;
          skillsActiveChanceCount[i] /= simCount;
          skillsActiveNoEffectCount[i] /= simCount;
+         skillsActiveHalfEffectCount[i] /= simCount;
       }
       var scoreValues = Object.keys(scores).sort(function(a,b){return parseInt(a) - parseInt(b);});
       var minScore = parseInt(scoreValues[0]);
@@ -4972,6 +5131,7 @@ var LLTeam = (function() {
       this.averageSkillsActiveCount = skillsActiveCount;
       this.averageSkillsActiveChanceCount = skillsActiveChanceCount;
       this.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
+      this.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
       this.averageHeal = totalHeal / simCount;
       this.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
    };
@@ -5070,7 +5230,6 @@ var LLTeam = (function() {
          var curPowerUps = {};
          var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': curMember.card.jpname, 'unit': unitInfo[i]};
          for (j = 0; j < gemTypes.length; j++) {
-            /** @type {LLSisGem} */
             var curGem = new LLSisGem(j, gemOption);
             if (!curGem.isValid()) continue;
             var curStrengthBuff = 0;
@@ -5495,7 +5654,7 @@ var LLSaveData = (function () {
             var members = LLConst.Gem.getMemberGemList();
             if (m29['ALL'] === undefined) {
                for (var i = 0; i < members.length; i++) {
-                  var curMemberName = LLConst.getMemberName(members[i]);
+                  var curMemberName = LLConst.Member.getMemberName(members[i]);
                   if (m29[curMemberName] !== undefined) {
                      var memberGemCount = m29[curMemberName];
                      if (memberGemCount > 0) {
@@ -5515,7 +5674,7 @@ var LLSaveData = (function () {
                var memberGemCount = m29['ALL'];
                stock['MEMBER_29'] = {};
                for (var i = 0; i < members.length; i++) {
-                  var curMemberName = LLConst.getMemberName(members[i]);
+                  var curMemberName = LLConst.Member.getMemberName(members[i]);
                   stock['MEMBER_29'][curMemberName] = {'ALL': memberGemCount};
                }
             }
@@ -5606,7 +5765,7 @@ var LLSaveData = (function () {
                var newM29 = {};
                var members = LLConst.Gem.getMemberGemList();
                for (i = 0; i < members.length; i++) {
-                  var curMemberName = LLConst.getMemberName(members[i]);
+                  var curMemberName = LLConst.Member.getMemberName(members[i]);
                   if (m29[curMemberName] !== undefined) {
                      newM29[i.toFixed()] = m29[curMemberName];
                   } else {
@@ -5770,6 +5929,7 @@ var LLSaveLoadJsonMixin = (function () {
    var saveJson = function() {
       return JSON.stringify(this.saveData());
    }
+   /** @param {LLH.Mixin.SaveLoadJson} obj */
    return function(obj) {
       obj.loadJson = loadJson;
       obj.saveJson = saveJson;
@@ -5821,11 +5981,11 @@ var LLGemStockComponent = (function () {
          var gemType = LLConst.GemType[curKey];
          return LLConst.Gem.getNormalGemNameAndDescription(gemType);
       } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
-         return LLConst.getGroupName(parseInt(curKey));
+         return LLConst.Group.getGroupName(parseInt(curKey));
       } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
-         return LLConst.getMemberName(parseInt(curKey), true);
+         return LLConst.Member.getMemberName(parseInt(curKey), true);
       } else if (curSubType == STOCK_SUB_TYPE_UNIT) {
-         return LLConst.getGroupName(parseInt(curKey));
+         return LLConst.Group.getGroupName(parseInt(curKey));
       }
       return curKey;
    }
@@ -7377,30 +7537,8 @@ var LLTeamComponent = (function () {
          }
       };
    }
-   // controller
-   // {
-   //    onPutCardClicked: callback function(i)
-   //    onCenterChanged: callback function()
-   //    putMember: function(i, member)
-   //      member: {main, smile, pure, cool, skilllevel(1-8), mezame(0/1), cardid, maxcost}
-   //    setMember: function(i, member) alias putMember
-   //    setMembers: function(members)
-   //    getMember(i), getMembers()
-   //    setMemberGem(i, g)
-   //    getCardId(i), getCardIds()
-   //    getWeight(i), getWeights(), setWeight(i,w), setWeights(i,w)
-   //    setStrengthAttribute(i,s), setStrengthAttributes(s)
-   //    setStrengthDebuff(i,s), setStrengthDebuffs(s)
-   //    setStrengthCardTheories(s)
-   //    setStrengthTotalTheories(s)
-   //    setStrengthSkillTheory(i,s,strengthSupported)
-   //    setHeal(i,s)
-   //    setSwapper: function(swapper)
-   //    getSwapper: function()
-   //    setMapAttribute: function(attr)
-   //    saveData: function()
-   //    loadData: function(data)
-   // }
+
+   /** @param {LLH.Layout.Team.LLTeamComponent} controller */
    function createTeamTable(controller) {
       var rows = [];
       var controllers = {
@@ -7423,9 +7561,10 @@ var LLTeamComponent = (function () {
          'str_card_theory': {},
          'str_debuff': {},
          'str_total_theory': {},
-         'skill_active_count_sim': {'owning': ['skill_active_chance_sim', 'skill_active_no_effect_sim']},
+         'skill_active_count_sim': {'owning': ['skill_active_chance_sim', 'skill_active_no_effect_sim', 'skill_active_half_effect_sim']},
          'skill_active_chance_sim': {},
          'skill_active_no_effect_sim': {},
+         'skill_active_half_effect_sim': {},
          'heal': {},
       };
       var cardsBrief = new Array(9);
@@ -7498,6 +7637,7 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('技能发动次数（模拟）', textCreator, controllers.skill_active_count_sim));
       rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
       rows.push(createRowFor9('技能哑火次数（模拟）', textCreator, controllers.skill_active_no_effect_sim));
+      rows.push(createRowFor9('技能半哑火次数（模拟）', textCreator, controllers.skill_active_half_effect_sim));
       rows.push(createRowFor9('回复', textCreator, controllers.heal));
 
       controllers.info.toggleFold();
@@ -7520,7 +7660,7 @@ var LLTeamComponent = (function () {
          cardsBrief[i] = cardbrief;
          if (cardbrief) {
             controllers.info.cells[i].set(cardbrief.attribute);
-            controllers.info_name.cells[i].set(LLConst.getMemberName(cardbrief.typeid, true));
+            controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, true));
             controllers.skill_trigger.cells[i].set(LLConst.getSkillTriggerText(cardbrief.triggertype));
             controllers.skill_effect.cells[i].set(LLConst.getSkillEffectText(cardbrief.skilleffect));
             if (member.hp === undefined) {
@@ -7556,15 +7696,10 @@ var LLTeamComponent = (function () {
          return retMember;
       };
       controller.getMembers = makeGet9Function(controller.getMember);
-      /**
-       * @param {number} i 
-       * @param {LLSisGem[]} gems 
-       */
       controller.setMemberGem = function(i, gems) {
          /** @type {string[]} */
          var gemList = [];
          for (var j = 0; j < gems.length; j++) {
-            /** @type {LLSisGem} */
             var curGem = gems[j];
             gemList.push(LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType()).key);
          }
@@ -7592,13 +7727,14 @@ var LLTeamComponent = (function () {
       controller.setSkillActiveChanceSims = makeSet9Function(controller.setSkillActiveChanceSim);
       controller.setSkillActiveNoEffectSim = function(i, count) { controllers.skill_active_no_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
       controller.setSkillActiveNoEffectSims = makeSet9Function(controller.setSkillActiveNoEffectSim);
+      controller.setSkillActiveHalfEffectSim = function(i, count) { controllers.skill_active_half_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
+      controller.setSkillActiveHalfEffectSims = makeSet9Function(controller.setSkillActiveHalfEffectSim);
       controller.setHeal = function(i, heal) { controllers.heal.cells[i].set(heal); };
+
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
       controller.getSwapper = function() { return swapper; };
-      /** @param {AttributeType} mapAttr */
       controller.setMapAttribute = function (mapAttr) { controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr)); };
-      /** @returns {boolean} */
       controller.isAllMembersPresent = function () {
          var cardIds = controller.getCardIds();
          for (var i = 0; i < cardIds.length; i++) {
@@ -7616,14 +7752,13 @@ var LLTeamComponent = (function () {
          createElement('tbody', undefined, rows)
       ]);
    }
-   // LLTeamComponent
-   // {
-   //    callbacks:
-   //       onPutCardClicked: function(i)
-   //       onCenterChanged: function()
-   //    :createTeamTable
-   //    :LLSaveLoadJsonMixin
-   // }
+
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Layout.Team.LLTeamComponent_Options} callbacks 
+    * @this {LLH.Layout.Team.LLTeamComponent}
+    */
    function LLTeamComponent_cls(id, callbacks) {
       var element = LLUnit.getElement(id);
       element.appendChild(createTeamTable(this));
@@ -7631,9 +7766,29 @@ var LLTeamComponent = (function () {
       this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
       this.onCenterChanged = callbacks && callbacks.onCenterChanged;
    }
+   /** @type {typeof LLH.Layout.Team.LLTeamComponent} */
    var cls = LLTeamComponent_cls;
    var proto = cls.prototype;
    LLSaveLoadJsonMixin(proto);
+
+   proto.setResult = function (result) {
+      var cardStrengthList = [], totalStrengthList = [];
+      for (var i=0;i<9;i++){
+         var curCardStrength = result.attrStrength[i]+result.avgSkills[i].strength;
+         var curStrength = curCardStrength - result.attrDebuff[i];
+         cardStrengthList.push(curCardStrength);
+         totalStrengthList.push(curStrength);
+         this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLUnit.isStrengthSupported(result.members[i].card));
+         this.setHeal(i, LLUnit.healNumberToString(result.avgSkills[i].averageHeal));
+      }
+
+      this.setStrengthCardTheories(cardStrengthList);
+      this.setStrengthTotalTheories(totalStrengthList);
+      this.setSkillActiveCountSims(result.averageSkillsActiveCount);
+      this.setSkillActiveChanceSims(result.averageSkillsActiveChanceCount);
+      this.setSkillActiveNoEffectSims(result.averageSkillsActiveNoEffectCount);
+      this.setSkillActiveHalfEffectSims(result.averageSkillsActiveHalfEffectCount);
+   };
    return cls;
 })();
 
@@ -7668,7 +7823,7 @@ var LLCSkillComponent = (function () {
       var ret = [];
       var groups = LLConst.getCSkillGroups();
       for (var i = 0; i < groups.length; i++) {
-         ret.push({'value': groups[i], 'text': LLConst.getGroupName(groups[i])});
+         ret.push({'value': groups[i], 'text': LLConst.Group.getGroupName(groups[i])});
       }
       return ret;
    };
@@ -8016,7 +8171,7 @@ var LLSongSelectorComponent = (function () {
 
       var selector = new LLSongSelector(songData, true, compMapping);
       selector.onSongSettingChange = function (songSettingId) {
-         /** @type {SongSettingDataType} */
+         /** @type {LLH.API.SongSettingDataType} */
          var songSetting = undefined;
          if (songSettingId) {
             songSetting = selector.songSettings[songSettingId];
@@ -8041,11 +8196,11 @@ var LLSongSelectorComponent = (function () {
       this.setFriendCSkillComponent = function (comp) {
          comp_friendCSkill = comp;
       };
-      /** @returns {SongDataType} */
+      /** @returns {LLH.API.SongDataType} */
       this.getSelectedSong = function () {
          return selector.getSelectedSong();
       };
-      /** @returns {SongSettingDataType} */
+      /** @returns {LLH.API.SongSettingDataType} */
       this.getSelectedSongSetting = function () {
          return selector.getSelectedSongSetting();
       };
@@ -8059,7 +8214,7 @@ var LLSongSelectorComponent = (function () {
        * @returns {LLMap}
        */
       this.getMap = function (customWeights) {
-         /** @type {SongSettingDataType} */
+         /** @type {LLH.API.SongSettingDataType} */
          var songSetting = selector.getSelectedSongSetting();
          var llmap = new LLMap({
             'song': selector.getSelectedSong(),
@@ -8087,47 +8242,256 @@ var LLSongSelectorComponent = (function () {
    return LLSongSelectorComponent_cls;
 })();
 
-/**
- * @typedef LLGemSelectorComponent_SaveDataType
- */
 var LLGemSelectorComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
+
+   var SEL_ID_GEM_CHOICE = 'gem_choice';
+   var SEL_ID_GEM_TYPE = 'gem_type';
+   var GEM_GROUP_NORMAL_CATEGORY = 0;
+   var GEM_GROUP_NORMAL = 1;
+   var GEM_GROUP_LA = 2;
 
    /** @returns {HTMLElement} */
    function createFormSelect() {
       return createElement('select', {'className': 'form-control no-padding'});
    }
 
+   /** @param {{set: (data: string | LLH.API.SisDataType) => void}} controller */
+   function renderGemDetail(controller) {
+      var container = createElement('div');
+      controller.set = function (data) {
+         if (typeof(data) == 'string') {
+            container.innerHTML = '';
+         } else {
+            var elements = [LLConst.Gem.getGemFullDescription(data)];
+            if (data.level_up_skill_data) {
+               var nextData = data.level_up_skill_data;
+               elements.push(
+                  createElement('br'),
+                  createElement('b', undefined, '可升级为：'),
+                  createElement('br'),
+                  createElement('span', {'style': {'color': LLConst.Gem.getGemColor(nextData)}}, LLConst.Gem.getGemDescription(nextData)),
+                  createElement('br'),
+                  LLConst.Gem.getGemFullDescription(nextData)
+               );
+            }
+            updateSubElements(container, elements, true);
+         }
+      }
+      return container;
+   }
+
+   /** @param {LLH.API.SisDataType} data */
+   function renderGemSeriesRow(data) {
+      return createElement('tr', undefined, [
+         createElement('td', {'style': {'color': LLConst.Gem.getGemColor(data)}}, LLConst.Gem.getGemDescription(data)),
+         createElement('td', undefined, LLConst.Gem.getGemFullDescription(data))
+      ]);
+   }
+
+   /** @param {{set: (data: string | LLH.API.SisDataType) => void}} controller */
+   function renderGemSeries(controller) {
+      /** @type {LLH.API.SisDataType[]} */
+      var seriesData = [];
+      /** @type {HTMLElement[]} */
+      var seriesRows = [];
+      var focusedIndex = -1;
+      var headerRow = createElement('tr', undefined, [
+         createElement('th', {'style': {'width': '50%'}}, '宝石'),
+         createElement('th', undefined, '描述')
+      ]);
+      var tbody = createElement('tbody', undefined, [headerRow]);
+      var table = createElement('table', {'className': 'table table-bordered table-hover table-condensed gem-series', 'style': {'display': 'none'}}, tbody);
+      controller.set = function (data) {
+         if (typeof(data) == 'string') {
+            table.style.display = 'none';
+         } else if ((!data.level_up_skill_data) && (!data.level_down_skill_data)) {
+            table.style.display = 'none';
+         } else {
+            var found = -1;
+            var i;
+            for (i = 0; i < seriesData.length; i++) {
+               if (seriesData[i] === data) {
+                  found = i;
+                  break;
+               }
+            }
+            if (found < 0) {
+               // rebuild the rows
+               var curData = data;
+               while (curData.level_down_skill_data) curData = curData.level_down_skill_data;
+               seriesData = [curData];
+               seriesRows = [renderGemSeriesRow(curData)];
+               while (curData.level_up_skill_data) {
+                  curData = curData.level_up_skill_data;
+                  seriesData.push(curData);
+                  seriesRows.push(renderGemSeriesRow(curData));
+               }
+               for (i = 0; i < seriesData.length; i++) {
+                  if (seriesData[i] === data) {
+                     seriesRows[i].className = 'focused';
+                     focusedIndex = i;
+                     break;
+                  }
+               }
+               updateSubElements(tbody, [headerRow].concat(seriesRows), true);
+            } else {
+               // reuse the rows
+               if (found != focusedIndex) {
+                  if (seriesRows[focusedIndex]) {
+                     seriesRows[focusedIndex].className = '';
+                  }
+                  seriesRows[found].className = 'focused';
+                  focusedIndex = found;
+               }
+            }
+            table.style.display = '';
+         }
+      };
+      return table;
+   }
+
    /**
     * @constructor
     * @param {string | HTMLElement} id 
-    * @param {SisDictDataType} gemData
+    * @param {LLH.Selector.LLGemSelectorComponent_Options} options
+    * @this {LLH.Selector.LLGemSelectorComponent}
     */
-   function LLGemSelectorComponent_cls(id, gemData) {
+   function LLGemSelectorComponent_cls(id, options) {
+      LLFiltersComponent.call(this);
       var container = LLUnit.getElement(id);
+      var me = this;
+      if (!options) options = {};
+      this.gemData = undefined;
+      this.includeNormalGemCategory = options.includeNormalGemCategory || false;
+      this.includeNormalGem = options.includeNormalGem || false;
+      this.includeLAGem = options.includeLAGem || false;
 
       var gemChoice = createFormSelect();
-      var gemChoiceComponent = new LLSelectComponent(gemChoice);
-      var gemOptions = [{'value': '', 'text': '选择宝石'}];
-      var normalGems = LLConst.Gem.getNormalGemTypeKeys();
-      var i;
-      for (i = 0; i < normalGems.length; i++) {
-         var normalGemKey = normalGems[i];
-         var normalGemId = LLConst.GemType[normalGemKey];
-         gemOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
-      }
-      gemChoiceComponent.setOptions(gemOptions);
+      var gemType = createFormSelect();
+      this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice));
+      this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
+      this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE, () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()), [SEL_ID_GEM_TYPE]);
 
       updateSubElements(container, [
+         createFormInlineGroup('筛选条件：', gemType),
          createFormInlineGroup('宝石：', gemChoice)
       ], true);
 
-      this.getGemId = function () {
-         return gemChoiceComponent.get();
+      var detailController = undefined;
+      var seriesController = undefined;
+      if (options.includeLAGem || options.includeNormalGem) {
+         detailController = {};
+         seriesController = {};
+         updateSubElements(container, [
+            createElement('h3', undefined, '详细信息'),
+            renderGemDetail(detailController),
+            createElement('h3', undefined, '升级序列'),
+            renderGemSeries(seriesController)
+         ], false);
+      }
+
+      /**
+       * @param {{set: (data: string | LLH.API.SisDataType) => void}} controller
+       * @param {string} gemId
+       */
+      var setDetail = function (controller, gemId) {
+         if (controller && controller.set) {
+            if (options.gemData && options.gemData[gemId]) {
+               controller.set(options.gemData[gemId]);
+            } else {
+               controller.set(gemId);
+            }
+         }
       };
+
+      this.onValueChange = function (name, newValue) {
+         if (name == SEL_ID_GEM_CHOICE) {
+            setDetail(detailController, newValue);
+            setDetail(seriesController, newValue);
+         }
+      };
+
+      this.setGemData(options.gemData);
    }
 
-   return LLGemSelectorComponent_cls;
+   /** @type {typeof LLH.Selector.LLGemSelectorComponent} */
+   var cls = LLGemSelectorComponent_cls;
+   LLClassUtil.setSuper(cls, LLFiltersComponent);
+   var proto = cls.prototype;
+
+   /** @this {LLH.Selector.LLGemSelectorComponent} */
+   proto.setGemData = function (gemData) {
+      if (gemData) {
+         LLConst.Gem.postProcessGemData(gemData);
+      }
+
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[][]} */
+      var gemOptionGroups = [];
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var gemTypeOptions = [];
+      var i;
+      var me = this;
+
+      this.setFreezed(true);
+      this.gemData = gemData;
+
+      if (this.includeNormalGemCategory) {
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemNormalCatOptions = [{'value': '', 'text': '选择宝石'}];
+         var normalGems = LLConst.Gem.getNormalGemTypeKeys();
+         for (i = 0; i < normalGems.length; i++) {
+            var normalGemKey = normalGems[i];
+            var normalGemId = LLConst.GemType[normalGemKey];
+            gemNormalCatOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
+         }
+         gemOptionGroups.push(gemNormalCatOptions);
+         gemTypeOptions.push({'value': GEM_GROUP_NORMAL_CATEGORY.toFixed(), 'text': '普通宝石（大类）'});
+      } else {
+         gemOptionGroups.push([]);
+      }
+      if (gemData && (this.includeNormalGem || this.includeLAGem)) {
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemNormalOptions = [{'value': '', 'text': '选择宝石'}];
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemLAOptions = [{'value': '', 'text': '选择宝石'}];
+         var gemDataKeys = Object.keys(gemData).sort((a, b) => parseInt(a) - parseInt(b));
+         for (i = 0; i < gemDataKeys.length; i++) {
+            var curKey = gemDataKeys[i];
+            var curGemData = gemData[curKey];
+            if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
+               if (this.includeNormalGem) {
+                  gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData), 'color': LLConst.Gem.getGemColor(curGemData)});
+               }
+            } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
+               if (this.includeLAGem) {
+                  gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData), 'color': LLConst.Gem.getGemColor(curGemData)});
+               }
+            }
+         }
+         if (this.includeNormalGem) {
+            gemOptionGroups.push(gemNormalOptions);
+            gemTypeOptions.push({'value': GEM_GROUP_NORMAL.toFixed(), 'text': '普通宝石'});
+         } else {
+            gemOptionGroups.push([]);
+         }
+         if (this.includeLAGem) {
+            gemOptionGroups.push(gemLAOptions);
+            gemTypeOptions.push({'value': GEM_GROUP_LA.toFixed(), 'text': '演唱会竞技场宝石'});
+         }
+      } else {
+         gemOptionGroups.push([], []);
+      }
+      this.setFilterOptions(SEL_ID_GEM_TYPE, gemTypeOptions);
+      this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups);
+
+      this.setFreezed(false);
+      this.handleFilters();
+   };
+   proto.getGemId = function () {
+      return this.getComponent(SEL_ID_GEM_CHOICE).get();
+   };
+   return cls;
 })();

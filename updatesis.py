@@ -51,11 +51,11 @@ def main():
             sisItem['fixed'] = sisRow[8]
 
         if sisRow[9] == 1: # target reference by attribute
-            sisItem['color'] = sisRow[10]
+            sisItem['grade'] = sisRow[10]
         elif sisRow[9] == 2: # target reference by member
             sisItem['member'] = sisRow[10]
         elif sisRow[9] == 3: # target reference by grade
-            sisItem['grade'] = sisRow[10]
+            sisItem['color'] = sisRow[10]
 
         if sisRow[11] == 4: # trigger reference by group
             sisItem['group'] = sisRow[12]
@@ -79,6 +79,17 @@ def main():
             sisItem['live_effect_type'] = sisRow[1]
             if sisRow[2]:
                 sisItem['live_effect_interval'] = sisRow[2]
+
+        sisRow = sisCursor.fetchone()
+
+    sisLevelUpCols = ['unit_removable_skill_id', 'next_unit_removable_skill_id']
+    sisCursor = queryTableCols(unitConn, 'unit_removable_skill_exchange_m', sisLevelUpCols)
+    sisRow = sisCursor.fetchone()
+    while sisRow:
+        sisId = str(sisRow[0])
+        if sisId in sisData:
+            sisItem = sisData[sisId]
+            sisItem['level_up_skill'] = sisRow[1]
 
         sisRow = sisCursor.fetchone()
 

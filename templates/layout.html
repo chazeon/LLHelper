@@ -12,6 +12,16 @@
     <link rel="stylesheet" media="all" href="/static/han.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='llhelper.css') }}">
     <script src="{{ url_for('static', filename='siteversion.js') }}"></script>
+    {% if jsPage %}
+    <link rel="shortcut icon" href="/static/shortcuticon.png" />
+    <script type="text/javascript" src="{{ url_for('static', filename='twintailosu.js') }}?v=1.12"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='lldata.js') }}"></script>
+    <script type="text/javascript" src="{{ jsPage }}"></script>
+    <script>
+      var defer_onload = $.Deferred();
+      renderPage(defer_onload);
+    </script>
+    {% endif %}
     {% block additional_header %}
     {% endblock %}
     {% block script %}
@@ -28,8 +38,9 @@
   </head>
 
   {% if self.body_onload() %}
-  {% block body_onload %}
-  {% endblock %}
+  {% block body_onload %}{% endblock %}
+  {% elif jsPage %}
+  <body onload="defer_onload.resolve()">
   {% else %}
   <body>
   {% endif %}

@@ -206,3 +206,6 @@ img.avatar {
 .filter-form.label-size-9 label {
    width: 120px;
 }
+table.gem-series tr.focused {
+   border: 3px solid black;
+}
