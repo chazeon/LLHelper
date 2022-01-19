@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
+import argparse
 from lib.JsonUtil import JsonFile
 from lib.PrintLogger import PrintLogger
 from lib.DbUtil import connectUnitDb, queryTableCols
+from lib.Translator import Translator
+
+def parseArgs():
+    parser = argparse.ArgumentParser('Update sisdata')
+    parser.add_argument('-d', action='store_true', help='dump strings that need translate', dest='dump_missing')
+    return parser.parse_args()
 
 def main():
+    args = parseArgs()
     logger = PrintLogger()
     jsonFile = JsonFile('sisdata.json', logger)
+    translator = Translator('translate-cn.properties')
     logger.info('Updating sis data: %s' % jsonFile)
 
     sisData = jsonFile.load()
@@ -37,6 +46,9 @@ def main():
         
         sisType = sisRow[2] # skill_type
         sisItem['jpname'] = sisName
+        cnname = translator.translate(sisName)
+        if cnname is not None:
+            sisItem['cnname'] = cnname
         sisItem['type'] = sisType
         if sisRow[3] != 0:
             sisItem['level'] = sisRow[3]
@@ -97,6 +109,11 @@ def main():
     jsonFile.save(sisData)
 
     logger.info('Updated %s: sis count = %s (old %s, new %s, db %s)' % (jsonFile, len(sisData), sisCountInData, sisCountNew, sisCountInDb))
+
+    if args.dump_missing:
+        missing_file = 'translate-missing.properties'
+        translator.exportMissing(missing_file)
+        logger.info('Updated %s' % missing_file)
 
 
 if __name__ == '__main__':
