@@ -115,6 +115,7 @@ declare namespace LLH {
             id: string;
             type: 1 | 2; // type 1 for normal (circle), 2 for live arena (square)
             jpname: string;
+            cnname?: string;
             level?: number; // (LA only) level 1~5
             size: number;
             range?: 1 | 2; // (normal only) 1 for self, 2 for team
@@ -269,7 +270,7 @@ declare namespace LLH {
             on(eventName: string, callback: (event: Event) => void): void;
             isInDocument(): boolean;
         }
-        interface LLValuedComponent_Options extends LLComponentBase_Options{
+        interface LLValuedComponent_Options extends LLComponentBase_Options {
             valueKey: string;
         }
         class LLValuedComponent extends LLComponentBase {
@@ -495,6 +496,24 @@ declare namespace LLH {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
                 onCenterChanged?: () => void;
+
+                // implements
+                saveJson(): string;
+                loadJson(jsonData: string): void;
+            }
+        }
+        namespace Language {
+            /** 0: cn, 1: jp */
+            type LanguageType = 0 | 1;
+            class LLLanguageComponent extends Component.LLComponentBase {
+                constructor(id?: Component.HTMLElementOrId);
+
+                value: LanguageType;
+
+                onValueChange?: (newValue: LanguageType) => void;
+
+                get(): LanguageType;
+                set(val: LanguageType): void;
             }
         }
     }

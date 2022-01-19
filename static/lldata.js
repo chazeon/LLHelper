@@ -155,6 +155,7 @@ var LLHelperLocalStorage = {
    'localStorageLLNewAutoUnitTeamKey': 'llhelper_llnewautounit_team__',
    'localStorageSongSelectKey': 'llhelper_song_select__',
    'localStorageCardSelectKey': 'llhelper_card_select__',
+   'localStorageLanguageKey': 'llhelper_language__',
 
    'getDataVersion': function () {
       var version;
@@ -177,7 +178,7 @@ var LLHelperLocalStorage = {
       var ret;
       try {
          ret = localStorage.getItem(key);
-         if (ret === undefined) ret = default_value;
+         if (ret === undefined || ret === null) ret = default_value;
       } catch (e) {
          ret = default_value;
          console.error(e);
@@ -1060,6 +1061,7 @@ var LLConst = (function () {
       'エマ・ヴェルデ': 208,
       '天王寺璃奈': 209,
       '三船栞子': 212,
+      '鐘嵐珠': 213,
       'ミア・テイラー': 214,
       'MEMBER_AYUMU': 201,
       'MEMBER_KASUMI': 202,
@@ -1071,6 +1073,7 @@ var LLConst = (function () {
       'MEMBER_EMMA': 208,
       'MEMBER_RINA': 209,
       'MEMBER_SHIORIKO': 212,
+      'MEMBER_LANZHU': 213,
       'MEMBER_MIA': 214,
 
       '澁谷かのん': 301,
@@ -8492,6 +8495,49 @@ var LLGemSelectorComponent = (function () {
    };
    proto.getGemId = function () {
       return this.getComponent(SEL_ID_GEM_CHOICE).get();
+   };
+   return cls;
+})();
+
+var LLLanguageComponent = (function() {
+   var createElement = LLUnit.createElement;
+
+   /** @param {LLH.Layout.Language.LLLanguageComponent} me */
+   function toggleLanguage(me) {
+      var newValue = (me.value + 1) % 2;
+      me.set(newValue);
+   }
+
+   function LLLanguageComponent_cls(id) {
+      if (id === undefined) {
+         id = createElement('input');
+      }
+      LLComponentBase.call(this, id);
+      if (this.element) {
+         this.element.type = 'button';
+         this.element.value = '切换语言';
+         this.element.className = 'btn btn-default';
+      }
+      var me = this;
+      me.value = 0;
+      this.on('click', () => toggleLanguage(me));
+   };
+   /** @type {typeof LLH.Layout.Language.LLLanguageComponent} */
+   var cls = LLLanguageComponent_cls;
+   LLClassUtil.setSuper(cls, LLComponentBase);
+   var proto = cls.prototype;
+   proto.get = function () {
+      return this.value;
+   };
+   proto.set = function (v) {
+      this.value = v;
+      if (this.onValueChange) this.onValueChange(v);
+   };
+   proto.serialize = function () {
+      return this.get();
+   };
+   proto.deserialize = function (v) {
+      this.set(v);
    };
    return cls;
 })();
