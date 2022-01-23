@@ -396,7 +396,7 @@ var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
 var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
 var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
-   ['id', 'type', 'jpname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
+   ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
@@ -553,6 +553,10 @@ var LLComponentBase = (function () {
          this.show();
       }
    };
+   proto.setVisible = function (visible) {
+      if (visible) this.show();
+      else this.hide();
+   };
    proto.serialize = function () {
       if (!this.exist) return undefined;
       return this.visible;
@@ -623,6 +627,23 @@ var LLValuedComponent = (function() {
    };
    proto.deserialize = function (v) {
       this.set(v);
+   };
+   return cls;
+})();
+
+var LLValuedMemoryComponent = (function() {
+   function LLValuedMemoryComponent_cls(initialValue) {
+      LLValuedComponent.call(this, undefined);
+      this.value = initialValue;
+   };
+   /** @type {typeof LLH.Component.LLValuedMemoryComponent} */
+   var cls = LLValuedMemoryComponent_cls;
+   LLClassUtil.setSuper(cls, LLValuedComponent);
+   var proto = cls.prototype;
+   proto.set = function (v) {
+      if (v == this.value) return;
+      this.value = v;
+      if (this.onValueChange) this.onValueChange(v);
    };
    return cls;
 })();
@@ -876,6 +897,7 @@ var LLFiltersComponent = (function() {
          }
          if (newOptions) {
             selComp.setOptions(newOptions, newFilter);
+            selComp.setVisible(newOptions.length > 0);
          } else {
             selComp.filterOptions(newFilter);
          }
@@ -892,10 +914,11 @@ var LLFiltersComponent = (function() {
    proto.isFreezed = function () {
       return this.freeze;
    };
-   proto.addFilterable = function (name, component) {
+   proto.addFilterable = function (name, component, dataGetter) {
       var me = this;
       me.add(name, component);
-      me.getFilter(name, true);
+      var curFilter = me.getFilter(name, true);
+      if (dataGetter) curFilter.dataGetter = dataGetter;
       component.onValueChange = function (v) {
          if (!me.isFreezed()) me.handleFilters(name);
          if (me.onValueChange) me.onValueChange(name, v);
@@ -1676,13 +1699,17 @@ var LLConst = (function () {
          if (gemData.level) {
             desc += '[Lv' + gemData.level + ']';
          }
-         desc += gemData.jpname;
+         if (iscn && gemData.cnname) {
+            desc += gemData.cnname;
+         } else {
+            desc += gemData.jpname;
+         }
          if (gemData.member) {
             desc += '[' + ret.Member.getMemberName(gemData.member, iscn) + ']';
          }
          return desc;
       },
-      getGemFullDescription: function (gemData) {
+      getGemFullDescription: function (gemData, iscn) {
          var desc = '';
          var effect_type = gemData.effect_type;
          var isAttributeEffect = (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
@@ -1690,7 +1717,7 @@ var LLConst = (function () {
             || effect_type == KEYS.SIS_EFFECT_TYPE_COOL);
          // 限制可装备的成员
          if (gemData.member) {
-            var memberName = ret.Member.getMemberName(gemData.member);
+            var memberName = ret.Member.getMemberName(gemData.member, iscn);
             desc += '仅限' + memberName + '装备，';
          }
          if (gemData.grade) {
@@ -1761,7 +1788,7 @@ var LLConst = (function () {
          }
          // sub skill
          if (gemData.sub_skill_data) {
-            desc += '；' + ret.Gem.getGemFullDescription(gemData.sub_skill_data);
+            desc += '；' + ret.Gem.getGemFullDescription(gemData.sub_skill_data, iscn);
          } else if (gemData.sub_skill) {
             desc += '；<未知子效果(' + gemData.sub_skill + ')>';
          }
@@ -8252,6 +8279,8 @@ var LLGemSelectorComponent = (function () {
 
    var SEL_ID_GEM_CHOICE = 'gem_choice';
    var SEL_ID_GEM_TYPE = 'gem_type';
+   var SEL_ID_GEM_SIZE = 'gem_size';
+   var MEM_ID_LANGUAGE = 'language';
    var GEM_GROUP_NORMAL_CATEGORY = 0;
    var GEM_GROUP_NORMAL = 1;
    var GEM_GROUP_LA = 2;
@@ -8261,45 +8290,54 @@ var LLGemSelectorComponent = (function () {
       return createElement('select', {'className': 'form-control no-padding'});
    }
 
-   /** @param {{set: (data: string | LLH.API.SisDataType) => void}} controller */
+   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
    function renderGemDetail(controller) {
       var container = createElement('div');
-      controller.set = function (data) {
-         if (typeof(data) == 'string') {
+      controller.set = function (data, language) {
+         if (!data) {
+            container.innerHTML = '';
+         } else if (typeof(data) == 'string') {
             container.innerHTML = '';
          } else {
-            var elements = [LLConst.Gem.getGemFullDescription(data)];
+            var elements = [LLConst.Gem.getGemFullDescription(data, language == 0)];
             if (data.level_up_skill_data) {
                var nextData = data.level_up_skill_data;
                elements.push(
                   createElement('br'),
                   createElement('b', undefined, '可升级为：'),
                   createElement('br'),
-                  createElement('span', {'style': {'color': LLConst.Gem.getGemColor(nextData)}}, LLConst.Gem.getGemDescription(nextData)),
+                  createElement('span', {'style': {'color': LLConst.Gem.getGemColor(nextData)}}, LLConst.Gem.getGemDescription(nextData, language == 0)),
                   createElement('br'),
-                  LLConst.Gem.getGemFullDescription(nextData)
+                  LLConst.Gem.getGemFullDescription(nextData, language == 0)
                );
             }
             updateSubElements(container, elements, true);
          }
-      }
+      };
       return container;
    }
 
-   /** @param {LLH.API.SisDataType} data */
-   function renderGemSeriesRow(data) {
-      return createElement('tr', undefined, [
-         createElement('td', {'style': {'color': LLConst.Gem.getGemColor(data)}}, LLConst.Gem.getGemDescription(data)),
-         createElement('td', undefined, LLConst.Gem.getGemFullDescription(data))
-      ]);
+   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
+   function renderGemSeriesRow(controller) {
+      var descCell = createElement('td');
+      var fullDescCell = createElement('td');
+      controller.set = function (data, language) {
+         descCell.style.color = LLConst.Gem.getGemColor(data);
+         updateSubElements(descCell, LLConst.Gem.getGemDescription(data, language == 0), true);
+         updateSubElements(fullDescCell, LLConst.Gem.getGemFullDescription(data, language == 0), true);
+      };
+      return createElement('tr', undefined, [descCell, fullDescCell]);
    }
 
-   /** @param {{set: (data: string | LLH.API.SisDataType) => void}} controller */
+   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
    function renderGemSeries(controller) {
       /** @type {LLH.API.SisDataType[]} */
       var seriesData = [];
       /** @type {HTMLElement[]} */
       var seriesRows = [];
+      /** @type {LLH.Selector.LLGemSelectorComponent_DetailController[]} */
+      var seriesRowsController = [];
+      var lastLanguage = undefined;
       var focusedIndex = -1;
       var headerRow = createElement('tr', undefined, [
          createElement('th', {'style': {'width': '50%'}}, '宝石'),
@@ -8307,7 +8345,7 @@ var LLGemSelectorComponent = (function () {
       ]);
       var tbody = createElement('tbody', undefined, [headerRow]);
       var table = createElement('table', {'className': 'table table-bordered table-hover table-condensed gem-series', 'style': {'display': 'none'}}, tbody);
-      controller.set = function (data) {
+      controller.set = function (data, language) {
          if (typeof(data) == 'string') {
             table.style.display = 'none';
          } else if ((!data.level_up_skill_data) && (!data.level_down_skill_data)) {
@@ -8326,17 +8364,20 @@ var LLGemSelectorComponent = (function () {
                var curData = data;
                while (curData.level_down_skill_data) curData = curData.level_down_skill_data;
                seriesData = [curData];
-               seriesRows = [renderGemSeriesRow(curData)];
+               seriesRowsController = [{}];
+               seriesRows = [renderGemSeriesRow(seriesRowsController[0])];
                while (curData.level_up_skill_data) {
                   curData = curData.level_up_skill_data;
                   seriesData.push(curData);
-                  seriesRows.push(renderGemSeriesRow(curData));
+                  var curController = {};
+                  seriesRows.push(renderGemSeriesRow(curController));
+                  seriesRowsController.push(curController);
                }
                for (i = 0; i < seriesData.length; i++) {
+                  seriesRowsController[i].set(seriesData[i], language);
                   if (seriesData[i] === data) {
                      seriesRows[i].className = 'focused';
                      focusedIndex = i;
-                     break;
                   }
                }
                updateSubElements(tbody, [headerRow].concat(seriesRows), true);
@@ -8349,8 +8390,15 @@ var LLGemSelectorComponent = (function () {
                   seriesRows[found].className = 'focused';
                   focusedIndex = found;
                }
+               // check if language changed
+               if (lastLanguage != language) {
+                  for (i = 0; i < seriesData.length; i++) {
+                     seriesRowsController[i].set(seriesData[i], language);
+                  }
+               }
             }
             table.style.display = '';
+            lastLanguage = language;
          }
       };
       return table;
@@ -8374,12 +8422,25 @@ var LLGemSelectorComponent = (function () {
 
       var gemChoice = createFormSelect();
       var gemType = createFormSelect();
-      this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice));
+      var gemSize = createFormSelect();
+      this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice), function (opt) {
+         if (opt.value && options.gemData && options.gemData[opt.value]) {
+            return options.gemData[opt.value];
+         } else {
+            return undefined;
+         }
+      });
       this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
-      this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE, () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()), [SEL_ID_GEM_TYPE]);
+      this.addFilterable(SEL_ID_GEM_SIZE, new LLSelectComponent(gemSize));
+      this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+      this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE,
+         () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()) * 2 + parseInt(me.getComponent(MEM_ID_LANGUAGE).get()),
+         [SEL_ID_GEM_TYPE, MEM_ID_LANGUAGE]);
+      this.setFilterOptionGroupCallback(SEL_ID_GEM_SIZE, () => parseInt(me.getComponent(SEL_ID_GEM_TYPE).get()), [SEL_ID_GEM_TYPE]);
+      this.addFilterCallback(SEL_ID_GEM_SIZE, SEL_ID_GEM_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.size))
 
       updateSubElements(container, [
-         createFormInlineGroup('筛选条件：', gemType),
+         createFormInlineGroup('筛选条件：', [gemType, gemSize]),
          createFormInlineGroup('宝石：', gemChoice)
       ], true);
 
@@ -8397,25 +8458,36 @@ var LLGemSelectorComponent = (function () {
       }
 
       /**
-       * @param {{set: (data: string | LLH.API.SisDataType) => void}} controller
+       * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
        * @param {string} gemId
+       * @param {LLH.Core.LanguageType} language
        */
-      var setDetail = function (controller, gemId) {
+      var setDetail = function (controller, gemId, language) {
          if (controller && controller.set) {
             if (options.gemData && options.gemData[gemId]) {
-               controller.set(options.gemData[gemId]);
+               controller.set(options.gemData[gemId], language);
             } else {
-               controller.set(gemId);
+               controller.set(gemId, language);
             }
          }
       };
 
       this.onValueChange = function (name, newValue) {
+         var curGem, curLanguage, updateDetail = false;
          if (name == SEL_ID_GEM_CHOICE) {
-            setDetail(detailController, newValue);
-            setDetail(seriesController, newValue);
+            curGem = newValue;
+            curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+            updateDetail = true;
+         } else if (name == MEM_ID_LANGUAGE) {
+            curGem = me.getComponent(SEL_ID_GEM_CHOICE).get();
+            curLanguage = newValue;
+            updateDetail = true;
          }
-      };
+         if (updateDetail) {
+            setDetail(detailController, curGem, curLanguage);
+            setDetail(seriesController, curGem, curLanguage);
+         }
+   };
 
       this.setGemData(options.gemData);
    }
@@ -8435,6 +8507,8 @@ var LLGemSelectorComponent = (function () {
       var gemOptionGroups = [];
       /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
       var gemTypeOptions = [];
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[][]} */
+      var gemSizeOptionGroups = [];
       var i;
       var me = this;
 
@@ -8451,43 +8525,73 @@ var LLGemSelectorComponent = (function () {
             gemNormalCatOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
          }
          gemOptionGroups.push(gemNormalCatOptions);
+         gemOptionGroups.push(gemNormalCatOptions);
          gemTypeOptions.push({'value': GEM_GROUP_NORMAL_CATEGORY.toFixed(), 'text': '普通宝石（大类）'});
       } else {
-         gemOptionGroups.push([]);
+         gemOptionGroups.push([], []);
       }
+      gemSizeOptionGroups.push([]);
       if (gemData && (this.includeNormalGem || this.includeLAGem)) {
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
          var gemNormalOptions = [{'value': '', 'text': '选择宝石'}];
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemNormalOptionsJp = [{'value': '', 'text': '选择宝石'}];
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
          var gemLAOptions = [{'value': '', 'text': '选择宝石'}];
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemLAOptionsJp = [{'value': '', 'text': '选择宝石'}];
          var gemDataKeys = Object.keys(gemData).sort((a, b) => parseInt(a) - parseInt(b));
+         var gemNormalSizeCollection = {};
+         var gemLASizeCollection = {};
          for (i = 0; i < gemDataKeys.length; i++) {
             var curKey = gemDataKeys[i];
             var curGemData = gemData[curKey];
             if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
                if (this.includeNormalGem) {
-                  gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData), 'color': LLConst.Gem.getGemColor(curGemData)});
+                  var curColor = LLConst.Gem.getGemColor(curGemData);
+                  gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
+                  gemNormalOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
+                  gemNormalSizeCollection[curGemData.size.toFixed()] = 1;
                }
             } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
                if (this.includeLAGem) {
-                  gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData), 'color': LLConst.Gem.getGemColor(curGemData)});
+                  var curColor = LLConst.Gem.getGemColor(curGemData);
+                  gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
+                  gemLAOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
+                  gemLASizeCollection[curGemData.size.toFixed()] = 1;
                }
             }
          }
          if (this.includeNormalGem) {
             gemOptionGroups.push(gemNormalOptions);
+            gemOptionGroups.push(gemNormalOptionsJp);
             gemTypeOptions.push({'value': GEM_GROUP_NORMAL.toFixed(), 'text': '普通宝石'});
+            gemSizeOptionGroups.push(
+               [{'value': '', 'text': '大小'}].concat(
+                  Object.keys(gemNormalSizeCollection).sort((a, b) => parseInt(a) - parseInt(b)).map((x) => {return {'value': x, 'text': '●' + x};})
+               ));
          } else {
-            gemOptionGroups.push([]);
+            gemOptionGroups.push([], []);
+            gemSizeOptionGroups.push([]);
          }
          if (this.includeLAGem) {
             gemOptionGroups.push(gemLAOptions);
+            gemOptionGroups.push(gemLAOptionsJp);
             gemTypeOptions.push({'value': GEM_GROUP_LA.toFixed(), 'text': '演唱会竞技场宝石'});
+            gemSizeOptionGroups.push(
+               [{'value': '', 'text': '大小'}].concat(
+                  Object.keys(gemLASizeCollection).sort((a, b) => parseInt(a) - parseInt(b)).map((x) => {return {'value': x, 'text': '■' + x};})
+               ));
+         } else {
+            gemOptionGroups.push([], []);
+            gemSizeOptionGroups.push([]);
          }
       } else {
-         gemOptionGroups.push([], []);
+         gemOptionGroups.push([], [], [], []);
+         gemSizeOptionGroups.push([], []);
       }
       this.setFilterOptions(SEL_ID_GEM_TYPE, gemTypeOptions);
+      this.setFilterOptionGroups(SEL_ID_GEM_SIZE, gemSizeOptionGroups);
       this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups);
 
       this.setFreezed(false);
@@ -8495,6 +8599,9 @@ var LLGemSelectorComponent = (function () {
    };
    proto.getGemId = function () {
       return this.getComponent(SEL_ID_GEM_CHOICE).get();
+   };
+   proto.setLanguage = function (language) {
+      this.getComponent(MEM_ID_LANGUAGE).set(language);
    };
    return cls;
 })();
@@ -8508,6 +8615,11 @@ var LLLanguageComponent = (function() {
       me.set(newValue);
    }
 
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @this {LLH.Layout.Language.LLLanguageComponent}
+    */
    function LLLanguageComponent_cls(id) {
       if (id === undefined) {
          id = createElement('input');
@@ -8520,6 +8632,7 @@ var LLLanguageComponent = (function() {
       }
       var me = this;
       me.value = 0;
+      me.langSupports = [];
       this.on('click', () => toggleLanguage(me));
    };
    /** @type {typeof LLH.Layout.Language.LLLanguageComponent} */
@@ -8529,9 +8642,16 @@ var LLLanguageComponent = (function() {
    proto.get = function () {
       return this.value;
    };
+   /** @this {LLH.Layout.Language.LLLanguageComponent} */
    proto.set = function (v) {
       this.value = v;
+      for (var i = 0; i < this.langSupports.length; i++) {
+         this.langSupports[i].setLanguage(v);
+      }
       if (this.onValueChange) this.onValueChange(v);
+   };
+   proto.registerLanguageChange = function (langSupport) {
+      this.langSupports.push(langSupport);
    };
    proto.serialize = function () {
       return this.get();

@@ -21,6 +21,9 @@ declare namespace LLH {
         type CardIdType = number;
         /** the number id or string of number id */
         type CardIdOrStringType = CardIdType | string;
+
+        /** 0: cn, 1: jp */
+        type LanguageType = 0 | 1;
     }
     namespace API {
         interface SkillDetailDataType {
@@ -238,6 +241,10 @@ declare namespace LLH {
             saveJson(): string;
             loadJson(jsonData: string): void;
         }
+
+        interface LanguageSupport {
+            setLanguage(language: Core.LanguageType): void;
+        }
     }
 
     /**
@@ -245,6 +252,7 @@ declare namespace LLH {
      *   LLComponentBase
      *     +- LLValuedComponent
      *     | +- LLSelectComponent
+     *     | +- LLValuedMemoryComponent
      *     +- LLImageComponent
      *   LLComponentCollection
      *     +- LLFiltersComponent
@@ -265,6 +273,7 @@ declare namespace LLH {
             show(): void;
             hide(): void;
             toggleVisible(): void;
+            setVisible(visible: boolean): void;
             serialize(): any;
             deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
@@ -282,6 +291,9 @@ declare namespace LLH {
 
             get(): string;
             set(val: string): void;
+        }
+        class LLValuedMemoryComponent extends LLValuedComponent {
+            constructor(initialValue: any);
         }
         interface LLSelectComponent_OptionDef {
             text: string;
@@ -336,7 +348,7 @@ declare namespace LLH {
 
             setFreezed(isFreezed: boolean): void;
             isFreezed(): boolean;
-            addFilterable(name: string, component: LLValuedComponent): void;
+            addFilterable(name: string, component: LLValuedComponent, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
             addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
             setFilterOptionGroupCallback(name: string, groupGetter: () => number, affectedBy: string[]): void;
             setFilterOptionGroups(name: string, groups: LLSelectComponent_OptionDef[][]): void;
@@ -357,7 +369,10 @@ declare namespace LLH {
             includeNormalGem: boolean;
             includeLAGem: boolean;
         }
-        class LLGemSelectorComponent extends Component.LLFiltersComponent {
+        interface LLGemSelectorComponent_DetailController {
+            set(data: string | API.SisDataType, language: Core.LanguageType): void;
+        }
+        class LLGemSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLGemSelectorComponent_Options);
 
             gemData?: API.SisDictDataType;
@@ -367,6 +382,9 @@ declare namespace LLH {
 
             setGemData(gemData: API.SisDictDataType): void;
             getGemId(): string;
+
+            // implements LanguageSupport
+            setLanguage(language: Core.LanguageType): void;
         }
     }
 
@@ -393,7 +411,7 @@ declare namespace LLH {
             isGemFollowMemberAttribute(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): boolean;
 
             getGemDescription(gemData: API.SisDataType, iscn?: boolean): string;
-            getGemFullDescription(gemData: API.SisDataType): string;
+            getGemFullDescription(gemData: API.SisDataType, iscn?: boolean): string;
             getGemColor(gemData: API.SisDataType): string;
 
             postProcessGemData(gemData: API.SisDictDataType): void;
@@ -503,17 +521,18 @@ declare namespace LLH {
             }
         }
         namespace Language {
-            /** 0: cn, 1: jp */
-            type LanguageType = 0 | 1;
+
             class LLLanguageComponent extends Component.LLComponentBase {
                 constructor(id?: Component.HTMLElementOrId);
 
-                value: LanguageType;
+                value: Core.LanguageType;
+                langSupports: Mixin.LanguageSupport[];
 
-                onValueChange?: (newValue: LanguageType) => void;
+                onValueChange?: (newValue: Core.LanguageType) => void;
 
-                get(): LanguageType;
-                set(val: LanguageType): void;
+                get(): Core.LanguageType;
+                set(val: Core.LanguageType): void;
+                registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
             }
         }
     }
