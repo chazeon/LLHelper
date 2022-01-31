@@ -46,7 +46,7 @@
       comp_songselector = new LLSongSelectorComponent('song_filter', songData);
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
-      comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
       comp_cardselector.onCardChange = LLUnit.applycarddata;
       comp_cardavatar = new LLImageComponent('imageselect');
       comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
@@ -61,10 +61,8 @@
       comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
 
       comp_language = new LLLanguageComponent('language');
-      comp_language.onValueChange = function (language) {
-         comp_songselector.setLanguage(language);
-         comp_cardselector.setLanguage(language);
-      };
+      comp_language.registerLanguageChange(comp_songselector);
+      comp_language.registerLanguageChange(comp_cardselector);
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
          LoadingUtil.startSingle(LLCardData.getAllBriefData().then(function (cards) {
@@ -257,7 +255,7 @@
    }
    //////////
    function addselectsub(){
-      var cardid=document.getElementById("cardchoice").value;
+      var cardid=comp_cardselector.getCardId();
       var subunit={}
       if ((cardid != 0) && (cardid != "") && (cardid != "0")){
          subunit["main"]=document.getElementById("main").value
@@ -312,7 +310,7 @@
       saveToCookie();
       localStorage.setItem('llnewautounit_gemstock', comp_gemstock.saveJson());
       localStorage.setItem('llnewautounit_submember', comp_submember.saveJson());
-      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLanguageKey, comp_language.serialize())
+      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLanguageKey, comp_language.serialize());
       comp_cardselector.saveLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageSongSelectKey, comp_songselector.saveJson());
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamKey, comp_distribution_param.saveJson());

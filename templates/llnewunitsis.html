@@ -37,7 +37,7 @@
       comp_songselector = new LLSongSelectorComponent('song_filter', songData);
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
-      comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
       comp_cardselector.onCardChange = LLUnit.applycarddata;
       comp_cardavatar = new LLImageComponent('imageselect');
       comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
@@ -52,10 +52,8 @@
       comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
 
       comp_language = new LLLanguageComponent('language');
-      comp_language.onValueChange = function (language) {
-         comp_songselector.setLanguage(language);
-         comp_cardselector.setLanguage(language);
-      };
+      comp_language.registerLanguageChange(comp_songselector);
+      comp_language.registerLanguageChange(comp_cardselector);
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
          LoadingUtil.startSingle(LLCardData.getAllBriefData().then(function (cards) {

@@ -175,6 +175,17 @@ declare namespace LLH {
     }
 
     namespace Internal {
+        type AlbumGroupIdType = number;
+        interface ProcessedAlbumDataType extends API.AlbumDataType {
+            albumGroupId: AlbumGroupIdType;
+        }
+        type ProcessedAlbumDictDataType = {[id: string]: ProcessedAlbumDataType};
+
+        interface ProcessedAlbumGroupType extends API.AlbumDataType {
+            albums: Core.AlbumIdType[];
+            id: AlbumGroupIdType;
+        }
+
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
         interface NormalGemMetaType {
@@ -329,13 +340,14 @@ declare namespace LLH {
         }
         /** returns false to filter out the option */
         type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue: string, targetData?: any) => boolean;
+        type LLFiltersComponent_OptionGroupType = {[id: string]: LLSelectComponent_OptionDef[]};
         interface LLFiltersComponent_FilterDef {
             callbacks?: {[targetName: string]: LLFiltersComponent_FilterCallback};
             reverseCallbacks?: {[sourceName: string]: LLFiltersComponent_FilterCallback};
             dataGetter?: (opt: LLSelectComponent_OptionDef) => any;
 
-            optionGroups?: LLSelectComponent_OptionDef[][];
-            groupGetter?: () => number;
+            optionGroups?: LLFiltersComponent_OptionGroupType;
+            groupGetter?: () => string;
             currentOptionGroup?: number;
             affectOptionGroupFilters?: string[];
         }
@@ -350,18 +362,37 @@ declare namespace LLH {
             isFreezed(): boolean;
             addFilterable(name: string, component: LLValuedComponent, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
             addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
-            setFilterOptionGroupCallback(name: string, groupGetter: () => number, affectedBy: string[]): void;
-            setFilterOptionGroups(name: string, groups: LLSelectComponent_OptionDef[][]): void;
+            setFilterOptionGroupCallback(name: string, groupGetter: () => string, affectedBy: string[]): void;
+            setFilterOptionGroups(name: string, groups: LLFiltersComponent_OptionGroupType): void;
             setFilterOptions(name: string, options: LLSelectComponent_OptionDef[]): void;
             getFilter(name: string, createIfAbsent?: boolean): LLFiltersComponent_FilterDef;
             /** handle changes when specified component's value change, when not provided name, handle all component's filters */
             handleFilters(name?: string): void;
+            override deserialize(data: any): void;
         }
     }
 
     namespace Selector {
-        class LLCardSelector extends Component.LLFiltersComponent {
+        interface LLCardSelectorComponent_Options {
+            cards: API.CardDictDataType;
+            noShowN?: boolean;
+        }
+        class LLCardSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
+            constructor(id: Component.HTMLElementOrId, options: LLCardSelectorComponent_Options);
 
+            /** album group id to members type id mapping */
+            private albumGroupMemberCache: {[albumGroupId: string]: Core.UnitTypeIdType[]};
+            cards: API.CardDictDataType;
+
+            setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
+            getCardId(): Core.CardIdOrStringType;
+            scrollIntoView(): void;
+
+            // optional callback
+            onCardChange?: (cardId: Core.CardIdOrStringType) => void;
+
+            // implements LanguageSupport
+            setLanguage(language: Core.LanguageType): void;
         }
         interface LLGemSelectorComponent_Options {
             gemData?: API.SisDictDataType;
@@ -390,6 +421,8 @@ declare namespace LLH {
 
     namespace ConstUtil {
         interface Member {
+            /** group can be the id in number or string form */
+            isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
             getMemberName(memberId: Core.MemberIdType, iscn?: boolean): string;
             getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
             isNonetTeam(members: TODO.LLMember[]): Core.BigGroupIdType;
@@ -415,6 +448,11 @@ declare namespace LLH {
             getGemColor(gemData: API.SisDataType): string;
 
             postProcessGemData(gemData: API.SisDictDataType): void;
+        }
+        interface Album {
+            getAlbumGroupByAlbumId(albumId: Core.AlbumIdType): Internal.ProcessedAlbumGroupType;
+            getAlbumGroups(): Internal.ProcessedAlbumGroupType[];
+            isAlbumInAlbumGroup(albumId: Core.AlbumIdType, albumGroupId: Internal.AlbumGroupIdType): boolean;
         }
     }
 
@@ -556,6 +594,7 @@ declare namespace LLH {
         Member: ConstUtil.Member;
         Group: ConstUtil.Group;
         Gem: ConstUtil.Gem;
+        Album: ConstUtil.Album;
         // TODO
     }
 

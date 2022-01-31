@@ -23,13 +23,15 @@
    LLSongData.briefKeys.push('bpm');
    LLSongData.briefKeys.push('jsonpath');
    var mezame = 0;
-   var language = 0;
 
    var defer_onload = $.Deferred();
    var comp_skill = 0;
    var data_mapnote = 0;
    var comp_cardselector = 0;
    var comp_songselector = 0;
+   var comp_language = 0;
+   var comp_cardavatar = 0;
+   var comp_avatar_team = [];
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
       LLConst.initMetadata(metaData);
@@ -37,7 +39,7 @@
       comp_songselector.onSongSettingChange = applysongdata;
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
-      comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'noShowN': true});
       comp_cardselector.getComponent('rarity').filterOptions(function (opt) {
          return !(opt.value == 'N' || opt.value == 'R');
       });
@@ -51,9 +53,20 @@
             comp_cardselector.setCardData(cards, true);
          }));
       });
+
+      comp_cardavatar = new LLImageComponent('imageselect');
+      for (var i = 0; i < 9; i++) {
+          comp_avatar_team.push(new LLImageComponent('avatar' + i));
+      }
+
+      comp_language = new LLLanguageComponent('language');
+      comp_language.registerLanguageChange(comp_songselector);
+      comp_language.registerLanguageChange(comp_cardselector);
+
       init();
 
       // load
+      comp_language.deserialize(parseInt(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLanguageKey, 0)));
       comp_cardselector.loadLocalStorage('llcoverage_cardselector');
       comp_songselector.loadLocalStorage('llcoverage_songselector');
 
@@ -98,7 +111,7 @@
    }
    
    function changecolor(){
-      var index = document.getElementById('cardchoice').value
+      var index = comp_cardselector.getCardId();
       var mezame = (document.getElementById("mezame").checked ? 1 : 0);
       if (index != "") {
          LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function(curCard) {
@@ -113,15 +126,9 @@
       } else {
          comp_skill.setCardData();
       }
-      LLUnit.changeavatar('imageselect', index, mezame);
+      LLUnit.setAvatarSrcList(comp_cardavatar, index, mezame);
    }
-    
-   function changeLanguage(){
-      language = 1-language
-      comp_songselector.setLanguage(language);
-      comp_cardselector.setLanguage(language);
-   }
-   
+
    function toMezame(){
    	mezame = 1-mezame
    	changecolor()
@@ -134,10 +141,11 @@
    }
 
    function copyTo(n){
-      document.getElementById('avatar'+String(n)).style.display = "";
-      document.getElementById('avatar'+String(n)).src = document.getElementById('imageselect').src;
-      var index = document.getElementById('cardchoice').value
+      var index = comp_cardselector.getCardId();
       if (index == "") return;
+      var mezame = (document.getElementById("mezame").checked ? 1 : 0);
+      LLUnit.setAvatarSrcList(comp_avatar_team[n], index, mezame);
+      comp_avatar_team[n].show();
       LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function(curCard) {
          if (!curCard.skill) return;
          if (curCard.triggertype == 3) {
@@ -160,15 +168,8 @@
    }
    
    function decopyTo(n){
-    if (n == 0)
-	{
-	    document.getElementById('avatar'+String(n)).src = '/static/null.png';
-	}
-	else
-	{
-	    document.getElementById('avatar'+String(n)).style.display = "none";
-		document.getElementById('avatar'+String(n)).src = "";
-	}
+      LLUnit.setAvatarSrcList(comp_avatar_team[n], '', 0);
+      if (n > 0) comp_avatar_team[n].hide();
     document.getElementById("member"+String(n))[0].selected = true;
 	document.getElementById("skilllevel"+String(n)).innerHTML = 1;
 	document.getElementById("require"+String(n)).value = 0;
@@ -194,27 +195,6 @@
    		setCookie("nospan"+String(i)+"perfect", nospan[i].innerHTML, 1);
    	}
    	setCookie("mezame"+"perfect", mezame, 1)
-   	setCookie("language"+"perfect", language, 1)
-   }
-
-   function createMapData(combo, time) {
-      if (combo <= 0 || time <= 3) return undefined;
-      var data = [];
-      // 第一秒和最后一秒不填note, 其它时间把note平均分布在除5号位外的8个位置上
-      var interval = (time - 2)/combo;
-      for (var i = 0; i < combo; i++) {
-         var pos = (i%8)+1;
-         if (pos >= 5) pos = pos+1;
-         data.push({
-            "timing_sec": i*interval+1,
-            // notes_attribute
-            "notes_level": 1,
-            "effect": 1,
-            "effect_value": 2,
-            "position": pos
-         });
-      }
-      return data;
    }
 
    function check(){
@@ -238,6 +218,7 @@
    	saveToCookie();
       comp_cardselector.saveLocalStorage('llcoverage_cardselector');
       comp_songselector.saveLocalStorage('llcoverage_songselector');
+      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLanguageKey, comp_language.serialize());
 	document.getElementById('container').style.display = "";
 	document.getElementById('separater').style.display = "";
       var song = comp_songselector.getSelectedSong();
@@ -255,10 +236,7 @@
    
    function init(){
    	mezame = getCookie("mezameperfect")
-   	language = getCookie("languageperfect")
       if (mezame == "") mezame = 0; else mezame = parseInt(mezame);
-   	if (language == "")
-   		language = 0
 
    	var inputs = document.getElementsByTagName("input");
    	var selects = document.getElementsByTagName("select");
@@ -270,7 +248,6 @@
    	}
       for (var i=0; i<selects.length; i++){
          if (!selects[i].name) continue;
-         if (comp_cardselector.getComponent(selects[i].id)) continue;
    		if (getCookie(selects[i].name+"perfect") != "")
    			selects[i].value = getCookie(selects[i].name+"perfect");
    	}
@@ -280,13 +257,14 @@
    			nospan[i].innerHTML = getCookie("nospan"+String(i)+"perfect");
    	}
       document.getElementById("mezame").checked = mezame
-   	for (i = 0; i < 9; i++){
-	    if (document.getElementById("member"+String(i)).value != 0){
-   		    //changeskilltext(i)
-   		    LLUnit.changeavatarn(i)
-		}
-   	}
-      //document.getElementById("songsearch").value = ""
+      for (i = 0; i < 9; i++){
+         if (document.getElementById("member"+String(i)).value != 0){
+            var curCardid = parseInt(document.getElementById('cardid'+String(i)).value);
+            var curMezame = parseInt(document.getElementById('mezame'+String(i)).value);
+            LLUnit.setAvatarSrcList(comp_avatar_team[i], curCardid, curMezame);
+            comp_avatar_team[i].show();
+         }
+      }
    }
 
    </script>
@@ -312,6 +290,8 @@
 {% endblock %}
 
 {% block main %}
+<input id='language' type='hidden' /><br/>
+
 <form action="" id="unitform" name="unitform" method="POST" onsubmit="return check()" enctype=multipart/form-data>
 <h3>Live信息</h3>
 搜索：<input type="text" id="songsearch" value=""></input><br>
@@ -327,7 +307,6 @@
 <select id="songchoice">
    <option value="">载入中...</option>
 </select>
-<input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
 <br>
 谱面：
 <select id="diffchoice">
@@ -356,11 +335,7 @@
 <h3>判卡库</h3>
 <div id='card_data_version'></div>
 <div id='card_filter_container'></div>
-<br/>
-卡片：<select id="cardchoice" name="cardchoice">
-		<option value="">载入中...</option>
-	</select>
-	<input type="checkbox" id="mezame" name="mezame" onclick="toMezame()">觉醒</input><input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
+<input type="checkbox" id="mezame" name="mezame" onclick="toMezame()">觉醒</input>
 <br>
    <div style="float:left">
 <img id="imageselect" src="/static/null.png" />
