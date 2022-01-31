@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-from ast import For
-from asyncore import read
 import os
+import sys
 
 class Translator(object):
     def __init__(self, translate_file):
@@ -9,19 +8,36 @@ class Translator(object):
         self.missing = {} # [sub_str]=full_str
         if os.path.exists(translate_file):
             print('Found translate file: %s' % translate_file)
-            with open(translate_file, 'r', encoding='utf-8') as fd:
-                for line in fd:
-                    line = line.rstrip('\r\n')
-                    if line.startswith('#'):
-                        continue
-                    pos = line.find('=')
-                    if pos > 0:
-                        self.def_in_file[line[:pos]] = line[pos+1:]
+            self._readTranslateFile(translate_file)
 
     def exportMissing(self, missing_file):
-        with open(missing_file, 'w', encoding='utf-8') as fd:
-            for k in self.missing.keys():
-                fd.write("# %s\n%s=%s\n" % (self.missing[k], k, k))
+        if sys.version[0] == '2':
+            with open(missing_file, 'w') as fd:
+                for k in self.missing.keys():
+                    fd.write("# %s\n%s=%s\n" % (self.missing[k], k, k))
+        else:
+            with open(missing_file, 'w', encoding='utf-8') as fd:
+                for k in self.missing.keys():
+                    fd.write("# %s\n%s=%s\n" % (self.missing[k], k, k))
+
+    def _readTranslateFile(self, path):
+        if sys.version[0] == '2':
+            with open(path, 'rb') as fd:
+                lines = fd.read().decode('utf-8').splitlines()
+            for line in lines:
+                self._processTranslateLine(line)
+        else:
+            with open(path, 'r', encoding='utf-8') as fd:
+                for line in fd:
+                    self._processTranslateLine(line)
+
+    def _processTranslateLine(self, line):
+        line = line.rstrip('\r\n')
+        if line.startswith('#'):
+            return
+        pos = line.find('=')
+        if pos > 0:
+            self.def_in_file[line[:pos]] = line[pos+1:]
 
     def translate(self, s):
         return self._translate(s, s)
