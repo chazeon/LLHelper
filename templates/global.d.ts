@@ -21,6 +21,9 @@ declare namespace LLH {
         type CardIdType = number;
         /** the number id or string of number id */
         type CardIdOrStringType = CardIdType | string;
+
+        /** 0: cn, 1: jp */
+        type LanguageType = 0 | 1;
     }
     namespace API {
         interface SkillDetailDataType {
@@ -115,6 +118,7 @@ declare namespace LLH {
             id: string;
             type: 1 | 2; // type 1 for normal (circle), 2 for live arena (square)
             jpname: string;
+            cnname?: string;
             level?: number; // (LA only) level 1~5
             size: number;
             range?: 1 | 2; // (normal only) 1 for self, 2 for team
@@ -171,6 +175,17 @@ declare namespace LLH {
     }
 
     namespace Internal {
+        type AlbumGroupIdType = number;
+        interface ProcessedAlbumDataType extends API.AlbumDataType {
+            albumGroupId: AlbumGroupIdType;
+        }
+        type ProcessedAlbumDictDataType = {[id: string]: ProcessedAlbumDataType};
+
+        interface ProcessedAlbumGroupType extends API.AlbumDataType {
+            albums: Core.AlbumIdType[];
+            id: AlbumGroupIdType;
+        }
+
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
         interface NormalGemMetaType {
@@ -237,6 +252,10 @@ declare namespace LLH {
             saveJson(): string;
             loadJson(jsonData: string): void;
         }
+
+        interface LanguageSupport {
+            setLanguage(language: Core.LanguageType): void;
+        }
     }
 
     /**
@@ -244,6 +263,7 @@ declare namespace LLH {
      *   LLComponentBase
      *     +- LLValuedComponent
      *     | +- LLSelectComponent
+     *     | +- LLValuedMemoryComponent
      *     +- LLImageComponent
      *   LLComponentCollection
      *     +- LLFiltersComponent
@@ -264,12 +284,13 @@ declare namespace LLH {
             show(): void;
             hide(): void;
             toggleVisible(): void;
+            setVisible(visible: boolean): void;
             serialize(): any;
             deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
             isInDocument(): boolean;
         }
-        interface LLValuedComponent_Options extends LLComponentBase_Options{
+        interface LLValuedComponent_Options extends LLComponentBase_Options {
             valueKey: string;
         }
         class LLValuedComponent extends LLComponentBase {
@@ -281,6 +302,9 @@ declare namespace LLH {
 
             get(): string;
             set(val: string): void;
+        }
+        class LLValuedMemoryComponent extends LLValuedComponent {
+            constructor(initialValue: any);
         }
         interface LLSelectComponent_OptionDef {
             text: string;
@@ -316,13 +340,14 @@ declare namespace LLH {
         }
         /** returns false to filter out the option */
         type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue: string, targetData?: any) => boolean;
+        type LLFiltersComponent_OptionGroupType = {[id: string]: LLSelectComponent_OptionDef[]};
         interface LLFiltersComponent_FilterDef {
             callbacks?: {[targetName: string]: LLFiltersComponent_FilterCallback};
             reverseCallbacks?: {[sourceName: string]: LLFiltersComponent_FilterCallback};
             dataGetter?: (opt: LLSelectComponent_OptionDef) => any;
 
-            optionGroups?: LLSelectComponent_OptionDef[][];
-            groupGetter?: () => number;
+            optionGroups?: LLFiltersComponent_OptionGroupType;
+            groupGetter?: () => string;
             currentOptionGroup?: number;
             affectOptionGroupFilters?: string[];
         }
@@ -335,20 +360,39 @@ declare namespace LLH {
 
             setFreezed(isFreezed: boolean): void;
             isFreezed(): boolean;
-            addFilterable(name: string, component: LLValuedComponent): void;
+            addFilterable(name: string, component: LLValuedComponent, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
             addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
-            setFilterOptionGroupCallback(name: string, groupGetter: () => number, affectedBy: string[]): void;
-            setFilterOptionGroups(name: string, groups: LLSelectComponent_OptionDef[][]): void;
+            setFilterOptionGroupCallback(name: string, groupGetter: () => string, affectedBy: string[]): void;
+            setFilterOptionGroups(name: string, groups: LLFiltersComponent_OptionGroupType): void;
             setFilterOptions(name: string, options: LLSelectComponent_OptionDef[]): void;
             getFilter(name: string, createIfAbsent?: boolean): LLFiltersComponent_FilterDef;
             /** handle changes when specified component's value change, when not provided name, handle all component's filters */
             handleFilters(name?: string): void;
+            override deserialize(data: any): void;
         }
     }
 
     namespace Selector {
-        class LLCardSelector extends Component.LLFiltersComponent {
+        interface LLCardSelectorComponent_Options {
+            cards: API.CardDictDataType;
+            noShowN?: boolean;
+        }
+        class LLCardSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
+            constructor(id: Component.HTMLElementOrId, options: LLCardSelectorComponent_Options);
 
+            /** album group id to members type id mapping */
+            private albumGroupMemberCache: {[albumGroupId: string]: Core.UnitTypeIdType[]};
+            cards: API.CardDictDataType;
+
+            setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
+            getCardId(): Core.CardIdOrStringType;
+            scrollIntoView(): void;
+
+            // optional callback
+            onCardChange?: (cardId: Core.CardIdOrStringType) => void;
+
+            // implements LanguageSupport
+            setLanguage(language: Core.LanguageType): void;
         }
         interface LLGemSelectorComponent_Options {
             gemData?: API.SisDictDataType;
@@ -356,7 +400,10 @@ declare namespace LLH {
             includeNormalGem: boolean;
             includeLAGem: boolean;
         }
-        class LLGemSelectorComponent extends Component.LLFiltersComponent {
+        interface LLGemSelectorComponent_DetailController {
+            set(data: string | API.SisDataType, language: Core.LanguageType): void;
+        }
+        class LLGemSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLGemSelectorComponent_Options);
 
             gemData?: API.SisDictDataType;
@@ -366,11 +413,16 @@ declare namespace LLH {
 
             setGemData(gemData: API.SisDictDataType): void;
             getGemId(): string;
+
+            // implements LanguageSupport
+            setLanguage(language: Core.LanguageType): void;
         }
     }
 
     namespace ConstUtil {
         interface Member {
+            /** group can be the id in number or string form */
+            isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
             getMemberName(memberId: Core.MemberIdType, iscn?: boolean): string;
             getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
             isNonetTeam(members: TODO.LLMember[]): Core.BigGroupIdType;
@@ -392,10 +444,15 @@ declare namespace LLH {
             isGemFollowMemberAttribute(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): boolean;
 
             getGemDescription(gemData: API.SisDataType, iscn?: boolean): string;
-            getGemFullDescription(gemData: API.SisDataType): string;
+            getGemFullDescription(gemData: API.SisDataType, iscn?: boolean): string;
             getGemColor(gemData: API.SisDataType): string;
 
             postProcessGemData(gemData: API.SisDictDataType): void;
+        }
+        interface Album {
+            getAlbumGroupByAlbumId(albumId: Core.AlbumIdType): Internal.ProcessedAlbumGroupType;
+            getAlbumGroups(): Internal.ProcessedAlbumGroupType[];
+            isAlbumInAlbumGroup(albumId: Core.AlbumIdType, albumGroupId: Internal.AlbumGroupIdType): boolean;
         }
     }
 
@@ -495,6 +552,25 @@ declare namespace LLH {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
                 onCenterChanged?: () => void;
+
+                // implements
+                saveJson(): string;
+                loadJson(jsonData: string): void;
+            }
+        }
+        namespace Language {
+
+            class LLLanguageComponent extends Component.LLComponentBase {
+                constructor(id?: Component.HTMLElementOrId);
+
+                value: Core.LanguageType;
+                langSupports: Mixin.LanguageSupport[];
+
+                onValueChange?: (newValue: Core.LanguageType) => void;
+
+                get(): Core.LanguageType;
+                set(val: Core.LanguageType): void;
+                registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
             }
         }
     }
@@ -518,6 +594,7 @@ declare namespace LLH {
         Member: ConstUtil.Member;
         Group: ConstUtil.Group;
         Gem: ConstUtil.Gem;
+        Album: ConstUtil.Album;
         // TODO
     }
 

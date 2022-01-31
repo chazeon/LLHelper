@@ -1,17 +1,8 @@
 <h3>卡片库</h3>
 <div id='card_data_version'></div>
 <div id='card_filter_container'></div>
-<input type="checkbox" id="showncard" name="showncard">显示N卡</input>
-<br>
-<div class="form-inline">
-	卡片：
-	<select id="cardchoice" name="cardchoice" class="form-control">
-		<option value="">载入中...</option>
-	</select>
-	<input type="checkbox" id="mezame" name="mezame" onclick="toMezame()">觉醒</input>
-	<input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
-	（特典卡需选择觉醒）
-</div>
+<input type="checkbox" id="mezame" name="mezame" onclick="toMezame()">觉醒</input>（特典卡需选择觉醒）
+<br/>
 <div style="float:left">
 	裸smile :<input type="number" id="smile" name="smile" value="0" autocomplete="off" style="color:red"></input><br>
 	裸pure :<input type="number" id="pure" name="pure" value="0" autocomplete="off" style="color:green"><br>

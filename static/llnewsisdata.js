@@ -13,6 +13,9 @@ function renderPage(loadDeferred) {
             'includeNormalGem': true
         });
 
+        var comp_language = new LLLanguageComponent('language');
+        comp_language.registerLanguageChange(comp_gem_selector);
+
         // done
         document.getElementById('loadingbox').style.display = 'none';
     }

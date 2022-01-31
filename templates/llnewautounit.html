@@ -14,7 +14,6 @@
 {% block script %}
    <script>
    var mezame = 0;
-   var language = 0;
    var kizuna = new Array();
    kizuna["N"] = [25, 50]
    kizuna["R"] = [100, 200]
@@ -39,6 +38,7 @@
    var comp_cskill_team = 0;
    var comp_cskill_friend = 0;
    var comp_result = 0;
+   var comp_language = 0;
 
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
@@ -46,7 +46,7 @@
       comp_songselector = new LLSongSelectorComponent('song_filter', songData);
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
-      comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
       comp_cardselector.onCardChange = LLUnit.applycarddata;
       comp_cardavatar = new LLImageComponent('imageselect');
       comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
@@ -59,6 +59,10 @@
       comp_songselector.onSongSettingChange = (songSettingId, songSetting) => songSetting && comp_team.setWeights(songSetting.positionweight);
       comp_songselector.onSongColorChange = (songAttribute) => comp_team.setMapAttribute(songAttribute);
       comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
+
+      comp_language = new LLLanguageComponent('language');
+      comp_language.registerLanguageChange(comp_songselector);
+      comp_language.registerLanguageChange(comp_cardselector);
 
       var comp_dataversion = new LLDataVersionSelectorComponent('card_data_version', LLCardData, function (v) {
          LoadingUtil.startSingle(LLCardData.getAllBriefData().then(function (cards) {
@@ -112,6 +116,7 @@
       comp_team.setSwapper(comp_swapper);
 
       // load
+      comp_language.deserialize(parseInt(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLanguageKey, 0)));
       comp_cardselector.loadLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
       comp_songselector.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageSongSelectKey));
       comp_gemstock.loadJson(localStorage.getItem('llnewautounit_gemstock'));
@@ -121,12 +126,6 @@
       // done
       document.getElementById('loadingbox').style.display = 'none';
    }, defaultHandleFailedRequest);
-
-   function changeLanguage(){
-      language = 1-language
-      comp_songselector.setLanguage(language);
-      comp_cardselector.setLanguage(language);
-   }
    
    function toMezame(){
    	mezame = 1-mezame
@@ -135,14 +134,10 @@
 
 
    function clearall(){
-   	var inputs = document.getElementsByTagName("input");
-   	for (var i=0; i<inputs.length; i++){
-         if (inputs[i].name)
-   		setCookie(inputs[i].name+"unit", inputs[i].value, -1);
-   	}
    	setCookie("mezame"+"unit", mezame, -1)
       localStorage.removeItem('llnewautounit_gemstock');
       localStorage.removeItem('llnewautounit_submember');
+      LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLanguageKey);
       LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageCardSelectKey);
       LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageSongSelectKey);
       LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLLNewAutoUnitTeamKey);
@@ -250,21 +245,17 @@
 
    function init(){
    	mezame = getCookie("mezameunit")
-   	language = getCookie("languageunit")
       if (mezame == "") mezame = 0; else mezame = parseInt(mezame);
-   	if (language == "")
-   		language = 0
 
       document.getElementById("mezame").checked = mezame
    }
 
    function saveToCookie(){
    	setCookie("mezame"+"unit", mezame, 1)
-   	setCookie("language"+"unit", language, 1)
    }
    //////////
    function addselectsub(){
-      var cardid=document.getElementById("cardchoice").value;
+      var cardid=comp_cardselector.getCardId();
       var subunit={}
       if ((cardid != 0) && (cardid != "") && (cardid != "0")){
          subunit["main"]=document.getElementById("main").value
@@ -319,6 +310,7 @@
       saveToCookie();
       localStorage.setItem('llnewautounit_gemstock', comp_gemstock.saveJson());
       localStorage.setItem('llnewautounit_submember', comp_submember.saveJson());
+      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLanguageKey, comp_language.serialize());
       comp_cardselector.saveLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageSongSelectKey, comp_songselector.saveJson());
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamKey, comp_distribution_param.saveJson());
@@ -448,7 +440,8 @@
 {% endblock %}
 
 {% block main %}
-<input type="submit" name="clear" value="清空输入" onclick="clearall()"><br>
+<input class='btn btn-default' type="submit" name="clear" value="清空输入" onclick="clearall()" /><br/>
+<input id='language' type='hidden' /><br/>
 <form action="" id="unitform" name="unitform" method="POST" enctype=multipart/form-data>
 <h3>歌曲信息</h3>
 <div id="song_filter" class="filter-form label-size-9">载入中...</div>

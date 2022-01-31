@@ -16,34 +16,18 @@
 
 {% block script %}
    <script>
-   var regS = new RegExp("&#34;", "g")
-   var regS2 = new RegExp("&#39;", "g")
-   var regSand = new RegExp("&amp;", "g")
-
-   var attcolor = new Array();
-   var language = 0
    var cslot = 0
    var maxslot = 0
    var minslot = 0
    var naipan = 26666
    
-   attcolor["smile"] = "red"
-   attcolor["pure"] = "green"
-   attcolor["cool"] = "blue"
-   attcolor["all"] = "purple"
    var kizuna = new Array();
    kizuna["N"] = [25, 50]
    kizuna["R"] = [100, 200]
    kizuna["SR"] = [250, 500]
    kizuna["UR"] = [500, 1000]
    kizuna["SSR"] = [375, 750]
-   var cskill = new Array()
-   cskill['smile'] = "公主"
-   cskill['pure'] = "天使"
-   cskill['cool'] = "皇后"
 
-   var member = ['','1年生','2年生','3年生',"μ's",'Aqours','Printemps','lilywhite','BiBi','CYaRon!','AZALEA','Guilty Kiss']
-   
    var defer_onload = $.Deferred();
    var comp_skill = 0;
    var comp_skill2 = 0;
@@ -54,6 +38,7 @@
    var comp_image_card2 = 0;
    var comp_image_navi = 0;
    var comp_image_navi2 = 0;
+   var comp_language = 0;
 
    // TODO: need load skill data for lowbound filter to work on skill calculation...
    LLCardData.briefKeys.push('minslot', 'maxslot', 'smile2', 'pure2', 'cool2');
@@ -80,11 +65,15 @@
       comp_skill2.setSkillLevel = newSetSkillLevel;
 
       // init card selector, with lowbound filter
-      comp_cardselector = new LLCardSelector(cardData, 'card_filter_container');
-      comp_cardselector.addComponentAsFilter('lowbound', new LLValuedComponent('lowbound'), function (card, v) {
-         return (v == '' || isNaN(v) || getmaxstrength(card) >= parseInt(v));
-      });
-      comp_cardselector.onCardChange = changecolor;
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
+      comp_cardselector.addFilterable('lowbound', new LLValuedComponent('lowbound'));
+      comp_cardselector.addFilterCallback('lowbound', 'cardchoice', function (opt, v, d) {
+         return (v == '' || isNaN(v) || (!d) || getmaxstrength(d) >= parseInt(v));
+      })
+      comp_cardselector.onCardChange = function () {
+         cslot = -1;
+         changecolor();
+      };
 
       // init image
       comp_image_avatar = new LLImageComponent('avatar1');
@@ -99,6 +88,9 @@
             comp_cardselector.setCardData(cards, true);
          }));
       });
+
+      comp_language = new LLLanguageComponent('language');
+      comp_language.registerLanguageChange(comp_cardselector);
 
       // done
       document.getElementById('loadingbox').style.display = 'none';
@@ -203,7 +195,7 @@
    }
 
    function changecolor(){
-      var index = document.getElementById('cardchoice').value
+      var index = comp_cardselector.getCardId();
       if (index == "") {
          document.getElementById("result").style.display = 'none'
          comp_skill.setCardData();
@@ -269,34 +261,25 @@
                if (tmpc.skilleffect == 11){
                   if ((skill*1.5 > att*0.208*1.15) && (minslot >= 4)){
                      document.getElementById(atttype+'strength1').innerHTML = parseInt(att*(1+0.052*(minslot-4))*1.15+skill*2.5)+'<br>(加分宝石)'
-                     //document.getElementById('3pstrength1').innerHTML = parseInt(0.03*att*(1+0.052*(minslot-4))*1.15)
                   }
                   else{
       			      document.getElementById(atttype+'strength1').innerHTML = parseInt(att*(1+0.052*(minslot))*1.15+skill)
-                     //document.getElementById('3pstrength1').innerHTML = parseInt(0.03*att*(1+0.052*(minslot))*1.15)
                   }
                }
                else if (tmpc.skilleffect == 9){
                   if ((skill*naipan > att*0.208*1.15) && (minslot >= 4)){
                      document.getElementById(atttype+'strength1').innerHTML = parseInt(att*(1+0.052*(minslot-4))*1.15+skill*naipan)+'<br>(回血宝石)'
-                     //document.getElementById('3pstrength1').innerHTML = parseInt(0.03*att*(1+0.052*(minslot-4))*1.15)
                      }
                   else{
                      document.getElementById(atttype+'strength1').innerHTML = parseInt(att*(1+0.052*(minslot))*1.15)
-                     //document.getElementById('3pstrength1').innerHTML = parseInt(0.03*att*(1+0.052*(minslot))*1.15)
                   }
                }
                else{
                   document.getElementById(atttype+'strength1').innerHTML = parseInt(att*(1+0.052*(minslot))*1.15)
-                  //document.getElementById('3pstrength1').innerHTML = parseInt(0.03*att*(1+0.052*(minslot))*1.15)
                }
                if (minslot != cslot){
                   document.getElementById(atttype+'strength1').innerHTML = ''
-                  //document.getElementById('3pstrength1').innerHTML = ''
                }
-               //document.getElementById('3pstrength1').style.color = attcolor[curCard.attribute]
-      			//document.getElementById('strengthlevel1').innerHTML = strengthlevel(strength(curCard, 0, skilllevel, 0, 1))
-      			//document.getElementById('strengthlevel1').style.color = attcolor[curCard.attribute]
          }
             tmpc = curCard
             att = tmpc[atttype+'2']
@@ -308,34 +291,25 @@
             if (tmpc.skilleffect == 11){
                if ((skill*1.5 > att*0.208*1.15) && (cslot >= 4)){
                   document.getElementById(atttype+'strength2').innerHTML = parseInt(att*(1+0.052*(cslot-4))*1.15+skill*2.5)+'<br>(加分宝石)'
-                  //document.getElementById('3pstrength2').innerHTML = parseInt(0.03*att*(1+0.052*(cslot-4))*1.15)
                }
                else{
                   document.getElementById(atttype+'strength2').innerHTML = parseInt(att*(1+0.052*(cslot))*1.15+skill)
-                  //document.getElementById('3pstrength2').innerHTML = parseInt(0.03*att*(1+0.052*(cslot))*1.15)
                }
             }
             else if (tmpc.skilleffect == 9){
 
                if ((skill*naipan > att*0.208*1.15) && (cslot >= 4)){
                      document.getElementById(atttype+'strength2').innerHTML = parseInt(att*(1+0.052*(cslot-4))*1.15+skill*naipan)+'<br>(回血宝石)'
-                     //document.getElementById('3pstrength2').innerHTML = parseInt(0.03*att*(1+0.052*(cslot-4))*1.15)
                   }
                   else{
                      document.getElementById(atttype+'strength2').innerHTML = parseInt(att*(1+0.052*(cslot))*1.15)
-                     //document.getElementById('3pstrength2').innerHTML = parseInt(0.03*att*(1+0.052*(cslot))*1.15)
                   }
             }
             else{
                document.getElementById(atttype+'strength2').innerHTML = parseInt(att*(1+0.052*(cslot))*1.15)
-               //document.getElementById('3pstrength2').innerHTML = parseInt(0.03*att*(1+0.052*(cslot))*1.15)
             }
-      		//document.getElementById('strength2').innerHTML = strength(curCard, 1, skilllevel, 0, 1)
-            //document.getElementById('3pstrength2').style.color = attcolor[curCard.attribute]
-      		//document.getElementById('strengthlevel2').innerHTML = strengthlevel(strength(curCard, 1, skilllevel, 0, 1))
-      		//document.getElementById('strengthlevel2').style.color = attcolor[curCard.attribute]
          }
-         if (need_scroll) document.getElementById('cardchoice').scrollIntoView(true);
+         if (need_scroll) comp_cardselector.scrollIntoView();
       }, defaultHandleFailedRequest);
    }
    
@@ -361,17 +335,9 @@
          document.getElementById('skilleffecttitle').style.display = 'none'
          document.getElementById('skilleffect').style.display = 'none'
          document.getElementById('skilleffect2').style.display = 'none'
-         /*
-   		document.getElementById('skilleffecttitle').innerHTML = '判定覆盖率'
-   		document.getElementById('skilleffect').innerHTML = skillstrength(c, skilllevel)+'%'+'<br>修正:'+skillstrength(c, skilllevel, 1)+'%'
-   		document.getElementById('skilleffect2').innerHTML = skillstrength(c, skilllevel)+'%'+'<br>修正:'+skillstrength(c, skilllevel, 1)+'%'*/
    	}
    }
    
-   function changeLanguage(){
-      language = 1-language
-      comp_cardselector.setLanguage(language);
-   }
    </script>
 {% endblock %}
 
@@ -392,19 +358,16 @@
 
 {% block main %}
 
+<input id='language' type='hidden' /><br/>
+
 <h3>卡片库</h3>
 <div id='card_data_version'></div>
 <div id='card_filter_container'></div>
 <br/>
 高级筛选：满槽强度下限 <input type="text" id="lowbound" name="lowbound" autocomplete="off" style="width:50px"><br>
-卡片：<select id="cardchoice" name="cardchoice" onchange="cslot=-1">
-		<option value="">载入中...</option>
-	</select>
-	<input type="button" id="language" name="language" onclick="changeLanguage()" value="切换语言"></input>
 	<br>
    <input type="checkbox" id="showcard" name="showcard" onchange="changecolor()" checked>显示图片</input>
    <input type="checkbox" id="smallcard" name="smallcard" onchange="changecolor()" checked>小图</input>
-   <input type="checkbox" id="showncard" name="showncard">显示N卡</input>
    <input type="checkbox" id="naipan" name="naipan" onchange="changenaipan()">弱奶判宝石</input>
    <br>
 	
