@@ -21,6 +21,12 @@ declare namespace LLH {
         type CardIdType = number;
         /** the number id or string of number id */
         type CardIdOrStringType = CardIdType | string;
+        type SongIdType = number;
+        type SongIdOrStringType = SongIdType | string;
+        type SongSettingIdType = number;
+        type SongSettingIdOrStringType = SongSettingIdType | string;
+        /** float, length 9 */
+        type PositionWeightType = string[] | number[];
 
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
@@ -84,7 +90,7 @@ declare namespace LLH {
             jsonpath: string;
             isac: 0|1;
             isswing: 0|1;
-            positionweight: string[]; // float, length 9
+            positionweight: Core.PositionWeightType
             positionnote: string[]; // integer, length 9
             positionslider: string[]; // integer, length 9
             positionswing: string[]; // integer, length 9
@@ -185,6 +191,11 @@ declare namespace LLH {
             albums: Core.AlbumIdType[];
             id: AlbumGroupIdType;
         }
+
+        interface ProcessedSongSettingDataType extends API.SongSettingDataType {
+            song: Core.SongIdOrStringType;
+        }
+        type ProcessedSongSettingDictDataType = {[id: string]: ProcessedSongSettingDataType};
 
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
@@ -323,7 +334,7 @@ declare namespace LLH {
             setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
             filterOptions(filter?: LLSelectComponent_FilterCallback): void;
         }
-        class LLComponentCollection {
+        class LLComponentCollection implements Mixin.SaveLoadJson {
             constructor();
 
             components: {[name: string]: LLComponentBase};
@@ -390,6 +401,38 @@ declare namespace LLH {
 
             // optional callback
             onCardChange?: (cardId: Core.CardIdOrStringType) => void;
+
+            // implements LanguageSupport
+            setLanguage(language: Core.LanguageType): void;
+        }
+        interface LLSongSelectorComponent_Options {
+            songs: API.SongDictDataType;
+            excludeDefaultSong?: boolean;
+            includeMapInfo?: boolean;
+            friendCSkill?: TODO.LLCSkillComponent;
+        }
+        class LLSongSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
+            constructor(id: Component.HTMLElementOrId, options: LLSongSelectorComponent_Options)
+
+            songs: API.SongDictDataType;
+            songSettings: Internal.ProcessedSongSettingDictDataType;
+            includeMapInfo: boolean;
+            friendCSkill?: TODO.LLCSkillComponent;
+
+            setSongData(songs: API.SongDictDataType, includeDefaultSong?: boolean): void;
+
+            getSelectedSongId(): Core.SongIdOrStringType;
+            getSelectedSong(): API.SongDataType;
+            getSelectedSongSettingId(): Core.SongSettingIdOrStringType;
+            getSelectedSongSetting(): Internal.ProcessedSongSettingDataType;
+            getSongAttribute(): Core.AttributeAllType;
+            getMap(customWeight: Core.PositionWeightType): TODO.LLMap;
+
+            private updateMapInfo(songSetting: Internal.ProcessedSongSettingDataType): void;
+
+            // optional callback
+            onSongSettingChange?: (songSettingId: Core.SongSettingIdOrStringType, songSetting: Internal.ProcessedSongSettingDataType) => void;
+            onSongColorChange?: (attribute: Core.AttributeType) => void;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -603,6 +646,8 @@ declare namespace LLH {
         type GemStockType = any;
         type LLSwapper = any;
         type LLTeam = any;
+        type LLMap = any;
+        type LLCSkillComponent = any;
     }
 }
 
