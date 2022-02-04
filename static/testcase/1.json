@@ -1,0 +1,341 @@
+{
+    "name": "Test case basic",
+    "page": "llnewunit",
+    "type": "sim",
+    "version": "latest",
+    "songId": "468",
+    "songSettingId": "1029",
+    "saveData": {
+      "version": 104,
+      "team": [
+        {
+          "hp": 5,
+          "smile": 3650,
+          "pure": 4170,
+          "cool": 7000,
+          "skilllevel": 8,
+          "gemlist": [
+            "AMUL_24"
+          ],
+          "cardid": 2918,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 6,
+          "smile": 6350,
+          "pure": 4330,
+          "cool": 4240,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 1838,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 6,
+          "smile": 6350,
+          "pure": 4330,
+          "cool": 4240,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 1838,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 6,
+          "smile": 6350,
+          "pure": 4330,
+          "cool": 4240,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 1838,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 6,
+          "smile": 6350,
+          "pure": 4330,
+          "cool": 4240,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 1838,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 6,
+          "smile": 6350,
+          "pure": 4330,
+          "cool": 4240,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 1838,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 5,
+          "smile": 6980,
+          "pure": 3680,
+          "cool": 4040,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 2465,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 5,
+          "smile": 6980,
+          "pure": 3680,
+          "cool": 4040,
+          "skilllevel": 8,
+          "gemlist": [
+            "MEMBER_29"
+          ],
+          "cardid": 2465,
+          "mezame": 1,
+          "maxcost": 4
+        },
+        {
+          "hp": 5,
+          "smile": 4150,
+          "pure": 3750,
+          "cool": 7050,
+          "skilllevel": 8,
+          "gemlist": [
+            "AMUL_24"
+          ],
+          "cardid": 2598,
+          "mezame": 1,
+          "maxcost": 4
+        }
+      ],
+      "gemstock": {},
+      "submember": []
+    },
+    "map": {
+      "attribute": "smile",
+      "songUnit": 5,
+      "combo": 749,
+      "star": 70,
+      "time": 118,
+      "perfect": 636,
+      "starPerfect": 70,
+      "weights": [
+        97.5,
+        96.25,
+        100.25,
+        92.75,
+        16.5,
+        94.75,
+        92,
+        104.25,
+        88.25
+      ],
+      "totalWeight": 782.5,
+      "friendCSkill": {
+        "attribute": "smile",
+        "Cskillattribute": "smile",
+        "Cskillpercentage": 0,
+        "Csecondskilllimit": 1,
+        "Csecondskillattribute": 0
+      },
+      "tapup": 0,
+      "skillup": 0,
+      "speed": 9,
+      "combo_fever_pattern": 2,
+      "over_heal_pattern": 1,
+      "perfect_accuracy_pattern": 1,
+      "trigger_limit_pattern": 1
+    },
+    "result": {
+      "attrStrength": [
+        5456,
+        9422,
+        9422,
+        9422,
+        9422,
+        9422,
+        10357,
+        10357,
+        6245
+      ],
+      "finalAttr": {
+        "smile": 79525,
+        "pure": 36930,
+        "cool": 43330
+      },
+      "bonusAttr": {
+        "smile": 10177,
+        "pure": 0,
+        "cool": 0
+      },
+      "totalStrength": 76990,
+      "totalAttrStrength": 76990,
+      "totalSkillStrength": 0,
+      "totalHP": 50,
+      "averageSkillsActiveCount": [
+        10.1155,
+        7.27,
+        7.283,
+        7.2475,
+        7.254,
+        7.2615,
+        5.37,
+        10.074,
+        8.1785
+      ],
+      "averageSkillsActiveChanceCount": [
+        34,
+        8.1755,
+        8.1755,
+        8.1755,
+        8.1755,
+        8.1755,
+        25.9995,
+        25.9995,
+        22.0325
+      ],
+      "averageSkillsActiveNoEffectCount": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        7.9135,
+        7.9135,
+        0.001
+      ],
+      "averageSkillsActiveHalfEffectCount": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        10.1915,
+        5.491,
+        0
+      ],
+      "naivePercentile": [
+        1109451,
+        1136257,
+        1142071,
+        1147791,
+        1152657,
+        1155346,
+        1157954,
+        1158502,
+        1160951,
+        1163489,
+        1166167,
+        1168318,
+        1169153,
+        1170948,
+        1171726,
+        1172368,
+        1174431,
+        1175339,
+        1177170,
+        1177407,
+        1179752,
+        1179978,
+        1180432,
+        1182451,
+        1182714,
+        1183967,
+        1185347,
+        1185509,
+        1187495,
+        1187987,
+        1188217,
+        1190009,
+        1190543,
+        1190807,
+        1191041,
+        1193305,
+        1193510,
+        1193671,
+        1194654,
+        1196046,
+        1196217,
+        1196392,
+        1198183,
+        1198839,
+        1199100,
+        1199323,
+        1201390,
+        1201598,
+        1201792,
+        1202771,
+        1204245,
+        1204426,
+        1204554,
+        1206501,
+        1206906,
+        1207155,
+        1209001,
+        1209637,
+        1209861,
+        1210185,
+        1212264,
+        1212475,
+        1212629,
+        1214749,
+        1215128,
+        1215318,
+        1215619,
+        1217799,
+        1218052,
+        1218909,
+        1220624,
+        1220903,
+        1222828,
+        1223273,
+        1223411,
+        1223570,
+        1225374,
+        1225993,
+        1226139,
+        1226350,
+        1228497,
+        1228952,
+        1229833,
+        1231487,
+        1231922,
+        1234169,
+        1234549,
+        1236821,
+        1237199,
+        1239553,
+        1240247,
+        1242394,
+        1243938,
+        1245353,
+        1247760,
+        1249863,
+        1253097,
+        1256052,
+        1259182,
+        1266820,
+        1290803
+      ]
+    }
+  }

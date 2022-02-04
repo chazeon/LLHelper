@@ -21,10 +21,10 @@ declare namespace LLH {
         type CardIdType = number;
         /** the number id or string of number id */
         type CardIdOrStringType = CardIdType | string;
-        type SongIdType = number;
-        type SongIdOrStringType = SongIdType | string;
-        type SongSettingIdType = number;
-        type SongSettingIdOrStringType = SongSettingIdType | string;
+        /** string of integer */
+        type SongIdType = string;
+        /** string of integer */
+        type SongSettingIdType = string;
         /** float, length 9 */
         type PositionWeightType = string[] | number[];
 
@@ -181,6 +181,19 @@ declare namespace LLH {
     }
 
     namespace Internal {
+        interface CSkillDataType {
+            /** add to attribute */
+            attribute: Core.AttributeType;
+            /** add from attribute */
+            Cskillattribute: Core.AttributeType;
+            /** percentage */
+            Cskillpercentage: number;
+            /** effect value, percentage */
+            Csecondskillattribute?: number;
+            /** target group */
+            Csecondskilllimit?: Core.MemberTagIdType;
+        }
+
         type AlbumGroupIdType = number;
         interface ProcessedAlbumDataType extends API.AlbumDataType {
             albumGroupId: AlbumGroupIdType;
@@ -193,7 +206,7 @@ declare namespace LLH {
         }
 
         interface ProcessedSongSettingDataType extends API.SongSettingDataType {
-            song: Core.SongIdOrStringType;
+            song: Core.SongIdType;
         }
         type ProcessedSongSettingDictDataType = {[id: string]: ProcessedSongSettingDataType};
 
@@ -230,16 +243,45 @@ declare namespace LLH {
         }
         type NormalGemCategoryIdOrMetaType = NormalGemCategoryIdType | NormalGemMetaType;
 
-        interface MemberSaveDataType {
+        interface SubMemberSaveDataType {
             cardid: Core.CardIdOrStringType; // int
             mezame: 0 | 1;
-            smile: number; // int
-            pure: number; // int
-            cool: number; // int
             skilllevel: number; // 1~8
             maxcost: number; // 0~8
+        }
+
+        interface AttributesValue {
+            smile: number;
+            pure: number;
+            cool: number;
+        }
+
+        interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
             hp: number; // int
             gemlist: NormalGemCategoryKeyType[];
+        }
+
+        interface UnitSaveDataTypeV104 {
+            version: 104;
+            team: MemberSaveDataType[];
+            gemstock: TODO.GemStockType;
+            submember: SubMemberSaveDataType[];
+        }
+        type UnitSaveDataType = UnitSaveDataTypeV104;
+
+        interface CalculateResultType {
+            attrStrength: number[];
+            finalAttr: AttributesValue;
+            bonusAttr: AttributesValue;
+            totalStrength: number;
+            totalAttrStrength: number;
+            totalSkillStrength: number;
+            totalHP: number;
+            averageSkillsActiveCount: number[];
+            averageSkillsActiveChanceCount: number[];
+            averageSkillsActiveNoEffectCount: number[];
+            averageSkillsActiveHalfEffectCount: number[];
+            naivePercentile: number[];
         }
     }
 
@@ -255,6 +297,7 @@ declare namespace LLH {
         interface Utils {
             createDeferred<DoneT, FailT>(): Deferred<DoneT, FailT>;
             whenAll(...args: Promise<any, any>[]): Promise<any, any>;
+            whenAllByArray(arr: Promise<any, any>[]): Promise<any, any>;
         }
     }
 
@@ -421,17 +464,17 @@ declare namespace LLH {
 
             setSongData(songs: API.SongDictDataType, includeDefaultSong?: boolean): void;
 
-            getSelectedSongId(): Core.SongIdOrStringType;
+            getSelectedSongId(): Core.SongIdType;
             getSelectedSong(): API.SongDataType;
-            getSelectedSongSettingId(): Core.SongSettingIdOrStringType;
+            getSelectedSongSettingId(): Core.SongSettingIdType;
             getSelectedSongSetting(): Internal.ProcessedSongSettingDataType;
             getSongAttribute(): Core.AttributeAllType;
-            getMap(customWeight: Core.PositionWeightType): TODO.LLMap;
+            getMap(customWeight: Core.PositionWeightType): Model.LLMap;
 
             private updateMapInfo(songSetting: Internal.ProcessedSongSettingDataType): void;
 
             // optional callback
-            onSongSettingChange?: (songSettingId: Core.SongSettingIdOrStringType, songSetting: Internal.ProcessedSongSettingDataType) => void;
+            onSongSettingChange?: (songSettingId: Core.SongSettingIdType, songSetting: Internal.ProcessedSongSettingDataType) => void;
             onSongColorChange?: (attribute: Core.AttributeType) => void;
 
             // implements LanguageSupport
@@ -502,7 +545,7 @@ declare namespace LLH {
     namespace Model {
         interface LLSisGem_Options {
             grade?: Core.GradeType;
-            member?: Core.MemberIdType;
+            member?: Core.UnitTypeIdType;
             color?: Core.AttributeType;
             unit?: Core.BigGroupIdType;
         }
@@ -537,6 +580,53 @@ declare namespace LLH {
             private unit?: Core.BigGroupIdType;
             private meta: Internal.NormalGemMetaType;
             private gemStockKeys: string[];
+        }
+
+        interface LLMap_Options {
+            song?: LLH.API.SongDataType;
+            songSetting?: LLH.API.SongSettingDataType;
+            friendCSkill?: Internal.CSkillDataType;
+        }
+        interface LLMap_SaveData {
+            attribute: Core.AttributeType;
+            weights: number[];
+            /** sum(weights) */
+            totalWeight: number;
+            friendCSkill: Internal.CSkillDataType;
+            combo: number;
+            star: number;
+            /** float */
+            time: number;
+            perfect: number;
+            starPerfect: number;
+            /** percentage */
+            tapup: number;
+            /** percentage */
+            skillup: number;
+            songUnit: Core.SongGroupIdType;
+            /** int 1~10 */
+            speed: number;
+            combo_fever_pattern: 1 | 2;
+            over_heal_pattern: 0 | 1;
+            perfect_accuracy_pattern: 0 | 1;
+            trigger_limit_pattern: 0 | 1;            
+        }
+        class LLMap implements Mixin.SaveLoadJson {
+            constructor(options?: LLMap_Options);
+            setSong(song: API.SongDataType, songSetting: API.SongSettingDataType): void;
+            setWeights(weights: Core.PositionWeightType): void;
+            setFriendCSkill(addToAttribute: Core.AttributeType, addFromAttribute: Core.AttributeType, percentage: number, groupLimit: number, groupPercentage: number): void;
+            setSongDifficultyData(combo: number, star: number, time: number, perfect: number, starPerfect: number): void;
+            setMapBuff(tapup: number, skillup: number): void;
+            setDistParam(distParam: Layout.ScoreDistParam.ScoreDistParamSaveData): void;
+
+            data: LLMap_SaveData;
+            saveData(): LLMap_SaveData;
+            loadData(data: LLMap_SaveData): void;
+
+            // implements
+            saveJson(): string;
+            loadJson(jsonData: string): void;
         }
     }
 
@@ -616,6 +706,40 @@ declare namespace LLH {
                 registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
             }
         }
+        namespace ScoreDistParam {
+            type ScoreDistType = 'no'|'v1'|'sim';
+            interface ScoreDistParamSaveData {
+                type: ScoreDistType;
+                /** int, simulate count */
+                count: number;
+                /** float 0~100 */
+                perfect_percent: number;
+                /** speed int 1~10 */
+                speed: number;
+                /** 1 for 300 combo, 2 for 220 combo */
+                combo_fever_pattern: 1 | 2;
+                /** 0 for disabled, 1 for enabled */
+                over_heal_pattern: 0 | 1;
+                /** 0 for disabled, 1 for enabled */
+                perfect_accuracy_pattern: 0 | 1;
+                /** 0 for disabled, 1 for enabled */
+                trigger_limit_pattern: 0 | 1;
+            }
+            interface ScoreDistParamController {
+                getParameters(): ScoreDistParamSaveData;
+                setParameters(params: ScoreDistParamSaveData): void;
+            }
+            class LLScoreDistributionParameter implements Mixin.SaveLoadJson {
+                constructor(id: Component.HTMLElementOrId);
+
+                saveData(): ScoreDistParamSaveData;
+                loadData(data: ScoreDistParamSaveData): void;
+                
+                // implements
+                saveJson(): string;
+                loadJson(jsonData: string): void;
+            }
+        }
     }
 
     class LLData<DataT> {
@@ -623,6 +747,12 @@ declare namespace LLH {
 
         getAllBriefData(keys?: string[], url?: string): Depends.Promise<{[id: string]: DataT}, void>;
         getDetailedData(index: string, url?: string): Depends.Promise<DataT, void>;
+
+        setVersion(version: string): void;
+        getVersion(): string;
+
+        private initVersion(version: string): void;
+        private version: string;
     }
 
     class LLSimpleKeyData<T> {
@@ -641,12 +771,42 @@ declare namespace LLH {
         // TODO
     }
 
+    namespace Test {
+        interface TestItemOptions {
+            name: string;
+            after?: Depends.Promise<any, void> | AcceptedTestItem | AcceptedTestItem[];
+            cardConfigs?: Core.CardIdType[][];
+            version?: "cn" | "latest";
+            songId?: Core.SongIdType;
+            songSettingId?: Core.SongSettingIdType;
+            run(cards: API.CardDictDataType, noteData: API.NoteDataType): Depends.Promise<any, any> | number | string;
+        }
+
+        interface AcceptedTestItem extends TestItemOptions {
+            defer: Depends.Deferred<any, void>;
+            startTime: number;
+            finishTime: number;
+            start(): Depends.Promise<any, any>;
+        }
+
+        interface TestCaseData {
+            name: string;
+            page: 'llnewunit' | 'llnewunitsis' | 'llnewautounit';
+            type: Layout.ScoreDistParam.ScoreDistType;
+            version: 'cn' | 'latest';
+            songId: Core.SongIdType;
+            songSettingId: Core.SongSettingIdType;
+            saveData: Internal.UnitSaveDataType;
+            map: Model.LLMap_SaveData;
+            result: Internal.CalculateResultType;
+        }
+    }
+
     namespace TODO {
         type LLMember = any;
         type GemStockType = any;
         type LLSwapper = any;
         type LLTeam = any;
-        type LLMap = any;
         type LLCSkillComponent = any;
     }
 }

@@ -2,11 +2,47 @@
 var g_page_load_case = undefined;
 /** @param {LLH.Depends.Promise<void>} loadDeferred */
 function renderPage(loadDeferred) {
+    /** @type {LLH.Test.AcceptedTestItem[]} */
     var testSet = [];
-    var defer_test_load = $.Deferred();
-    var cardDetails = 0;
+    var defer_test_load = LLDepends.createDeferred();
     var data_mapnote = 0;
     var song_settings = 0;
+    var testStatusSummary = (function () {
+        var summary = {
+            'initial': 0,
+            'pending': 0,
+            'running': 0,
+            'success': 0,
+            'fail': 0,
+            'skip': 0
+        };
+        var timer = undefined;
+        function render() {
+            document.getElementById('test-result').innerHTML = '测试结果: ' +
+                '未开始: ' + summary.initial +
+                ', 等待中: ' + summary.pending +
+                ', 跳过: ' + summary.skip +
+                ', 成功: ' + summary.success +
+                ', 失败: ' + summary.fail +
+                ', 运行中: ' + summary.running;
+            timer = undefined;
+        }
+        function deferredUpdate() {
+            if (timer) return;
+            timer = setTimeout(render, 1000);
+        }
+        return {
+            'update': function (fromStatus, toStatus) {
+                if (fromStatus) {
+                    summary[fromStatus] -= 1;
+                }
+                if (toStatus) {
+                    summary[toStatus] += 1;
+                }
+                deferredUpdate();
+            }
+        };
+    })();
 
     function loadCardsById(cardIds, version) {
         var uniqueCardids = {};
@@ -20,90 +56,118 @@ function renderPage(loadDeferred) {
         }
         return LoadingUtil.start(requests, LoadingUtil.cardDetailMerger);
     }
-     function getSongById(songId) {
+    
+    function loadTestCase(caseId) {
+        /** @type {LLH.Depends.Promise<LLH.Test.TestCaseData, void>} */
+        var defer = LLDepends.createDeferred();
+        var url = '/static/testcase/' + caseId + '.json';
+        $.ajax({
+            'url': url,
+            'type': 'GET',
+            'success': function (data) {
+                defer.resolve(data);
+            },
+            'error': function (xhr, textStatus, errorThrown) {
+                console.error("Failed on request to " + url + ": " + textStatus);
+                console.error(errorThrown);
+                defer.reject();
+            },
+            'dataType': 'json'
+        });
+        return defer;
+    }
+    function getSongById(songId) {
         return LLSongData.getCachedBriefData()[songId];
     }
-     function getSongSettingById(songSettingId) {
+    function getSongSettingById(songSettingId) {
         return song_settings[songSettingId];
     }
-     function buildMapOptionById(songId, songSettingId, friendCSkill) {
+    function buildMapOptionById(songId, songSettingId, friendCSkill) {
         return {
            'song': getSongById(songId),
            'songSetting': getSongSettingById(songSettingId),
            'friendCSkill': friendCSkill
         };
     }
-  
+
+    /**
+     * @param {LLH.Test.TestItemOptions} item 
+     * @returns {LLH.Test.AcceptedTestItem}
+     */
     function addTestItem(item) {
-        testSet.push(item);
-  
-        var resultElement = LLUnit.createElement('td', {'innerHTML': 'Not started'});
+        /** @type {LLH.Test.AcceptedTestItem} */
+        var acceptedItem = item;
+        testSet.push(acceptedItem);
+        testStatusSummary.update(undefined, 'initial');
+
+        var resultElement = LLUnit.createElement('td', { 'innerHTML': 'Not started' });
         var performanceElement = LLUnit.createElement('td');
-        var defer = $.Deferred();
-        item.defer = defer;
-  
+        var defer = LLDepends.createDeferred();
+        acceptedItem.defer = defer;
+
         var setResult = function (result) {
-           item.finishTime = window.performance.now();
-           if (result == 'Skipped') {
-              resultElement.innerHTML = result;
-              resultElement.className = 'warning';
-              item.skip = 1;
-           } else if (result) {
-              resultElement.innerHTML = 'Fail: ' + result;
-              resultElement.className = 'danger';
-              item.fail = 1;
-           } else {
-              var maxDiff = item.maxDiff;
-              if (maxDiff !== undefined) {
-                 resultElement.innerHTML = 'Success, max diff = ' + maxDiff.toFixed(6);
-              } else {
-                 resultElement.innerHTML = 'Success';
-              }
-              resultElement.className = 'success';
-              item.success = 1;
-           }
-           performanceElement.innerHTML = (item.finishTime - item.startTime).toFixed(3);
+            acceptedItem.finishTime = window.performance.now();
+            if (result == 'Skipped') {
+                resultElement.innerHTML = result;
+                resultElement.className = 'warning';
+                testStatusSummary.update('pending', 'skip');
+            } else if (result) {
+                resultElement.innerHTML = 'Fail: ' + result;
+                resultElement.className = 'danger';
+                testStatusSummary.update('running', 'fail');
+            } else {
+                var maxDiff = acceptedItem.maxDiff;
+                if (maxDiff !== undefined) {
+                    resultElement.innerHTML = 'Success, max diff = ' + maxDiff.toFixed(6);
+                } else {
+                    resultElement.innerHTML = 'Success';
+                }
+                resultElement.className = 'success';
+                testStatusSummary.update('running', 'success');
+            }
+            performanceElement.innerHTML = (acceptedItem.finishTime - acceptedItem.startTime).toFixed(3);
         };
-  
-        item.start = function () {
+
+        acceptedItem.start = function () {
+            testStatusSummary.update('initial', 'pending');
             resultElement.innerHTML = 'Pending';
             resultElement.className = 'info';
-            var resultClass = '';
-            var resultText = '';
+            /** @type {LLH.Depends.Promise<any, any>[]} */
             var afters = [];
-            if (item.after) {
-                if (item.after.length) {
-                    for (var i = 0; i < item.after.length; i++) {
-                        var after = item.after[i];
+            if (acceptedItem.after) {
+                if (acceptedItem.after.length) {
+                    for (var i = 0; i < acceptedItem.after.length; i++) {
+                        var after = acceptedItem.after[i];
                         if (after.defer) afters.push(after.defer);
                         else afters.push(after);
                     }
-                } else if (item.after.defer) {
-                    afters.push(item.after.defer);
+                } else if (acceptedItem.after.defer) {
+                    afters.push(acceptedItem.after.defer);
                 } else {
-                    afters.push(item.after);
+                    afters.push(acceptedItem.after);
                 }
             }
-            $.when.apply($, afters).then(function () {
+            LLDepends.whenAllByArray(afters).then(function () {
+                testStatusSummary.update('pending', 'running');
                 var cardDefer, songDefer;
-                if (item.cardConfigs) {
-                    var cardIds = item.cardConfigs.map(function (c) { return c[0]; });
-                    cardDefer = loadCardsById(cardIds, item.version);
+                if (acceptedItem.cardConfigs) {
+                    var cardIds = acceptedItem.cardConfigs.map(function (c) { return c[0]; });
+                    cardDefer = loadCardsById(cardIds, acceptedItem.version);
                 }
-                if (item.songId && item.songSettingId) {
-                    var song = getSongById(item.songId);
-                    var songSetting = getSongSettingById(item.songSettingId);
+                if (acceptedItem.songId && acceptedItem.songSettingId) {
+                    var song = getSongById(acceptedItem.songId);
+                    var songSetting = getSongSettingById(acceptedItem.songSettingId);
                     songDefer = data_mapnote.getLocalMapNoteData(song, songSetting);
                 }
-                return $.when(cardDefer, songDefer);
+                return LLDepends.whenAll(cardDefer, songDefer);
             }, function () {
                 setResult('Skipped');
                 defer.reject('Skipped');
             }).then(function (cards, noteData) {
                 try {
                     resultElement.innerHTML = 'Running';
-                    item.startTime = window.performance.now();
-                    var ret = item.run(cards, noteData);
+                    acceptedItem.startTime = window.performance.now();
+                    var ret = acceptedItem.run(cards, noteData);
                     if (ret && ret.then) {
                         ret.then(function (r) {
                             setResult(r);
@@ -118,7 +182,7 @@ function renderPage(loadDeferred) {
                     }
                 } catch (e) {
                     console.log(e);
-                    if (typeof(e) == 'string') {
+                    if (typeof (e) == 'string') {
                         setResult('Exception: ' + e);
                     } else {
                         setResult('Exception: ' + e.message);
@@ -131,21 +195,17 @@ function renderPage(loadDeferred) {
             });
             return defer;
         };
-  
+
         var testRow = LLUnit.createElement('tr', undefined, [
-            LLUnit.createElement('td', {'innerHTML': testSet.length}),
-            LLUnit.createElement('td', {'innerHTML': item.name}),
+            LLUnit.createElement('td', { 'innerHTML': testSet.length }),
+            LLUnit.createElement('td', { 'innerHTML': item.name }),
             resultElement,
             performanceElement
         ]);
         document.getElementById('test-list').appendChild(testRow);
         return item;
     }
-  
-    function loadCardsByConfig(cardConfigs, version) {
-        return loadCardsById(cardConfigs.map(function (c){return c[0];}), version);
-    }
-  
+
     function buildTeam(cards, cardConfigs, mapdata) {
         var members = [];
         for (var i = 0; i < 9; i++) {
@@ -166,7 +226,7 @@ function renderPage(loadDeferred) {
                 'hp': (mezame ? cards[id].hp+1 : cards[id].hp)
             };
             member[cards[id].attribute] += kizuna[cards[id].rarity][mezame];
-            members.push(new LLMember(member, mapdata.attribute));
+            members.push(new LLMember(member, mapdata.data.attribute));
         }
         var llteam = new LLTeam(members);
         return llteam;
@@ -280,7 +340,11 @@ function renderPage(loadDeferred) {
             'SMUL_28': {'ALL': 0},
             'AMUL_40': {'ALL': 0},
             'MEMBER_29': {'ALL': 0},
-            'NONET_42': {'ALL': 0}
+            'NONET_42': {'ALL': 0},
+            'MEMBER_13': {'ALL': 0},
+            'MEMBER_21': {'ALL': 0},
+            'MEMBER_53': {'ALL': 0},
+            'NONET_15': {'ALL': 0}
         };
     }
   
@@ -293,10 +357,8 @@ function renderPage(loadDeferred) {
         for (var i = 0; i < names.length; i++) {
             var per_color = {'smile': 0, 'pure': 0, 'cool': 0}
             per_color[LLConst.getMemberColor(names[i])] = 9;
-            member_29[names[i]] = per_color;
+            member_29[LLConst[names[i]]] = per_color;
         }
-        var ms = {'smile': 9, 'pure': 0, 'cool': 0};
-        var mp
         return {
             'SADD_200': {'ALL': 9},
             'SADD_450': {'ALL': 9},
@@ -311,7 +373,11 @@ function renderPage(loadDeferred) {
             'SMUL_28': {'ALL': 9},
             'AMUL_40': {'ALL': 9},
             'MEMBER_29': member_29,
-            'NONET_42': {'ALL': 9}
+            'NONET_42': {'ALL': 9},
+            'MEMBER_13': {'ALL': 0},
+            'MEMBER_21': {'ALL': 0},
+            'MEMBER_53': {'ALL': 0},
+            'NONET_15': {'ALL': 0}
         };
     }
   
@@ -330,7 +396,11 @@ function renderPage(loadDeferred) {
             'SMUL_28': {'ALL': 9},
             'AMUL_40': {'ALL': 9},
             'MEMBER_29': {'ALL': 9},
-            'NONET_42': {'ALL': 9}
+            'NONET_42': {'ALL': 9},
+            'MEMBER_13': {'ALL': 0},
+            'MEMBER_21': {'ALL': 0},
+            'MEMBER_53': {'ALL': 0},
+            'NONET_15': {'ALL': 0}
         };
     }
   
@@ -338,9 +408,9 @@ function renderPage(loadDeferred) {
         return {'ALL': 9};
     }
   
-    function assertEqual(a, b) {
+    function assertEqual(a, b, message) {
         if (a == b) return;
-        throw 'assertEqual fail: ' + a + ' == ' + b;
+        throw new Error((message || 'assertEqual fail') + ': ' + a + ' == ' + b);
     }
   
     function assertFloatEqual(a, b, eps, lastDiff) {
@@ -349,7 +419,16 @@ function renderPage(loadDeferred) {
         if (diff <= eps) return (lastDiff && diff < lastDiff ? lastDiff : diff);
         throw 'assertFloatEqual fail: abs(' + a + ' - ' + b + ') = ' + diff + ' > ' + eps;
     }
-  
+
+    /**
+     * @param {LLH.Internal.AttributesValue} a 
+     * @param {LLH.Internal.AttributesValue} b 
+     * @param {string} message 
+     */
+    function assertAttributesValue(a, b, message) {
+        if (a.smile == b.smile && a.pure == b.pure && a.cool == b.cool) return;
+        throw new Error((message || 'assertAttributesValue fail') + ': {' + a.smile + ', ' + a.pure + ', ' + a.cool + '} == {' + b.smile + ', ' + b.pure + ', ' + b.cool + '}');
+    }
     function assertAttributeP(a, smilep, purep, coolp) {
         if (a.smile == smilep && a.pure == purep && a.cool == coolp) return;
         throw 'assertAttributeP fail: {' + a.smile + ', ' + a.pure + ', ' + a.cool + '} == {' + smilep + ', ' + purep + ', ' + coolp + '}';
@@ -361,6 +440,19 @@ function renderPage(loadDeferred) {
             maxDiff = assertFloatEqual(arr1[i], arr2[i], eps, maxDiff);
         }
         return maxDiff;
+    }
+
+    function arrayMaxValue(array) {
+        if (array.length == 0) return undefined;
+        var maxValue = array[0];
+        for (var i = 1; i < array.length; i++) {
+            if (array[i] > maxValue) maxValue = array[i];
+        }
+        return maxValue;
+    }
+
+    function assertFloatArrayEqualDynamic(arr1, arr2, maxFactor) {
+        return assertFloatArrayEqual(arr1, arr2, arrayMaxValue(arr2) * maxFactor);
     }
   
     function initSongSettings() {
@@ -397,15 +489,15 @@ function renderPage(loadDeferred) {
         // do simulate
         var llmap = new LLMap(buildMapOptionById(songId, songSettingId, friendCSkill));
         llmap.setMapBuff(buffTapUp, buffSkillUp);
-        llmap.perfect = Math.floor(parseFloat(perfectPercent)/100 * llmap.combo);
-        llmap.speed = speed;
-        llmap.combo_fever_pattern = cfPattern;
-        llmap.over_heal_pattern = overHealPattern;
-        llmap.perfect_accuracy_pattern = perfectAccuracyPattern;
+        llmap.data.perfect = Math.floor(parseFloat(perfectPercent)/100 * llmap.data.combo);
+        llmap.data.speed = speed;
+        llmap.data.combo_fever_pattern = cfPattern;
+        llmap.data.over_heal_pattern = overHealPattern;
+        llmap.data.perfect_accuracy_pattern = perfectAccuracyPattern;
         var llteam = buildTeam(cards, cardConfigs, llmap);
-        llteam.calculateAttributeStrength(llmap);
-        llteam.calculateSkillStrength(llmap);
-        var err = llteam.simulateScoreDistribution(llmap, noteData, simCount);
+        llteam.calculateAttributeStrength(llmap.saveData());
+        llteam.calculateSkillStrength(llmap.saveData());
+        var err = llteam.simulateScoreDistribution(llmap.saveData(), noteData, simCount);
         if (err) throw err;
         var diffs = verifyCallback(llteam);
         if (diffs && diffs.length) {
@@ -434,7 +526,7 @@ function renderPage(loadDeferred) {
                 1115, 782, 937, 843, 980, 107, 955, 459, 127, 1002, 648, 317, 957, 636, 1065, 939, 369, 1720, 1721, 1651, 1640
             ];
             var jpids = [2357, 346, 476, 315];
-            return $.when(
+            return LLDepends.whenAll(
                 loadCardsById(cnids, 'cn'),
                 loadCardsById(jpids, 'latest')
             ).then(function () {
@@ -462,8 +554,8 @@ function renderPage(loadDeferred) {
                     'songSetting': songSetting
                 });
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 37910, 59698, 32990);
                 assertAttributeP(llteam.bonusAttr, 0, 7337, 0);
@@ -481,8 +573,8 @@ function renderPage(loadDeferred) {
             'run': function (cards) {
                 var mapdata = new LLMap(buildMapOptionById('529', '887', getFriendCSkill_muse_9_3('smile')));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 78546, 37230, 36880);
                 assertAttributeP(llteam.bonusAttr, 16200, 0, 0);
@@ -499,9 +591,9 @@ function renderPage(loadDeferred) {
             'run': function (cards) {
                 var mapdata = new LLMap(buildMapOptionById('529', '887', getFriendCSkill_muse_9_3('smile')));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.autoArmGem(mapdata, getGemStock_60AllGem());
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.autoArmGem(mapdata.saveData(), getGemStock_60AllGem());
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 81501, 37230, 36880);
                 assertAttributeP(llteam.bonusAttr, 16778, 0, 0);
@@ -518,9 +610,9 @@ function renderPage(loadDeferred) {
             'run': function (cards) {
                 var mapdata = new LLMap(buildMapOptionById('529', '887', getFriendCSkill_muse_9_3('smile')));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.autoArmGem(mapdata, getGemStock_65AllGem());
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.autoArmGem(mapdata.saveData(), getGemStock_65AllGem());
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 85016, 37230, 36880);
                 assertAttributeP(llteam.bonusAttr, 17542, 0, 0);
@@ -537,9 +629,9 @@ function renderPage(loadDeferred) {
             'run': function (cards) {
                 var mapdata = new LLMap(buildMapOptionById('529', '887', getFriendCSkill_muse_9_3('smile')));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.autoArmGem(mapdata, {'ALL': 0});
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.autoArmGem(mapdata.saveData(), {'ALL': 0});
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 67743, 37230, 36880);
                 assertAttributeP(llteam.bonusAttr, 13963, 0, 0);
@@ -560,9 +652,9 @@ function renderPage(loadDeferred) {
                 var mapdata = new LLMap(buildMapOptionById('529', '887', getFriendCSkill_grade2_9_6('smile')));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
                 var submembers = buildSubMembers(cards, this.cardConfigs);
-                llteam.autoUnit(mapdata, getGemStock_40AllGem(), submembers);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.autoUnit(mapdata.saveData(), getGemStock_40AllGem(), submembers);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 76696, 39960, 36810);
                 assertAttributeP(llteam.bonusAttr, 17038, 0, 0);
@@ -585,9 +677,9 @@ function renderPage(loadDeferred) {
                 var mapdata = new LLMap(buildMapOptionById('446', '520'));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
                 var submembers = buildSubMembers(cards, this.cardConfigs);
-                llteam.autoUnit(mapdata, getGemStock_40AllGem(), submembers);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.autoUnit(mapdata.saveData(), getGemStock_40AllGem(), submembers);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 34090, 70181, 35790);
                 assertAttributeP(llteam.bonusAttr, 0, 8514, 0);
@@ -610,9 +702,9 @@ function renderPage(loadDeferred) {
                 var mapdata = new LLMap(buildMapOptionById('446', '520'));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
                 var submembers = buildSubMembers(cards, this.cardConfigs);
-                llteam.autoUnit(mapdata, getGemStock_60AllGem(), submembers);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.autoUnit(mapdata.saveData(), getGemStock_60AllGem(), submembers);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 33010, 72833, 35830);
                 assertAttributeP(llteam.bonusAttr, 0, 8923, 0);
@@ -671,8 +763,8 @@ function renderPage(loadDeferred) {
             'run': function (cards, noteData) {
                 var mapdata = new LLMap(buildMapOptionById('55', '661'));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 90012, 37310, 37560);
                 assertAttributeP(llteam.bonusAttr, 8927, 0, 0);
@@ -700,8 +792,8 @@ function renderPage(loadDeferred) {
             'run': function (cards, noteData) {
                 var mapdata = new LLMap(buildMapOptionById('452', '996'));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 34860, 36880, 94263);
                 assertAttributeP(llteam.bonusAttr, 0, 0, 9385);
@@ -729,8 +821,8 @@ function renderPage(loadDeferred) {
             'run': function (cards, noteData) {
                 var mapdata = new LLMap(buildMapOptionById('549', '1008'));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 35630, 95573, 38330);
                 assertAttributeP(llteam.bonusAttr, 0, 12470, 0);
@@ -758,8 +850,8 @@ function renderPage(loadDeferred) {
             'run': function (cards, noteData) {
                 var mapdata = new LLMap(buildMapOptionById('631', '1446'));
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);
-                llteam.calculateAttributeStrength(mapdata);
-                llteam.calculateSkillStrength(mapdata);
+                llteam.calculateAttributeStrength(mapdata.saveData());
+                llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
                 assertAttributeP(llteam.finalAttr, 61288, 44880, 50962);
                 assertAttributeP(llteam.bonusAttr, 0, 0, 6652);
@@ -769,22 +861,75 @@ function renderPage(loadDeferred) {
                 return 0;
             }
         });
+
+        /**
+         * 
+         * @param {LLH.Test.TestCaseData} caseData 
+         * @param {LLH.API.CardDictDataType} cards 
+         * @param {LLH.API.NoteDataType} noteData 
+         */
+        function runTestCase(caseData, cards, noteData) {
+            var saveData = new LLSaveData(caseData.saveData);
+            var member =  saveData.teamMember;
+            var llmembers = [];
+            for (var i = 0; i < 9; i++) {
+                member[i].card = cards[member[i].cardid];
+                llmembers.push(new LLMember(member[i], caseData.map.attribute));
+            }
+
+            var llteam = new LLTeam(llmembers);
+            llteam.calculateAttributeStrength(caseData.map);
+            llteam.calculateSkillStrength(caseData.map);
+
+            var expectedResult = caseData.result;
+            assertAttributesValue(llteam.finalAttr, expectedResult.finalAttr, 'finalAttr mismatch');
+            assertAttributesValue(llteam.bonusAttr, expectedResult.bonusAttr, 'bonusAttr mismatch');
+            assertEqual(llteam.totalStrength, expectedResult.totalStrength, 'totalStrength mismatch');
+            assertEqual(llteam.totalAttrStrength, expectedResult.totalAttrStrength, 'totalAttrStrength mismatch');
+            assertEqual(llteam.totalSkillStrength, expectedResult.totalSkillStrength, 'totalSkillStrength mismatch');
+
+            var diffs = [];
+            if (caseData.type == 'v1') {
+                llteam.calculateScoreDistribution();
+            } else if (caseData.type == 'sim') {
+                llteam.simulateScoreDistribution(caseData.map, noteData, 1000);
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveHalfEffectCount, expectedResult.averageSkillsActiveHalfEffectCount, 0.05));
+            } else {
+                return 0;
+            }
+            caseData.maxDiff = arrayMaxValue(diffs);
+        }
+
+        addTestItem({
+            'name': 'Load more test cases',
+            'after': test1,
+            'run': function () {
+                return loadTestCase('1').then(function (caseData) {
+                    /** @type {LLH.Test.TestItemOptions} */
+                    var testOptions = caseData;
+                    var cardConfigs = [];
+                    var saveData = new LLSaveData(caseData.saveData);
+                    var teamMembers = saveData.teamMember;
+                    for (var i = 0; i < teamMembers.length; i++) {
+                        cardConfigs.push([parseInt(teamMembers[i].cardid)]);
+                    }
+                    testOptions.cardConfigs = cardConfigs;
+                    testOptions.run = function (cards, noteData) {
+                        return runTestCase(caseData, cards, noteData);
+                    }
+                    addTestItem(caseData).start();
+                    return 0;
+                })
+            }
+        });
         // run tests
         var defers = [];
         for (var i = 1; i < testSet.length; i++) {
             defers.push(testSet[i].start());
         }
-        LoadingUtil.startImpl(defers, 'test-running-box', 'test-running-box-progress').then(function () {
-            var nSuccess = 0;
-            var nFail = 0;
-            var nNotStart = 0;
-            for (var i = 0; i < testSet.length; i++) {
-                if (testSet[i].success) nSuccess++;
-                else if (testSet[i].fail) nFail++;
-                else nNotStart++;
-            }
-            document.getElementById('test-result').innerHTML = '测试结果: 成功: ' + nSuccess + ', 失败: ' + nFail + ', 未启动: ' + nNotStart;
-        });
     }
 
     g_page_load_case = function () {

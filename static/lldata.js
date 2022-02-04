@@ -53,12 +53,10 @@ var LLDepends = {
       return $.Deferred();
    },
    whenAll: function (...args) {
-      // var arr = [];
-      // for (var i = 0; i < arguments.length; i++) {
-      //    arr.push(arguments[i]);
-      // }
-      // return $.when.apply($, arr);
       return $.when.apply($, args);
+   },
+   whenAllByArray: function (arr) {
+      return $.when.apply($, arr);
    }
 };
 
@@ -210,7 +208,6 @@ var LLHelperLocalStorage = {
  * LLMetaData: instance for LLSimpleKeyData, load meta data
  * require jQuery
  */
-/** @type {typeof LLH.LLData} */
 var LLData = (function () {
    function LLData_cls(brief_url, detail_url, brief_keys, version) {
       this.briefUrl = brief_url;
@@ -221,6 +218,7 @@ var LLData = (function () {
       this.detailCache = {};
       this.setVersion(version);
    }
+   /** @type {typeof LLH.LLData} */
    var cls = LLData_cls;
    var proto = cls.prototype;
 
@@ -3424,6 +3422,29 @@ var LLSongSelectorComponent = (function() {
    return cls;
 })();
 
+var LLSaveLoadJsonMixin = (function () {
+   var loadJson = function(data) {
+      if (typeof(data) != 'string') return;
+      if (data == '') return;
+      try {
+         var json = JSON.parse(data);
+         this.loadData(json);
+      } catch (e) {
+         console.error('Failed to load json:');
+         console.error(e);
+         console.error(data);
+      }
+   };
+   var saveJson = function() {
+      return JSON.stringify(this.saveData());
+   }
+   /** @param {LLH.Mixin.SaveLoadJson} obj */
+   return function(obj) {
+      obj.loadJson = loadJson;
+      obj.saveJson = saveJson;
+   };
+})();
+
 /*
  * strength calculation helper
  *   LLMap
@@ -3432,35 +3453,6 @@ var LLSongSelectorComponent = (function() {
  *   LLMember
  *   LLSimulateContext
  *   LLTeam
- */
-/**
- * @typedef CSkillDataType
- * @property {AttributeType} attribute add to
- * @property {AttributeType} Cskillattribute add from
- * @property {number} Cskillpercentage percentage
- * @property {number} [Csecondskillattribute] effect value, percentage
- * @property {number} [Csecondskilllimit] target group
- */
-/**
- * @typedef LLMap
- * @property {AttributeType} attribute
- * @property {number[]} weights
- * @property {number} totalWeight sum(weights)
- * @property {CSkillDataType} friendCSkill
- * @property {number} combo int
- * @property {number} star int
- * @property {number} time float
- * @property {number} perfect int
- * @property {number} starPerfect int
- * @property {number} tapup percentage
- * @property {number} skillup percentage
- * @property {number} songUnit group id
- * @property {number} speed
- * @property {1|2} combo_fever_pattern
- * @property {0|1} over_heal_pattern
- * @property {0|1} perfect_accuracy_pattern
- * @property {0|1} trigger_limit_pattern
- * @property {function(LLScoreDistributionParameter_SaveDataType): void} setDistParam
  */
 var LLMap = (function () {
    var DEFAULT_SONG_MUSE = LLConst.getDefaultSong(LLConst.SONG_GROUP_MUSE, LLConst.SONG_DEFAULT_SET_1);
@@ -3476,22 +3468,27 @@ var LLMap = (function () {
 
    /**
     * @constructor
-    * @param {{song?: LLH.API.SongDataType, songSetting?: LLH.API.SongSettingDataType, friendCSkill?: CSkillDataType}} options 
+    * @param {LLH.Model.LLMap_Options} options 
     */
    function LLMap_cls(options) {
+      /** @type {LLH.Model.LLMap} */
+      var me = this;
+      me.data = {};
+      if (!options) options = {};
       if (options.song) {
-         this.setSong(options.song, options.songSetting);
+         me.setSong(options.song, options.songSetting);
       } else {
-         this.setSong(DEFAULT_SONG_MUSE, DEFAULT_SONG_SETTING);
+         me.setSong(DEFAULT_SONG_MUSE, DEFAULT_SONG_SETTING);
       }
       if (options.friendCSkill) {
-         this.friendCSkill = options.friendCSkill;
+         me.data.friendCSkill = options.friendCSkill;
       } else {
          // no friend cskill
-         this.setFriendCSkill('smile', 'smile', 0, LLConst.GROUP_MUSE, 0);
+         me.setFriendCSkill('smile', 'smile', 0, LLConst.GROUP_MUSE, 0);
       }
-      this.setMapBuff();
+      me.setMapBuff();
    };
+   /** @type {typeof LLH.Model.LLMap} */
    var cls = LLMap_cls;
    var proto = cls.prototype;
    proto.setSong = function (song, songSetting) {
@@ -3499,8 +3496,8 @@ var LLMap = (function () {
          console.error('No song data');
          return;
       }
-      this.attribute = song.attribute || '';
-      this.songUnit = LLConst.getGroupForSongGroup(song.group);
+      this.data.attribute = song.attribute || '';
+      this.data.songUnit = LLConst.getGroupForSongGroup(song.group);
       // when difficulty is not given, use 0 for difficulty-specific data
       this.setSongDifficultyData(songSetting.combo, songSetting.star, songSetting.time);
       this.setWeights(songSetting.positionweight || [0, 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -3521,11 +3518,11 @@ var LLMap = (function () {
          }
          w = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       }
-      this.weights = w;
-      this.totalWeight = total;
+      this.data.weights = w;
+      this.data.totalWeight = total;
    };
    proto.setFriendCSkill = function (addToAttribute, addFromAttribute, percentage, groupLimit, groupPercentage) {
-      this.friendCSkill = {
+      this.data.friendCSkill = {
          'attribute': addToAttribute,
          'Cskillattribute': addFromAttribute,
          'Cskillpercentage': parseInt(percentage || 0),
@@ -3534,26 +3531,32 @@ var LLMap = (function () {
       };
    };
    proto.setSongDifficultyData = function (combo, star, time, perfect, starPerfect) {
-      this.combo = parseInt(combo || 0);
-      this.star = parseInt(star || 0);
-      this.time = parseFloat(time || 0);
+      this.data.combo = parseInt(combo || 0);
+      this.data.star = parseInt(star || 0);
+      this.data.time = parseFloat(time || 0);
       // 95% perfect
-      this.perfect = parseInt(perfect === undefined ? (this.combo * 19 / 20) : perfect || 0);
-      this.starPerfect = parseInt(starPerfect || 0);
+      this.data.perfect = parseInt(perfect === undefined ? (this.data.combo * 19 / 20) : perfect || 0);
+      this.data.starPerfect = parseInt(starPerfect || 0);
    };
    proto.setMapBuff = function (tapup, skillup) {
-      this.tapup = parseFloat(tapup || 0);
-      this.skillup = parseFloat(skillup || 0);
+      this.data.tapup = parseFloat(tapup || 0);
+      this.data.skillup = parseFloat(skillup || 0);
    };
-   /** @param {LLScoreDistributionParameter_SaveDataType} distParam */
    proto.setDistParam = function (distParam) {
-      this.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.combo);
-      this.speed = distParam.speed;
-      this.combo_fever_pattern = distParam.combo_fever_pattern;
-      this.over_heal_pattern = distParam.over_heal_pattern;
-      this.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
-      this.trigger_limit_pattern = distParam.trigger_limit_pattern;
+      this.data.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.data.combo);
+      this.data.speed = distParam.speed;
+      this.data.combo_fever_pattern = distParam.combo_fever_pattern;
+      this.data.over_heal_pattern = distParam.over_heal_pattern;
+      this.data.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
+      this.data.trigger_limit_pattern = distParam.trigger_limit_pattern;
    };
+   proto.saveData = function () {
+      return this.data;
+   };
+   proto.loadData = function (data) {
+      this.data = data;
+   };
+   LLSaveLoadJsonMixin(proto);
    return cls;
 })();
 
@@ -4081,7 +4084,7 @@ var LLSimulateContext = (function() {
 
    /**
     * @constructor
-    * @param {LLMap} mapdata 
+    * @param {LLH.Model.LLMap_SaveData} mapdata 
     * @param {*} members 
     * @param {*} maxTime 
     */
@@ -4752,13 +4755,6 @@ var LLTeam = (function() {
       return armCombinationList;
    };
    var proto = cls.prototype;
-   var getTotalWeight = function (weights) {
-      var totalWeight = 0;
-      for (var i = 0; i < 9; i++) {
-         totalWeight += weights[i];
-      }
-      return totalWeight;
-   };
    proto.calculateAttributeStrength = function (mapdata) {
       var mapcolor = mapdata.attribute;
       //((基本属性+绊)*百分比宝石加成+数值宝石加成)*主唱技能加成
@@ -5184,7 +5180,7 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          var curPowerUps = {};
-         var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': curMember.card.jpname, 'unit': unitInfo[i]};
+         var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': LLConst[curMember.card.jpname], 'unit': unitInfo[i]};
          for (j = 0; j < gemTypes.length; j++) {
             var curGem = new LLSisGem(j, gemOption);
             if (!curGem.isValid()) continue;
@@ -5487,6 +5483,18 @@ var LLTeam = (function() {
          }
       }
       return resultSubMembers;
+   };
+   proto.getResults = function () {
+      /** @type {LLH.Internal.CalculateResultType} */
+      var ret = {};
+      var keys = ['attrStrength', 'finalAttr', 'bonusAttr', 'totalStrength', 'totalAttrStrength', 'totalSkillStrength', 'totalHP',
+         'averageSkillsActiveCount', 'averageSkillsActiveChanceCount', 'averageSkillsActiveNoEffectCount', 'averageSkillsActiveHalfEffectCount',
+         'averageHeal', 'averageAccuracyNCoverage', 'naivePercentile', 'equivalentURLevel'];
+      for (var i = 0; i < keys.length; i++) {
+         var k = keys[i];
+         if (this[k] !== undefined) ret[k] = this[k];
+      }
+      return ret;
    };
    return cls;
 })();
@@ -5867,29 +5875,6 @@ var LLSaveData = (function () {
       });
    };
    return cls;
-})();
-
-var LLSaveLoadJsonMixin = (function () {
-   var loadJson = function(data) {
-      if (typeof(data) != 'string') return;
-      if (data == '') return;
-      try {
-         var json = JSON.parse(data);
-         this.loadData(json);
-      } catch (e) {
-         console.error('Failed to load json:');
-         console.error(e);
-         console.error(data);
-      }
-   };
-   var saveJson = function() {
-      return JSON.stringify(this.saveData());
-   }
-   /** @param {LLH.Mixin.SaveLoadJson} obj */
-   return function(obj) {
-      obj.loadJson = loadJson;
-      obj.saveJson = saveJson;
-   };
 })();
 
 var LLGemStockComponent = (function () {
@@ -6778,15 +6763,7 @@ var LLScoreDistributionParameter = (function () {
       return ret;
    }
 
-   /**
-    * @typedef LLScoreDistributionParameter_Controller
-    * @property {function(): LLScoreDistributionParameter_SaveDataType} getParameters
-    * @property {function(LLScoreDistributionParameter_SaveDataType): void} setParameters
-    */
-   /**
-    * @param {LLScoreDistributionParameter_Controller} controller 
-    * @returns {HTMLElement}
-    */
+   /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller */
    function createDistributionTypeSelector(controller) {
       var detailContainer = createElement('div');
       var detailContainerComponent = 0;
@@ -6863,19 +6840,20 @@ var LLScoreDistributionParameter = (function () {
       };
       return container;
    }
-   // LLScoreDistributionParameter
-   // {
-   //    saveData: function()
-   //    loadData: function(data)
-   //    :LLSaveLoadJsonMixin
-   // }
+
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    */
    function LLScoreDistributionParameter_cls(id) {
       var element = LLUnit.getElement(id);
+      /** @type {LLH.Layout.ScoreDistParam.ScoreDistParamController} */
       var controller = {};
       element.appendChild(createDistributionTypeSelector(controller));
       this.saveData = controller.getParameters;
       this.loadData = controller.setParameters;
    }
+   /** @type {typeof LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
    var cls = LLScoreDistributionParameter_cls;
    var proto = cls.prototype;
    LLSaveLoadJsonMixin(proto);
