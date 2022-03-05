@@ -4,3 +4,4 @@ py updatenewlive.py
 py updateweight2.py 10
 py updatemetadata.py
 py updatesis.py
+py updateaccessory.py

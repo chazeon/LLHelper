@@ -9,6 +9,8 @@ declare namespace LLH {
         type SongGroupIdType = 1|2|3|4;
         /** 4 for muse, 5 for aqours, 60 for niji, 143 for liella */
         type BigGroupIdType = 4 | 5 | 60 | 143;
+        /** 1 for N, 2 for R, 3 for SR, 4 for UR, 5 for SSR */
+        type RarityNumberType = 1 | 2 | 3 | 4 | 5;
 
         /** member unit id */
         type UnitTypeIdType = number;
@@ -19,14 +21,18 @@ declare namespace LLH {
         type MemberIdType = UnitTypeIdType | string;
         /** the number id for card */
         type CardIdType = number;
+        /** the string id for card */
+        type CardIdStringType = string;
         /** the number id or string of number id */
-        type CardIdOrStringType = CardIdType | string;
+        type CardIdOrStringType = CardIdType | CardIdStringType;
         /** string of integer */
         type SongIdType = string;
         /** string of integer */
         type SongSettingIdType = string;
         /** float, length 9 */
         type PositionWeightType = string[] | number[];
+        /** the string id for accessory */
+        type AccessoryIdStringType = string;
 
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
@@ -76,7 +82,7 @@ declare namespace LLH {
             triggertarget?: number[]; // chain target
             effecttarget?: number[]; // attribute up target
         }
-        type CardDictDataType = {[id: string]: CardDataType};
+        type CardDictDataType = {[id: Core.CardIdStringType]: CardDataType};
 
         interface SongSettingDataType {
             liveid: string;
@@ -178,6 +184,35 @@ declare namespace LLH {
             unit_type: UnitTypeDictDataType;
             cskill_groups: Core.MemberTagIdType;
         }
+
+        interface AccessoryLevelDataType {
+            effect_value: number;
+            time: number;
+            rate: number;
+            smile?: number;
+            pure?: number;
+            cool?: number;
+        }
+
+        interface AccessoryDataType {
+            id: Core.AccessoryIdStringType;
+            jpname: string;
+            cnname?: string;
+            rarity: Core.RarityNumberType;
+            smile: number;
+            pure: number;
+            cool: number;
+            is_material: 0 | 1;
+            effect_type: number;
+            default_max_level: number; // usually 4
+            max_level: number; // usually 8
+            icon_asset: string;
+            effect_target?: number;
+            levels?: AccessoryLevelDataType[];
+            unit_id?: Core.CardIdStringType;
+        }
+        type AccessoryDictDataType = {[id: Core.AccessoryIdStringType]: AccessoryDataType};
+
     }
 
     namespace Internal {
@@ -503,6 +538,13 @@ declare namespace LLH {
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
         }
+
+        class LLAccessorySelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
+            constructor(id: Component.HTMLElementOrId);
+
+            // implements LanguageSupport
+            setLanguage(language: Core.LanguageType): void;
+        }
     }
 
     namespace ConstUtil {
@@ -814,6 +856,7 @@ declare namespace LLH {
 declare var LLCardData: LLH.LLData<LLH.API.CardDataType>;
 declare var LLSongData: LLH.LLData<LLH.API.SongDataType>;
 declare var LLSisData: LLH.LLData<LLH.API.SisDataType>;
+declare var LLAccessoryData: LLH.LLData<LLH.API.AccessoryDataType>;
 declare var LLMetaData: LLH.LLSimpleKeyData<LLH.API.MetaDataType>;
 
 declare var LLDepends: LLH.Depends.Utils;

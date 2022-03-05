@@ -397,6 +397,8 @@ var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
 var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
+var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
+   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'effect_type', 'unit_id']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {

@@ -22,6 +22,8 @@ g_llcarddata_mix = LLDataMix([g_llcarddata_cn, g_llcarddata], 'cn-mix', 60)
 g_llmetadata = LLData('metadata.txt', 60)
 # sisdata
 g_llsisdata = LLData('sisdata.json', 60)
+# accessorydata
+g_llaccessorydata = LLData('accessorydata.json', 60)
 
 
 ### activity ###
@@ -131,6 +133,14 @@ def lldata_sisdata():
 @app.route("/lldata/sis/<index>", methods=['GET'])
 def lldata_sisdetail(index):
     return json.dumps(g_llsisdata.queryByIndex(index))
+
+@app.route("/lldata/accessorybrief", methods=['GET'])
+def lldata_sisdata():
+    return json.dumps(g_llaccessorydata.queryByKeys(request.args['keys']))
+
+@app.route("/lldata/accessory/<index>", methods=['GET'])
+def lldata_sisdetail(index):
+    return json.dumps(g_llaccessorydata.queryByIndex(index))
 
 ### data api ###
 @app.route("/llcardapiwiki")
