@@ -398,7 +398,7 @@ var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
-   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'effect_type', 'unit_id']);
+   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -1537,6 +1537,20 @@ var LLConst = (function () {
       return ret;
    };
 
+   /** @type {LLH.ConstUtil.Common} */
+   var CommonUtils = {
+      getRarityString: (function () {
+         var rarityMap = ['', 'N', 'R', 'SR', 'UR', 'SSR'];
+         return function (rarity) {
+            return rarityMap[rarity || 0];
+         };
+      })(),
+      getAttributeColor: function (attribute) {
+         return COLOR_NAME_TO_COLOR[attribute] || 'black';
+      }
+   };
+   ret.Common = CommonUtils;
+
    /** @type {LLH.ConstUtil.Member} */
    var MemberUtils = {
       isMemberInGroup: function (member, group) {
@@ -1552,10 +1566,10 @@ var LLConst = (function () {
          }
          return false;
       },
-      getMemberName: function (member, iscn) {
+      getMemberName: function (member, language) {
          var memberData = mGetMemberData(member);
          if (!memberData) return '<未知成员(' + member + ')>';
-         if (iscn && memberData.cnname) return memberData.cnname;
+         if (language !== undefined && language == KEYS.LANGUAGE_CN && memberData.cnname) return memberData.cnname;
          return memberData.name;
       },
       getBigGroupId: function (memberId) {
@@ -1724,7 +1738,7 @@ var LLConst = (function () {
             desc += gemData.jpname;
          }
          if (gemData.member) {
-            desc += '[' + ret.Member.getMemberName(gemData.member, iscn) + ']';
+            desc += '[' + ret.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP) + ']';
          }
          return desc;
       },
@@ -1736,7 +1750,7 @@ var LLConst = (function () {
             || effect_type == KEYS.SIS_EFFECT_TYPE_COOL);
          // 限制可装备的成员
          if (gemData.member) {
-            var memberName = ret.Member.getMemberName(gemData.member, iscn);
+            var memberName = ret.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP);
             desc += '仅限' + memberName + '装备，';
          }
          if (gemData.grade) {
@@ -2003,6 +2017,69 @@ var LLConst = (function () {
       return ALBUM_DATA[parseInt(album_id)].albumGroupId === parseInt(group_id);
    };
 
+   /** @type {LLH.ConstUtil.Accessory} */
+   var AccessoryUtils = {
+      getAccessoryDescription: function (accessoryData, language) {
+         if (language === undefined) {
+            language = KEYS.LANGUAGE_JP;
+         }
+         var desc = accessoryData.id;
+         while (desc.length < 3) desc = '0' + desc;
+         var rarityStr = ret.Common.getRarityString(accessoryData.rarity);
+         var name = accessoryData.jpname;
+         if (language == KEYS.LANGUAGE_CN && accessoryData.cnname) name = accessoryData.cnname;
+         var type = '通用';
+         if (accessoryData.is_material) {
+            type = '材料';
+         } else if (accessoryData.unit_id) {
+            type = '个人';
+            if (accessoryData.card && accessoryData.card.typeid) {
+               type = ret.Member.getMemberName(accessoryData.card.typeid, language);
+            }
+         }
+         return desc + ' [' + rarityStr + '][' + type + '] ' + name;
+      },
+      postProcessAccessoryData: function (accessoryData, cardData) {
+         for (var i in accessoryData) {
+            /** @type {LLH.Internal.ProcessedAccessoryDataType} */
+            var curAccessory = accessoryData[i];
+            if (!curAccessory.unit_id) continue
+            var cardId = curAccessory.unit_id;
+            if (!cardData[cardId]) {
+               console.warn('Not found card data for ' + cardId + ' when processing accessory', curAccessory);
+               continue;
+            }
+            curAccessory.card = cardData[cardId];
+         }
+         return accessoryData;
+      },
+      getAccessoryMainAttribute: function (accessory) {
+         var maxValue = accessory.smile;
+         var mainAttribute = 'smile';
+         var maxCount = 1;
+         if (accessory.pure > maxValue) {
+            maxValue = accessory.pure;
+            mainAttribute = 'pure';
+            maxCount = 1;
+         } else if (accessory.pure == maxValue) {
+            maxCount += 1;
+         }
+         if (accessory.cool > maxValue) {
+            maxValue = accessory.cool;
+            mainAttribute = 'cool';
+            maxCount = 1;
+         } else if (accessory.cool == maxValue) {
+            maxCount += 1;
+         }
+         if (maxCount == 1) {
+            return mainAttribute;
+         } else {
+            return '';
+         }
+      }
+   };
+   ret.Accessory = AccessoryUtils;
+
    var CSKILL_GROUPS = [];
    ret.getCSkillGroups = function () {
       mCheckInited('cskill_groups');
@@ -2026,10 +2103,6 @@ var LLConst = (function () {
          CSKILL_GROUPS = metadata['cskill_groups'];
          metaDataInited['cskill_groups'] = 1;
       }
-   };
-
-   ret.getAttributeColor = function (attribute) {
-      return COLOR_NAME_TO_COLOR[attribute] || 'black';
    };
 
    var SONG_GROUP_NAME = {};
@@ -2131,7 +2204,7 @@ var LLConst = (function () {
       if (isJp) {
          desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
       } else {
-        desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId, true) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
+         desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
       }
       return desc;
    };
@@ -2903,7 +2976,7 @@ var LLCardSelectorComponent = (function() {
          var curTypeId = (curCard.typeid ? curCard.typeid : -1);
          var cnName = LLConst.getCardDescription(curCard, false);
          var jpName = LLConst.getCardDescription(curCard, true);
-         var color = LLConst.getAttributeColor(curCard.attribute);
+         var color = LLConst.Common.getAttributeColor(curCard.attribute);
          cardOptionsCN.push({'value': index, 'text': cnName, 'color': color});
          cardOptionsJP.push({'value': index, 'text': jpName, 'color': color});
 
@@ -2964,7 +3037,7 @@ var LLCardSelectorComponent = (function() {
       for (i = 0; i < normalizedTypeIds.length; i++) {
          var curTypeId = normalizedTypeIds[i];
          var jpName = LLConst.Member.getMemberName(curTypeId);
-         var cnName = LLConst.Member.getMemberName(curTypeId, true);
+         var cnName = LLConst.Member.getMemberName(curTypeId, LLConst.LANGUAGE_JP);
          var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
          charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
          charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
@@ -3308,7 +3381,7 @@ var LLSongSelectorComponent = (function() {
          fullname += ' ★ ' + curSongSetting.stardifficulty + ' [';
          var cnName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 1) + (curSongSetting.isac ? ' 街机' : '') + (curSongSetting.isswing ? ' 滑键' : '') + '][' + curSongSetting.combo + ' 连击] ' + curSong.name;
          var jpName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 0) + (curSongSetting.isac ? ' Arcade' : '') + (curSongSetting.isswing ? ' Swing' : '') + '][' + curSongSetting.combo + ' COMBO] ' + curSong.jpname;
-         var color = LLConst.getAttributeColor(curSong.attribute);
+         var color = LLConst.Common.getAttributeColor(curSong.attribute);
          songSettingOptionsCN.push({'value': liveId, 'text': cnName, 'color': color});
          songSettingOptionsJP.push({'value': liveId, 'text': jpName, 'color': color});
 
@@ -3327,7 +3400,7 @@ var LLSongSelectorComponent = (function() {
       for (i = 0; i < songKeys.length; i++) {
          var songId = songKeys[i];
          var curSong = songs[songId];
-         var color = LLConst.getAttributeColor(curSong.attribute);
+         var color = LLConst.Common.getAttributeColor(curSong.attribute);
          songOptionsCN.push({'value': songId, 'text': curSong.name, 'color': color});
          songOptionsJP.push({'value': songId, 'text': curSong.jpname, 'color': color});
       }
@@ -5926,7 +5999,7 @@ var LLGemStockComponent = (function () {
       } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
          return LLConst.Group.getGroupName(parseInt(curKey));
       } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
-         return LLConst.Member.getMemberName(parseInt(curKey), true);
+         return LLConst.Member.getMemberName(parseInt(curKey), LLConst.LANGUAGE_CN);
       } else if (curSubType == STOCK_SUB_TYPE_UNIT) {
          return LLConst.Group.getGroupName(parseInt(curKey));
       }
@@ -7216,7 +7289,7 @@ var LLTeamComponent = (function () {
       };
       var updateColor = function () {
          for (var i = 0; i < 8; i++) {
-            dots[i].style['background-color'] = LLConst.getAttributeColor(myAttr);
+            dots[i].style['background-color'] = LLConst.Common.getAttributeColor(myAttr);
          }
       };
       controller.resetMetaId = function (id) {
@@ -7596,7 +7669,7 @@ var LLTeamComponent = (function () {
          cardsBrief[i] = cardbrief;
          if (cardbrief) {
             controllers.info.cells[i].set(cardbrief.attribute);
-            controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, true));
+            controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, LLConst.LANGUAGE_CN));
             controllers.skill_trigger.cells[i].set(LLConst.getSkillTriggerText(cardbrief.triggertype));
             controllers.skill_effect.cells[i].set(LLConst.getSkillEffectText(cardbrief.skilleffect));
             if (member.hp === undefined) {
@@ -8408,6 +8481,188 @@ var LLLanguageComponent = (function() {
    };
    proto.deserialize = function (v) {
       this.set(v);
+   };
+   return cls;
+})();
+
+var LLAccessorySelectorComponent = (function () {
+   var createElement = LLUnit.createElement;
+   var updateSubElements = LLUnit.updateSubElements;
+   var createFormInlineGroup = LLUnit.createFormInlineGroup;
+   var createFormSelect = LLUnit.createFormSelect;
+
+   var SEL_ID_ACCESSORY_CHOICE = 'accessory_choice';
+   var SEL_ID_ACCESSORY_RARITY = 'accessory_rarity';
+   var MEM_ID_LANGUAGE = 'language';
+
+   /** @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller */
+   function renderAccessoryDetail(controller) {
+      var container = createElement('div');
+      controller.set = function (data, language) {
+         if (!data) {
+            container.innerHTML = '';
+         } else {
+            var levelRows = [
+               createElement('tr', undefined, [
+                  createElement('th', undefined, '等级'),
+                  createElement('th', undefined, 'smile'),
+                  createElement('th', undefined, 'pure'),
+                  createElement('th', undefined, 'cool'),
+               ])
+            ];
+            for (var i = 0; i < data.levels.length; i++) {
+               var curLevel = data.levels[i];
+               var smile = curLevel.smile !== undefined ? curLevel.smile : data.smile;
+               var pure = curLevel.pure !== undefined ? curLevel.pure : data.pure;
+               var cool = curLevel.cool !== undefined ? curLevel.cool : data.cool;
+               levelRows.push(createElement('tr', undefined, [
+                  createElement('td', undefined, curLevel.level + ''),
+                  createElement('td', {'style': {'color': 'red'}}, smile + ''),
+                  createElement('td', {'style': {'color': 'green'}}, pure + ''),
+                  createElement('td', {'style': {'color': 'blue'}}, cool + '')
+               ]));
+            }
+            updateSubElements(container, [
+               LLConst.Accessory.getAccessoryDescription(data, language),
+               createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
+                  createElement('tbody', undefined, levelRows)
+               )
+            ], true);
+         }
+      };
+      return container;
+   }
+
+   /**
+    * @constructor
+    * @param {string | HTMLElement} id 
+    * @param {LLH.Selector.LLAccessorySelectorComponent_Options} options
+    * @this {LLH.Selector.LLAccessorySelectorComponent}
+    */
+   function LLAccessorySelectorComponent_cls(id, options) {
+      LLFiltersComponent.call(this);
+      var container = LLUnit.getElement(id);
+      var me = this;
+      if (!options) options = {};
+      this.accessoryData = undefined;
+
+      var accessoryChoice = createFormSelect();
+      var accessoryRarity = createFormSelect();
+      this.addFilterable(SEL_ID_ACCESSORY_CHOICE, new LLSelectComponent(accessoryChoice), function (opt) {
+         if (opt.value && me.accessoryData && me.accessoryData[opt.value]) {
+            return me.accessoryData[opt.value];
+         } else {
+            return undefined;
+         }
+      });
+      this.addFilterable(SEL_ID_ACCESSORY_RARITY, new LLSelectComponent(accessoryRarity));
+      this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+      this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+      this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
+
+      updateSubElements(container, [
+         createFormInlineGroup('筛选条件：', [accessoryRarity]),
+         createFormInlineGroup('饰品：', accessoryChoice)
+      ], true);
+
+      var detailController = {};
+      updateSubElements(container, [
+         createElement('h3', undefined, '详细信息'),
+         renderAccessoryDetail(detailController)
+      ], false);
+
+      /**
+       * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller
+       * @param {LLH.Core.AccessoryIdStringType} accessoryId
+       * @param {LLH.Core.LanguageType} language
+       */
+      var setDetail = function (controller, accessoryId, language) {
+         if (controller && controller.set) {
+            var curAccessory = undefined;
+            if (me.accessoryData && me.accessoryData[accessoryId]) {
+               curAccessory = me.accessoryData[accessoryId]
+            }
+            if (accessoryId) {
+               LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
+                  if (curAccessory && curAccessory.card) {
+                     accessory.card = curAccessory.card;
+                  }
+                  controller.set(accessory, language);
+               });
+            } else {
+               controller.set(curAccessory, language);
+            }
+         }
+      };
+
+      this.onValueChange = function (name, newValue) {
+         var curId, curLanguage, updateDetail = false;
+         if (name == SEL_ID_ACCESSORY_CHOICE) {
+            curId = newValue;
+            curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+            updateDetail = true;
+         } else if (name == MEM_ID_LANGUAGE) {
+            curId = me.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+            curLanguage = newValue;
+            updateDetail = true;
+         }
+         if (updateDetail) {
+            setDetail(detailController, curId, curLanguage);
+         }
+      };
+
+      this.setAccessoryData(options.accessoryData, options.cardData);
+   }
+
+   /** @type {typeof LLH.Selector.LLAccessorySelectorComponent} */
+   var cls = LLAccessorySelectorComponent_cls;
+   LLClassUtil.setSuper(cls, LLFiltersComponent);
+   var proto = cls.prototype;
+
+   /** @this {LLH.Selector.LLAccessorySelectorComponent} */
+   proto.setAccessoryData = function (accessoryData, cardData) {
+      if (accessoryData && cardData) {
+         accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
+      }
+
+      var i;
+
+      this.setFreezed(true);
+      this.accessoryData = accessoryData;
+
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var accessoryOptions = [{'value': '', 'text': '选择饰品'}];
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var accessoryOptionsJp = [{'value': '', 'text': '选择饰品'}];
+      var accessoryDataKeys = Object.keys(accessoryData).sort((a, b) => parseInt(a) - parseInt(b));
+      for (i = 0; i < accessoryDataKeys.length; i++) {
+         var curKey = accessoryDataKeys[i];
+         var curAccessoryData = accessoryData[curKey];
+         var curColor = LLConst.Common.getAttributeColor(LLConst.Accessory.getAccessoryMainAttribute(curAccessoryData));
+         accessoryOptions.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_CN), 'color': curColor});
+         accessoryOptionsJp.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_JP), 'color': curColor});
+      }
+
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var rarityOptions = [
+         {'value': '', 'text': '稀有度'},
+         {'value': '1', 'text': 'N'},
+         {'value': '2', 'text': 'R'},
+         {'value': '3', 'text': 'SR'},
+         {'value': '5', 'text': 'SSR'},
+         {'value': '4', 'text': 'UR'}
+      ];
+      this.setFilterOptions(SEL_ID_ACCESSORY_RARITY, rarityOptions);
+      this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, [accessoryOptions, accessoryOptionsJp]);
+
+      this.setFreezed(false);
+      this.handleFilters();
+   };
+   proto.getAccessoryId = function () {
+      return this.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+   };
+   proto.setLanguage = function (language) {
+      this.getComponent(MEM_ID_LANGUAGE).set(language);
    };
    return cls;
 })();

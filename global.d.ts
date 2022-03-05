@@ -11,6 +11,7 @@ declare namespace LLH {
         type BigGroupIdType = 4 | 5 | 60 | 143;
         /** 1 for N, 2 for R, 3 for SR, 4 for UR, 5 for SSR */
         type RarityNumberType = 1 | 2 | 3 | 4 | 5;
+        type RarityStringType = 'N' | 'R' | 'SR' | 'SSR' | 'UR';
 
         /** member unit id */
         type UnitTypeIdType = number;
@@ -47,7 +48,7 @@ declare namespace LLH {
         }
         interface CardDataType {
             id: Core.CardIdType;
-            rarity: 'N'|'R'|'SR'|'SSR'|'UR';
+            rarity: Core.RarityStringType;
             attribute: Core.AttributeAllType;
             typeid: Core.UnitTypeIdType;
             jpeponym: string;
@@ -186,6 +187,7 @@ declare namespace LLH {
         }
 
         interface AccessoryLevelDataType {
+            level: number;
             effect_value: number;
             time: number;
             rate: number;
@@ -244,6 +246,11 @@ declare namespace LLH {
             song: Core.SongIdType;
         }
         type ProcessedSongSettingDictDataType = {[id: string]: ProcessedSongSettingDataType};
+
+        interface ProcessedAccessoryDataType extends API.AccessoryDataType {
+            card?: API.CardDataType;
+        }
+        type ProcessedAccessoryDictDataType = {[id: Core.AccessoryIdStringType]: ProcessedAccessoryDataType};
 
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
@@ -539,8 +546,21 @@ declare namespace LLH {
             setLanguage(language: Core.LanguageType): void;
         }
 
+        interface LLAccessorySelectorComponent_Options {
+            accessoryData?: API.AccessoryDictDataType;
+            cardData?: API.CardDictDataType;
+        }
+        interface LLAccessorySelectorComponent_DetailController {
+            set(data: Internal.ProcessedAccessoryDataType, language: Core.LanguageType): void;
+        }
+
         class LLAccessorySelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
-            constructor(id: Component.HTMLElementOrId);
+            constructor(id: Component.HTMLElementOrId, options: LLAccessorySelectorComponent_Options);
+
+            accessoryData?: Internal.ProcessedAccessoryDictDataType;
+
+            setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
+            getAccessoryId(): Core.AccessoryIdStringType;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -551,7 +571,7 @@ declare namespace LLH {
         interface Member {
             /** group can be the id in number or string form */
             isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
-            getMemberName(memberId: Core.MemberIdType, iscn?: boolean): string;
+            getMemberName(memberId: Core.MemberIdType, language?: Core.LanguageType): string;
             getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
             isNonetTeam(members: TODO.LLMember[]): Core.BigGroupIdType;
         }
@@ -581,6 +601,16 @@ declare namespace LLH {
             getAlbumGroupByAlbumId(albumId: Core.AlbumIdType): Internal.ProcessedAlbumGroupType;
             getAlbumGroups(): Internal.ProcessedAlbumGroupType[];
             isAlbumInAlbumGroup(albumId: Core.AlbumIdType, albumGroupId: Internal.AlbumGroupIdType): boolean;
+        }
+        interface Accessory {
+            postProcessAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): Internal.ProcessedAccessoryDictDataType;
+            
+            getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType, language?: Core.LanguageType): string;
+            getAccessoryMainAttribute(accessoryData: API.AccessoryDataType): Core.AttributeType;
+        }
+        interface Common {
+            getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType;
+            getAttributeColor(attribute: Core.AttributeType): string;
         }
     }
 
@@ -809,7 +839,9 @@ declare namespace LLH {
         Member: ConstUtil.Member;
         Group: ConstUtil.Group;
         Gem: ConstUtil.Gem;
+        Accessory: ConstUtil.Accessory;
         Album: ConstUtil.Album;
+        Common: ConstUtil.Common;
         // TODO
     }
 

@@ -49,9 +49,18 @@ def main():
         if cnname is not None:
             curItem['cnname'] = cnname
         curItem['rarity'] = accessoryRow[2]
-        curItem['smile'] = accessoryRow[3]
-        curItem['pure'] = accessoryRow[4]
-        curItem['cool'] = accessoryRow[5]
+        if not accessoryRow[3]:
+            curItem['smile'] = 0
+        else:
+            curItem['smile'] = accessoryRow[3]
+        if not accessoryRow[4]:
+            curItem['pure'] = 0
+        else:
+            curItem['pure'] = accessoryRow[4]
+        if not accessoryRow[5]:
+            curItem['cool'] = 0
+        else:
+            curItem['cool'] = accessoryRow[5]
         curItem['is_material'] = accessoryRow[6]
         curItem['effect_type'] = accessoryRow[7]
         curItem['default_max_level'] = accessoryRow[8]
@@ -84,9 +93,11 @@ def main():
                 curItem['levels'] = list()
             levels: list = curItem['levels']
             rowLevel = accessoryRow[1]
-            while rowLevel >= len(levels):
+            levelIndex = rowLevel - 1
+            while levelIndex >= len(levels):
                 levels.append({})
-            curLevel = levels[rowLevel]
+            curLevel = levels[levelIndex]
+            curLevel['level'] = rowLevel
             curLevel['effect_value'] = accessoryRow[2]
             curLevel['time'] = accessoryRow[3]
             curLevel['rate'] = accessoryRow[4]
@@ -100,8 +111,9 @@ def main():
             if rowCool > 0:
                 curLevel['cool'] = curItem['cool'] - rowCool
 
-    accessorySpecialCols = ['accessory_id', 'unit_id']
-    for accessoryRow in queryTableCols(unitConn, 'accessory_special_m', accessorySpecialCols):
+    for accessoryRow in unitConn.execute('''SELECT accessory_special_m.accessory_id, unit_m.unit_number \
+        FROM accessory_special_m \
+        LEFT JOIN unit_m ON accessory_special_m.unit_id = unit_m.unit_id;'''):
         accessoryId = str(accessoryRow[0])
         if accessoryId in accessoryData:
             curItem = accessoryData[accessoryId]

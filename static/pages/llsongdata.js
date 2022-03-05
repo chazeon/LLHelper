@@ -80,7 +80,7 @@ function renderPage(loadDeferred) {
           document.getElementById(songSettingInfoList[i]).innerHTML = (d === undefined ? '?' : d);
        }
        for (var i in coloredList) {
-          document.getElementById(coloredList[i]).style.color = LLConst.getAttributeColor(curSong.attribute);
+          document.getElementById(coloredList[i]).style.color = LLConst.Common.getAttributeColor(curSong.attribute);
        }
  
        if (curSong['jpname'] == curSong['name']){
