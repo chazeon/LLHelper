@@ -1950,6 +1950,123 @@ var LLConst = (function () {
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_LEVEL_UP] = '技能等级';
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_ATTRIBUTE_UP] = '属性提升';
 
+   /** @type {LLH.ConstUtil.Skill} */
+   var SkillUtils = {
+      getTriggerTargetDescription: function (targets) {
+         if (!targets) return '(数据缺失)';
+         var desc = '';
+         for (var i = 0; i < targets.length; i++) {
+            desc += ret.Group.getGroupName(parseInt(targets[i]));
+         }
+         return desc;
+      },
+      getTriggerTargetMemberDescription: function (targets) {
+         if (!targets) return '(数据缺失)';
+         var desc = '';
+         for (var i = 0; i < targets.length; i++) {
+            if (i > 0) desc += '、';
+            desc += ret.Member.getMemberName(targets[i], KEYS.LANGUAGE_CN);
+         }
+         return desc;
+      },
+      getTriggerLimitDescription: function (triggerLimit) {
+         var desc = '';
+         if (triggerLimit) desc = '（最多' + desc + '次）';
+         return desc;
+      },
+      getTriggerDescription: function (triggerType, triggerValue, triggerTarget) {
+         var desc = '(未知条件)';
+         if (triggerType == KEYS.SKILL_TRIGGER_TIME)
+           desc = '每' + triggerValue + '秒';
+         else if (triggerType == KEYS.SKILL_TRIGGER_NOTE)
+           desc = '每' + triggerValue + '个图标';
+         else if (triggerType == KEYS.SKILL_TRIGGER_COMBO)
+           desc = '每达成' + triggerValue + '次连击';
+         else if (triggerType == KEYS.SKILL_TRIGGER_SCORE)
+           desc = '每达成' + triggerValue + '分';
+         else if (triggerType == KEYS.SKILL_TRIGGER_PERFECT)
+           desc = '每获得' + triggerValue + '个PERFECT';
+         else if (triggerType == KEYS.SKILL_TRIGGER_STAR_PERFECT)
+           desc = '每获得' + triggerValue + '个星星图标的PERFECT';
+         else if (triggerType == KEYS.SKILL_TRIGGER_MEMBERS)
+           desc = '自身以外的' + SkillUtils.getTriggerTargetDescription(triggerTarget) + '的成员的特技全部发动时';
+         return desc;
+      },
+      getEffectDescription: function (effectType, effectValue, dischargeTime, effectTarget, effectTargetMember) {
+         var desc = '(未知效果)';
+         var targetDesc = '(数据缺失)';
+         if (effectTarget) {
+            targetDesc = SkillUtils.getTriggerTargetDescription(effectTarget);
+         } else if (effectTargetMember) {
+            targetDesc = SkillUtils.getTriggerTargetMemberDescription(effectTargetMember);
+         }
+         if (effectType == KEYS.SKILL_EFFECT_ACCURACY_SMALL)
+            desc = '稍微增强判定' + dischargeTime + '秒';
+         else if (effectType == KEYS.SKILL_EFFECT_ACCURACY_NORMAL)
+            desc = '增强判定' + dischargeTime + '秒';
+         else if (effectType == KEYS.SKILL_EFFECT_HEAL)
+            desc = '恢复' + effectValue + '点体力';
+         else if (effectType == KEYS.SKILL_EFFECT_SCORE)
+            desc = '提升分数' + effectValue + '点';
+         else if (effectType == KEYS.SKILL_EFFECT_POSSIBILITY_UP)
+            desc = dischargeTime + '秒内其它的特技发动概率提高到' + effectValue + '倍';
+         else if (effectType == KEYS.SKILL_EFFECT_REPEAT)
+            desc = '发动上一个发动的非repeat的特技';
+         else if (effectType == KEYS.SKILL_EFFECT_PERFECT_SCORE_UP)
+            desc = dischargeTime + '秒内的PERFECT提升' + effectValue + '分';
+         else if (effectType == KEYS.SKILL_EFFECT_COMBO_FEVER)
+            desc = dischargeTime + '秒内的点击得分根据combo数提升' + effectValue + '~' + (effectValue*10) + '分';
+         else if (effectType == KEYS.SKILL_EFFECT_SYNC) {
+            if (effectTarget || effectTargetMember) targetDesc += '的随机一位成员';
+            else targetDesc = '某位成员';
+            desc = dischargeTime + '秒内自身的属性P变为与' + targetDesc + '的属性P一致';
+         } else if (effectType == KEYS.SKILL_EFFECT_LEVEL_UP)
+            desc = '使下一个发动的技能等级提升' + effectValue + '级';
+         else if (effectType == KEYS.SKILL_EFFECT_ATTRIBUTE_UP) {
+            if (effectTarget) targetDesc += '的成员'
+            desc = dischargeTime + '秒内' + targetDesc + '的属性P提高到' + effectValue + '倍';
+         }
+         return desc;
+      },
+      isStrengthSupported: function (card) {
+         if (card && card.skill && (card.skilleffect > 11 || card.triggertype > 12)) return false;
+         return true;
+      },
+      getCardSkillDescription: function (card, level) {
+         if (!card.skill) return '无';
+         if (card.skilleffect == 0) return '获得特技经验';
+         var level_detail = card.skilldetail[level];
+         var effect_type = card.skilleffect;
+         var effect_value = level_detail.score;
+         var discharge_time = level_detail.time;
+         if (discharge_time === undefined) {
+            if (effect_type == 4 || effect_type == 5) {
+               discharge_time = effect_value;
+               effect_value = 0;
+            } else {
+               discharge_time = '(数据缺失)';
+            }
+         }
+         var trigger_text = SkillUtils.getTriggerDescription(card.triggertype, level_detail.require, card.triggertarget);
+         var effect_text = SkillUtils.getEffectDescription(effect_type, effect_value, discharge_time, card.effecttarget);
+         var rate_text = '就有' + level_detail.possibility + '%的概率';
+         var limit_text = SkillUtils.getTriggerLimitDescription(level_detail.limit);
+         var supporting_text = (SkillUtils.isStrengthSupported(card) ? '' : '(该技能暂不支持理论强度计算，仅支持模拟)');
+
+         return trigger_text + rate_text + effect_text + limit_text + supporting_text;
+      },
+      getAccessorySkillDescription: function (accessory, level) {
+         var level_detail = accessory.levels[level];
+         var trigger_text = '特技未发动时，就有' + level_detail.rate + '%的概率';
+         var effect_text = SkillUtils.getEffectDescription(accessory.effect_type, level_detail.effect_value, level_detail.time, undefined, accessory.effect_target);
+         return trigger_text + effect_text;
+      },
+      getEffectBrief: function (effectType) {
+         if (!effectType) return '无';
+         return SKILL_EFFECT_TEXT[effectType] || '未知';
+      }
+   };
+   ret.Skill = SkillUtils;
    ret.getSkillTriggerText = function(skill_trigger) {
       if (!skill_trigger) return '无';
       var t = SKILL_TRIGGER_TEXT[skill_trigger];
@@ -1961,10 +2078,6 @@ var LLConst = (function () {
       var t = SKILL_TRIGGER_TEXT[skill_trigger];
       if (!t) return '';
       return t.unit;
-   };
-   ret.getSkillEffectText = function(skill_effect) {
-      if (!skill_effect) return '无';
-      return SKILL_EFFECT_TEXT[skill_effect] || '未知';
    };
 
    var DEFAULT_MAX_SLOT = {'UR': 8, 'SSR': 6, 'SR': 4, 'R': 2, 'N': 1};
@@ -2028,30 +2141,33 @@ var LLConst = (function () {
          var rarityStr = ret.Common.getRarityString(accessoryData.rarity);
          var name = accessoryData.jpname;
          if (language == KEYS.LANGUAGE_CN && accessoryData.cnname) name = accessoryData.cnname;
-         var type = '通用';
-         if (accessoryData.is_material) {
-            type = '材料';
-         } else if (accessoryData.unit_id) {
-            type = '个人';
-            if (accessoryData.card && accessoryData.card.typeid) {
-               type = ret.Member.getMemberName(accessoryData.card.typeid, language);
-            }
+         var type = AccessoryUtils.getAccessoryType(accessoryData);
+         if (accessoryData.unit_id && accessoryData.card && accessoryData.card.typeid) {
+            type = ret.Member.getMemberName(accessoryData.card.typeid, language);
          }
          return desc + ' [' + rarityStr + '][' + type + '] ' + name;
       },
       postProcessAccessoryData: function (accessoryData, cardData) {
          for (var i in accessoryData) {
-            /** @type {LLH.Internal.ProcessedAccessoryDataType} */
-            var curAccessory = accessoryData[i];
-            if (!curAccessory.unit_id) continue
-            var cardId = curAccessory.unit_id;
-            if (!cardData[cardId]) {
-               console.warn('Not found card data for ' + cardId + ' when processing accessory', curAccessory);
-               continue;
-            }
-            curAccessory.card = cardData[cardId];
+            AccessoryUtils.postProcessSingleAccessoryData(accessoryData[i], cardData);
          }
          return accessoryData;
+      },
+      postProcessSingleAccessoryData: function (accessoryData, cardData) {
+         /** @type {LLH.Internal.ProcessedAccessoryDataType} */
+         var retAccessory = accessoryData;
+         if (retAccessory.unit_id) {
+            var cardId = retAccessory.unit_id;
+            if (cardData[cardId]) {
+               retAccessory.card = cardData[cardId];
+               retAccessory.unit_type_id = retAccessory.card.typeid;
+            } else {
+               console.warn('Not found card data for ' + cardId + ' when processing accessory', retAccessory);
+            }
+         }
+         retAccessory.main_attribute = AccessoryUtils.getAccessoryMainAttribute(retAccessory);
+         retAccessory.type = AccessoryUtils.getAccessoryType(retAccessory);
+         return retAccessory;
       },
       getAccessoryMainAttribute: function (accessory) {
          var maxValue = accessory.smile;
@@ -2075,6 +2191,15 @@ var LLConst = (function () {
             return mainAttribute;
          } else {
             return '';
+         }
+      },
+      getAccessoryType: function (accessory) {
+         if (accessory.is_material) {
+            return '材料';
+         } else if (accessory.unit_id) {
+            return '个人';
+         } else {
+            return '通用';
          }
       }
    };
@@ -2378,83 +2503,6 @@ var LLUnit = {
       }
    },
 
-   getSkillText: function (effect_type, trigger_type, effect_value, discharge_time, trigger_value, activation_rate, trigger_target, effect_target, trigger_limit) {
-      var trigger_text = '(未知条件)';
-      if (trigger_type == LLConst.SKILL_TRIGGER_TIME)
-        trigger_text = '每' + trigger_value + '秒';
-      else if (trigger_type == LLConst.SKILL_TRIGGER_NOTE)
-        trigger_text = '每' + trigger_value + '个图标';
-      else if (trigger_type == LLConst.SKILL_TRIGGER_COMBO)
-        trigger_text = '每达成' + trigger_value + '次连击';
-      else if (trigger_type == LLConst.SKILL_TRIGGER_SCORE)
-        trigger_text = '每达成' + trigger_value + '分';
-      else if (trigger_type == LLConst.SKILL_TRIGGER_PERFECT)
-        trigger_text = '每获得' + trigger_value + '个PERFECT';
-      else if (trigger_type == LLConst.SKILL_TRIGGER_STAR_PERFECT)
-        trigger_text = '每获得' + trigger_value + '个星星图标的PERFECT';
-      else if (trigger_type == LLConst.SKILL_TRIGGER_MEMBERS)
-        trigger_text = '自身以外的' + trigger_target + '的成员的特技全部发动时';
-      var rate_text = '就有' + activation_rate + '%的概率';
-      var effect_text = '(未知效果)';
-      if (effect_type == LLConst.SKILL_EFFECT_ACCURACY_SMALL)
-        effect_text = '稍微增强判定' + discharge_time + '秒';
-      else if (effect_type == LLConst.SKILL_EFFECT_ACCURACY_NORMAL)
-        effect_text = '增强判定' + discharge_time + '秒';
-      else if (effect_type == LLConst.SKILL_EFFECT_HEAL)
-        effect_text = '恢复' + effect_value + '点体力';
-      else if (effect_type == LLConst.SKILL_EFFECT_SCORE)
-        effect_text = '提升分数' + effect_value + '点';
-      else if (effect_type == LLConst.SKILL_EFFECT_POSSIBILITY_UP)
-        effect_text = discharge_time + '秒内其它的特技发动概率提高到' + effect_value + '倍';
-      else if (effect_type == LLConst.SKILL_EFFECT_REPEAT)
-        effect_text = '发动上一个发动的非repeat的特技';
-      else if (effect_type == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP)
-        effect_text = discharge_time + '秒内的PERFECT提升' + effect_value + '分';
-      else if (effect_type == LLConst.SKILL_EFFECT_COMBO_FEVER)
-        effect_text = discharge_time + '秒内的点击得分根据combo数提升' + effect_value + '~' + (effect_value*10) + '分';
-      else if (effect_type == LLConst.SKILL_EFFECT_SYNC)
-        effect_text = discharge_time + '秒内自身的属性P变为与' + effect_target + '的随机一位成员的属性P一致';
-      else if (effect_type == LLConst.SKILL_EFFECT_LEVEL_UP)
-        effect_text = '使下一个发动的技能等级提升' + effect_value + '级';
-      else if (effect_type == LLConst.SKILL_EFFECT_ATTRIBUTE_UP)
-        effect_text = discharge_time + '秒内' + effect_target + '的成员的属性P提高到' + effect_value + '倍';
-      var limit_text = '';
-      if (trigger_limit) 
-         limit_text = '（最多' + trigger_limit + '次）';
-      return trigger_text + rate_text + effect_text + limit_text;
-   },
-
-   getTriggerTarget: function (targets) {
-      if (!targets) return '(数据缺失)';
-      var ret = '';
-      for (var i = 0; i < targets.length; i++) {
-         ret += LLConst.Group.getGroupName(parseInt(targets[i]));
-      }
-      return ret;
-   },
-
-   getCardSkillText: function (card, level) {
-      if (!card.skill) return '无';
-      if (card.skilleffect == 0) return '获得特技经验';
-      var level_detail = card.skilldetail[level];
-      var effect_type = card.skilleffect;
-      var effect_value = level_detail.score;
-      var discharge_time = level_detail.time;
-      if (discharge_time === undefined) {
-         if (effect_type == 4 || effect_type == 5) {
-            discharge_time = effect_value;
-            effect_value = 0;
-         } else {
-            discharge_time = '(数据缺失)';
-         }
-      }
-      var trigger_target = LLUnit.getTriggerTarget(card.triggertarget);
-      var effect_target = LLUnit.getTriggerTarget(card.effecttarget);
-      var text = LLUnit.getSkillText(effect_type, card.triggertype, effect_value, discharge_time, level_detail.require, level_detail.possibility, trigger_target, effect_target, level_detail.limit);
-      if (!LLUnit.isStrengthSupported(card)) text = text + '(该技能暂不支持理论强度计算，仅支持模拟)';
-      return text;
-   },
-
    getCardCSkillText: function (card, withbr) {
       if (!card.Cskill) return '无';
       var nameSuffix = '<Unknown>';
@@ -2483,11 +2531,6 @@ var LLUnit = {
          secondEffect = (withbr ? '<br/>' : '+') + LLConst.Group.getGroupName(parseInt(card.Csecondskilllimit)) + '的社员进一步将' + card.attribute + '属性提升' + card.Csecondskillattribute + '%';
       }
       return card.attribute + nameSuffix + '：' + (withbr ? '<br/>' : '') + majorEffect + secondEffect;
-   },
-
-   isStrengthSupported: function (card) {
-      if (card && card.skill && (card.skilleffect > 11 || card.triggertype > 12)) return false;
-      return true;
    },
 
    /**
@@ -2803,7 +2846,7 @@ var LLSkillContainer = (function() {
          this.getComponent('container').hide();
       } else {
          this.getComponent('container').show();
-         this.getComponent('text').set(LLUnit.getCardSkillText(this.cardData, this.skillLevel));
+         this.getComponent('text').set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
          this.getComponent('level').set(this.skillLevel+1);
       }
    };
@@ -2939,7 +2982,7 @@ var LLCardSelectorComponent = (function() {
       return {'value': triggerId, 'text': LLConst.getSkillTriggerText(parseInt(triggerId))};
    };
    var makeEffectTypeOption = function (effectId) {
-      return {'value': effectId, 'text': LLConst.getSkillEffectText(parseInt(effectId))};
+      return {'value': effectId, 'text': LLConst.Skill.getEffectBrief(parseInt(effectId))};
    };
 
    var proto = cls.prototype;
@@ -7671,7 +7714,7 @@ var LLTeamComponent = (function () {
             controllers.info.cells[i].set(cardbrief.attribute);
             controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, LLConst.LANGUAGE_CN));
             controllers.skill_trigger.cells[i].set(LLConst.getSkillTriggerText(cardbrief.triggertype));
-            controllers.skill_effect.cells[i].set(LLConst.getSkillEffectText(cardbrief.skilleffect));
+            controllers.skill_effect.cells[i].set(LLConst.Skill.getEffectBrief(cardbrief.skilleffect));
             if (member.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
@@ -7787,7 +7830,7 @@ var LLTeamComponent = (function () {
          var curStrength = curCardStrength - result.attrDebuff[i];
          cardStrengthList.push(curCardStrength);
          totalStrengthList.push(curStrength);
-         this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLUnit.isStrengthSupported(result.members[i].card));
+         this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLConst.Skill.isStrengthSupported(result.members[i].card));
          this.setHeal(i, LLUnit.healNumberToString(result.avgSkills[i].averageHeal));
       }
 
@@ -8493,10 +8536,17 @@ var LLAccessorySelectorComponent = (function () {
 
    var SEL_ID_ACCESSORY_CHOICE = 'accessory_choice';
    var SEL_ID_ACCESSORY_RARITY = 'accessory_rarity';
+   var SEL_ID_ACCESSORY_MAIN_ATTRIBUTE = 'accessory_main_attribute';
+   var SEL_ID_ACCESSORY_TYPE = 'accessory_type';
+   var SEL_ID_ACCESSORY_EFFECT_TYPE = 'accessory_effect_type';
    var MEM_ID_LANGUAGE = 'language';
 
    /** @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller */
    function renderAccessoryDetail(controller) {
+      var cardAvatar1 = createElement('img');
+      var cardAvatar2 = createElement('img');
+      var cardAvatar1Component = new LLImageComponent(cardAvatar1);
+      var cardAvatar2Component = new LLImageComponent(cardAvatar2);
       var container = createElement('div');
       controller.set = function (data, language) {
          if (!data) {
@@ -8508,6 +8558,7 @@ var LLAccessorySelectorComponent = (function () {
                   createElement('th', undefined, 'smile'),
                   createElement('th', undefined, 'pure'),
                   createElement('th', undefined, 'cool'),
+                  createElement('th', undefined, '技能'),
                ])
             ];
             for (var i = 0; i < data.levels.length; i++) {
@@ -8519,18 +8570,28 @@ var LLAccessorySelectorComponent = (function () {
                   createElement('td', undefined, curLevel.level + ''),
                   createElement('td', {'style': {'color': 'red'}}, smile + ''),
                   createElement('td', {'style': {'color': 'green'}}, pure + ''),
-                  createElement('td', {'style': {'color': 'blue'}}, cool + '')
+                  createElement('td', {'style': {'color': 'blue'}}, cool + ''),
+                  createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i))
                ]));
             }
             updateSubElements(container, [
-               LLConst.Accessory.getAccessoryDescription(data, language),
                createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
                   createElement('tbody', undefined, levelRows)
                )
             ], true);
          }
+         if (data && data.unit_id) {
+            LLUnit.setAvatarSrcList(cardAvatar1Component, parseInt(data.unit_id), 0);
+            LLUnit.setAvatarSrcList(cardAvatar2Component, parseInt(data.unit_id), 1);
+            cardAvatar1Component.show();
+            cardAvatar2Component.show();
+         } else {
+            cardAvatar1Component.hide();
+            cardAvatar2Component.hide();
+         }
+         container.scrollIntoView();
       };
-      return container;
+      return createElement('div', undefined, [cardAvatar1, cardAvatar2, container]);
    }
 
    /**
@@ -8548,6 +8609,9 @@ var LLAccessorySelectorComponent = (function () {
 
       var accessoryChoice = createFormSelect();
       var accessoryRarity = createFormSelect();
+      var accessoryMainAttribute = createFormSelect();
+      var accessoryType = createFormSelect();
+      var accessoryEffectType = createFormSelect();
       this.addFilterable(SEL_ID_ACCESSORY_CHOICE, new LLSelectComponent(accessoryChoice), function (opt) {
          if (opt.value && me.accessoryData && me.accessoryData[opt.value]) {
             return me.accessoryData[opt.value];
@@ -8556,12 +8620,18 @@ var LLAccessorySelectorComponent = (function () {
          }
       });
       this.addFilterable(SEL_ID_ACCESSORY_RARITY, new LLSelectComponent(accessoryRarity));
+      this.addFilterable(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, new LLSelectComponent(accessoryMainAttribute));
+      this.addFilterable(SEL_ID_ACCESSORY_TYPE, new LLSelectComponent(accessoryType));
+      this.addFilterable(SEL_ID_ACCESSORY_EFFECT_TYPE, new LLSelectComponent(accessoryEffectType));
       this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
       this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
       this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
+      this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && !d.main_attribute)));
+      this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.type));
+      this.addFilterCallback(SEL_ID_ACCESSORY_EFFECT_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.effect_type));
 
       updateSubElements(container, [
-         createFormInlineGroup('筛选条件：', [accessoryRarity]),
+         createFormInlineGroup('筛选条件：', [accessoryRarity, accessoryMainAttribute, accessoryType, accessoryEffectType]),
          createFormInlineGroup('饰品：', accessoryChoice)
       ], true);
 
@@ -8584,9 +8654,7 @@ var LLAccessorySelectorComponent = (function () {
             }
             if (accessoryId) {
                LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
-                  if (curAccessory && curAccessory.card) {
-                     accessory.card = curAccessory.card;
-                  }
+                  LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
                   controller.set(accessory, language);
                });
             } else {
@@ -8629,18 +8697,30 @@ var LLAccessorySelectorComponent = (function () {
 
       this.setFreezed(true);
       this.accessoryData = accessoryData;
+      this.cardData = cardData;
 
       /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
       var accessoryOptions = [{'value': '', 'text': '选择饰品'}];
       /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
       var accessoryOptionsJp = [{'value': '', 'text': '选择饰品'}];
-      var accessoryDataKeys = Object.keys(accessoryData).sort((a, b) => parseInt(a) - parseInt(b));
+      var effectTypeCollector = {};
+      var accessoryDataKeys = Object.keys(this.accessoryData).sort((a, b) => parseInt(a) - parseInt(b));
       for (i = 0; i < accessoryDataKeys.length; i++) {
          var curKey = accessoryDataKeys[i];
-         var curAccessoryData = accessoryData[curKey];
+         var curAccessoryData = this.accessoryData[curKey];
          var curColor = LLConst.Common.getAttributeColor(LLConst.Accessory.getAccessoryMainAttribute(curAccessoryData));
          accessoryOptions.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_CN), 'color': curColor});
          accessoryOptionsJp.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_JP), 'color': curColor});
+         if (curAccessoryData.effect_type) effectTypeCollector[curAccessoryData.effect_type] = 1;
+      }
+
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var effectTypeOptions = [{'value': '', 'text': '技能类型'}];
+      var effectTypeKeys = Object.keys(effectTypeCollector).sort((a, b) => parseInt(a) - parseInt(b));
+      for (i = 0; i < effectTypeKeys.length; i++) {
+         var curEffect = effectTypeKeys[i];
+         var curEffectBrief = LLConst.Skill.getEffectBrief(parseInt(curEffect));
+         if (curEffectBrief != '未知') effectTypeOptions.push({'value': curEffect, 'text': curEffectBrief});
       }
 
       /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
@@ -8652,7 +8732,28 @@ var LLAccessorySelectorComponent = (function () {
          {'value': '5', 'text': 'SSR'},
          {'value': '4', 'text': 'UR'}
       ];
+      
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var mainAttributeOptions = [
+         {'value': '', 'text': '主属性'},
+         {'value': 'smile', 'text': 'smile', 'color': 'red'},
+         {'value': 'pure', 'text': 'pure', 'color': 'green'},
+         {'value': 'cool', 'text': 'cool', 'color': 'blue'},
+         {'value': 'other', 'text': '其它', 'color': 'purple'}
+      ];
+
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var typeOptions = [
+         {'value': '', 'text': '分类'},
+         {'value': '通用', 'text': '通用'},
+         {'value': '个人', 'text': '个人'},
+         {'value': '材料', 'text': '材料'}
+      ];
+
       this.setFilterOptions(SEL_ID_ACCESSORY_RARITY, rarityOptions);
+      this.setFilterOptions(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, mainAttributeOptions);
+      this.setFilterOptions(SEL_ID_ACCESSORY_TYPE, typeOptions);
+      this.setFilterOptions(SEL_ID_ACCESSORY_EFFECT_TYPE, effectTypeOptions);
       this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, [accessoryOptions, accessoryOptionsJp]);
 
       this.setFreezed(false);

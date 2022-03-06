@@ -28,9 +28,7 @@ def main():
         'cool_max', 'is_material', 'effect_type', 'default_max_level', 'max_level',
         'accessory_asset_id'
     ]
-    accessoryCursor = queryTableCols(unitConn, 'accessory_m', accessoryTableCols)
-    accessoryRow = accessoryCursor.fetchone()
-    while accessoryRow:
+    for accessoryRow in queryTableCols(unitConn, 'accessory_m', accessoryTableCols):
         accessoryCountInDb += 1
 
         accessoryId = str(accessoryRow[0])
@@ -69,18 +67,12 @@ def main():
         assetId = accessoryRow[10]
         iconAsset = unitConn.execute('SELECT accessory_asset_m.icon_asset FROM accessory_asset_m WHERE accessory_asset_m.accessory_asset_id = %s;' % assetId).fetchall()
         if len(iconAsset) > 0:
-            curItem['icon_asset'] = iconAsset
+            curItem['icon_asset'] = iconAsset[0][0]
 
-        accessoryRow = accessoryCursor.fetchone()
-    accessoryCursor.close()
+        effectTargets = queryTableColsEx(unitConn, 'accessory_effect_target_m', ['effect_target'], 'WHERE accessory_effect_target_m.accessory_id = %s' % accessoryId).fetchall()
+        if len(effectTargets) > 0:
+            curItem['effect_target'] = list(map(lambda x: x[0], effectTargets))
 
-    accessoryEffectTargetCols = ['accessory_id', 'reference_type', 'effect_target']
-    for accessoryRow in queryTableCols(unitConn, 'accessory_effect_target_m', accessoryEffectTargetCols):
-        accessoryId = str(accessoryRow[0])
-        if accessoryId in accessoryData:
-            curItem = accessoryData[accessoryId]
-            curItem['effect_target'] = accessoryRow[2]
-        
     accessoryLevelCols = [
         'accessory_id', 'level', 'effect_value', 'discharge_time', 'activation_rate',
         'smile_diff', 'pure_diff', 'cool_diff'

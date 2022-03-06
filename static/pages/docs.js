@@ -379,7 +379,7 @@ function renderPage(loadDeferred) {
                 }
                 var headerRow = ['#图标'];
                 for (var i = 0; i < effects.length; i++) {
-                    headerRow.push('#' + LLConst.getSkillEffectText(effects[i]));
+                    headerRow.push('#' + LLConst.Skill.getEffectBrief(effects[i]));
                 }
                 var tableData = [headerRow];
                 for (var i in notes) {

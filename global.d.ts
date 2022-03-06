@@ -34,6 +34,9 @@ declare namespace LLH {
         type PositionWeightType = string[] | number[];
         /** the string id for accessory */
         type AccessoryIdStringType = string;
+        /** the trigger/effect target */
+        type TriggerTargetType = MemberTagIdType[];
+        type TriggerTargetMemberType = UnitTypeIdType[];
 
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
@@ -80,8 +83,8 @@ declare namespace LLH {
             skillleveluppattern: number;
             skilldetail: SkillDetailDataType[];
             triggerrequire: number | string; // <require> | "<min>~<max>"
-            triggertarget?: number[]; // chain target
-            effecttarget?: number[]; // attribute up target
+            triggertarget?: Core.TriggerTargetType; // chain target
+            effecttarget?: Core.TriggerTargetType; // attribute up target
         }
         type CardDictDataType = {[id: Core.CardIdStringType]: CardDataType};
 
@@ -209,7 +212,7 @@ declare namespace LLH {
             default_max_level: number; // usually 4
             max_level: number; // usually 8
             icon_asset: string;
-            effect_target?: number;
+            effect_target?: Core.TriggerTargetMemberType;
             levels?: AccessoryLevelDataType[];
             unit_id?: Core.CardIdStringType;
         }
@@ -249,6 +252,9 @@ declare namespace LLH {
 
         interface ProcessedAccessoryDataType extends API.AccessoryDataType {
             card?: API.CardDataType;
+            main_attribute?: Core.AttributeType;
+            type: string;
+            unit_type_id?: Core.UnitTypeIdType;
         }
         type ProcessedAccessoryDictDataType = {[id: Core.AccessoryIdStringType]: ProcessedAccessoryDataType};
 
@@ -558,6 +564,7 @@ declare namespace LLH {
             constructor(id: Component.HTMLElementOrId, options: LLAccessorySelectorComponent_Options);
 
             accessoryData?: Internal.ProcessedAccessoryDictDataType;
+            cardData?: API.CardDictDataType;
 
             setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
             getAccessoryId(): Core.AccessoryIdStringType;
@@ -604,13 +611,31 @@ declare namespace LLH {
         }
         interface Accessory {
             postProcessAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): Internal.ProcessedAccessoryDictDataType;
+            postProcessSingleAccessoryData(accessoryData: API.AccessoryDataType, cardData: API.CardDictDataType): Internal.ProcessedAccessoryDataType;
             
             getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType, language?: Core.LanguageType): string;
-            getAccessoryMainAttribute(accessoryData: API.AccessoryDataType): Core.AttributeType;
+            getAccessoryMainAttribute(accessory: API.AccessoryDataType): Core.AttributeType;
+            getAccessoryType(accessory: API.AccessoryDataType): string;
         }
         interface Common {
             getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType;
             getAttributeColor(attribute: Core.AttributeType): string;
+        }
+        interface Skill {
+            getTriggerTargetDescription(targets: Core.TriggerTargetType): string;
+            getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
+            getTriggerLimitDescription(triggerLimit: number): string;
+            getTriggerDescription(triggerType: number, triggerValue: number, triggerTarget?: Core.TriggerTargetType): string;
+            getEffectDescription(effectType: number, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
+
+            getEffectBrief(effectType: number): string;
+
+            /** level base 0 */
+            getCardSkillDescription(card: API.CardDataType, level: number): string;
+            /** level base 0 */
+            getAccessorySkillDescription(accessory: API.AccessoryDataType, level: number): string;
+
+            isStrengthSupported(card: API.CardDataType): boolean;
         }
     }
 
@@ -842,6 +867,7 @@ declare namespace LLH {
         Accessory: ConstUtil.Accessory;
         Album: ConstUtil.Album;
         Common: ConstUtil.Common;
+        Skill: ConstUtil.Skill;
         // TODO
     }
 
