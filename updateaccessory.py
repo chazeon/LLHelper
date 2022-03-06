@@ -83,7 +83,7 @@ def main():
             curItem = accessoryData[accessoryId]
             if 'levels' not in curItem:
                 curItem['levels'] = list()
-            levels: list = curItem['levels']
+            levels = curItem['levels'] # type: list
             rowLevel = accessoryRow[1]
             levelIndex = rowLevel - 1
             while levelIndex >= len(levels):
