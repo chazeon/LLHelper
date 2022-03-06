@@ -3,7 +3,7 @@
  */
 
 var LLSiteVersion = (function(){
-   var current_version = 20220131;
+   var current_version = 20220306;
    var VISITED_VERSION_KEY = 'llhelper_visited_version__';
 
    function getVisitedVersion() {
