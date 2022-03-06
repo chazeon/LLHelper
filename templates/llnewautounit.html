@@ -43,7 +43,9 @@
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
       LLConst.initMetadata(metaData);
-      comp_songselector = new LLSongSelectorComponent('song_filter', songData);
+      comp_cskill_team = new LLCSkillComponent('cskill_team');
+      comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
+      comp_songselector = new LLSongSelectorComponent('song_filter', {'songs': songData, 'includeMapInfo': true, 'friendCSkill': comp_cskill_friend});
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
       comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
@@ -51,14 +53,11 @@
       comp_cardavatar = new LLImageComponent('imageselect');
       comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
       comp_distribution_param.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageDistParamKey));
-      comp_cskill_team = new LLCSkillComponent('cskill_team');
-      comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
       comp_result = new LLUnitResultComponent('unit_result');
       comp_gemselector = new LLGemSelectorComponent('gem_filter', {'includeNormalGemCategory': true});
 
       comp_songselector.onSongSettingChange = (songSettingId, songSetting) => songSetting && comp_team.setWeights(songSetting.positionweight);
       comp_songselector.onSongColorChange = (songAttribute) => comp_team.setMapAttribute(songAttribute);
-      comp_songselector.setFriendCSkillComponent(comp_cskill_friend);
 
       comp_language = new LLLanguageComponent('language');
       comp_language.registerLanguageChange(comp_songselector);
@@ -355,15 +354,15 @@
             member.gems = [];
             subMembers.push(new LLMember(member));
          }
-         var resultSubMembers = llteam.autoUnit(llmap, saveData.gemStock, subMembers);
+         var resultSubMembers = llteam.autoUnit(llmap.saveData(), saveData.gemStock, subMembers);
          for (var i = 0; i < 9; i++) {
             comp_team.setMember(i, llteam.members[i].raw);
             comp_team.setMemberGem(i, llteam.members[i].gems);
          }
          comp_submember.loadData(resultSubMembers.map(x => x.raw));
       }
-      llteam.calculateAttributeStrength(llmap);
-      llteam.calculateSkillStrength(llmap);
+      llteam.calculateAttributeStrength(llmap.saveData());
+      llteam.calculateSkillStrength(llmap.saveData());
 
       comp_team.setStrengthAttributes(llteam.attrStrength);
       comp_team.setStrengthDebuffs(llteam.attrDebuff);
@@ -377,7 +376,7 @@
             err = llteam.calculateScoreDistribution();
          } else if (distParam.type == 'sim') {
             llmap.setDistParam(distParam);
-            err = llteam.simulateScoreDistribution(llmap, extraData[0], parseInt(distParam.count));
+            err = llteam.simulateScoreDistribution(llmap.saveData(), extraData[0], parseInt(distParam.count));
          } else {
             err = '未知的得分分布';
          }

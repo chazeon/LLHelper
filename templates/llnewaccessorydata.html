@@ -2,13 +2,13 @@
 
 {% set category="数据查询" %}
 {% set category_link="/#game-data" %}
-{% set title="宝石（SI技能）" %}
-{% set jsPage=url_for('static', filename='pages/llnewsisdata.js', v='2') %}
+{% set title="饰品" %}
+{% set jsPage=url_for('static', filename='pages/llnewaccessorydata.js', v='1') %}
 
 {% block front_notice %}
 <h4 class="alert-heading">说明</h4>
 <ul>
-<li>本页面用于查询各种宝石(SI技能)的效果</li>
+<li>本页面用于查询各种饰品的效果</li>
 </ul>
 <p>当前版本：9.2</p>
 {% endblock %}
@@ -19,7 +19,7 @@
 
 <input id='language' type='hidden' /><br/>
 
-<h3>宝石选择</h3>
-<div id='gem_selector' class='filter-form'></div>
+<h3>饰品选择</h3>
+<div id='accessory_selector' class='filter-form'></div>
 
 {% endblock %}

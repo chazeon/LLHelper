@@ -35,7 +35,7 @@
    $.when(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), defer_onload).then(function (cardData, songData, metaData) {
       // init components
       LLConst.initMetadata(metaData);
-      comp_songselector = new LLSongSelector(songData);
+      comp_songselector = new LLSongSelectorComponent('song_filter', {'songs': songData});
       comp_songselector.onSongSettingChange = applysongdata;
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
@@ -134,9 +134,8 @@
    	changecolor()
    }
 
-   function applysongdata(songSettingId) {
+   function applysongdata(songSettingId, songSetting) {
       if (!songSettingId) return;
-      var songSetting = comp_songselector.songSettings[songSettingId];
       document.getElementById('speeds').value = LLConst.getDefaultSpeed(songSetting.difficulty);;
    }
 
@@ -294,24 +293,8 @@
 
 <form action="" id="unitform" name="unitform" method="POST" onsubmit="return check()" enctype=multipart/form-data>
 <h3>Live信息</h3>
-搜索：<input type="text" id="songsearch" value=""></input><br>
-筛选：
-<select id="songdiff"></select>
-<select id="songatt"></select>
-<select id="songunit"></select>
-<select id="songswing"></select>
-<select id="songac"></select>
-<select id="songstardiff"></select>
-<br>
-歌曲：
-<select id="songchoice">
-   <option value="">载入中...</option>
-</select>
-<br>
-谱面：
-<select id="diffchoice">
-   <option value="">载入中...</option>
-</select>
+<div id="song_filter" class="filter-form label-size-3">载入中...</div>
+
 <br>
 速度：<select name="speeds" id="speeds">
     <option value="1">1</option>

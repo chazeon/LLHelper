@@ -316,7 +316,7 @@
    function changeskilleffect(c, skilllevel){
    	document.getElementById('skilleffecttitle').style.display = ''
    	document.getElementById('skilleffect').style.display = ''
-   	if ((!c.skill) || (c.support == 1) || !LLUnit.isStrengthSupported(c)){
+   	if ((!c.skill) || (c.support == 1) || !LLConst.Skill.isStrengthSupported(c)){
    		document.getElementById('skilleffecttitle').style.display = 'none'
    		document.getElementById('skilleffect').style.display = 'none'
          document.getElementById('skilleffect2').style.display = 'none'

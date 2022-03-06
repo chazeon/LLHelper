@@ -20,6 +20,15 @@
          var update_history = [
             {
                'version': LLSiteVersion.current_version,
+               'features': [
+                  '添加#llnewaccessorydata#页面，用于查询饰品信息'
+               ],
+               'enhancements': [
+                  '调整了#llcoverage#、#llsongdata#页面中歌曲选择部分的界面，使得和其它页面一致'
+               ]
+            },
+            {
+               'version': 20220131,
                'enhancements': [
                   '调整了各页面中切换语言按钮的位置',
                   '更新了各页面中卡片筛选相关的界面',
@@ -600,7 +609,8 @@
                .replace('#llactivity#', '<a href="/llactivity">传统活动</a>')
                .replace('#doc-score_calculation#', '<a href="/document/score_calculation.md">得分计算概述</a>')
                .replace('#doc-repeat_team#', '<a href="/document/repeat_team.md">复读机队伍选择</a>')
-               .replace('#llnewsisdata#', '<a href="/llnewsisdata">宝石（SI技能）</a>');
+               .replace('#llnewsisdata#', '<a href="/llnewsisdata">宝石（SI技能）</a>')
+               .replace('#llnewaccessorydata#', '<a href="/llnewaccessorydata">饰品</a>');
          }
          function createList(data) {
             var list_items = [];
