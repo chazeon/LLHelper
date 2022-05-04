@@ -5,9 +5,9 @@
 **目前还有部分存疑、未验证的项目，将列在文末。**
 **LLHelper的模拟计算是基于本文所描述的理论编写的，也可以将本文视作模拟计算的文档。**
 
-**目前饰品、演唱会竞技场相关部分还在整理中。**
+**目前饰品、演唱会竞技场相关部分的模拟计算还在开发中。**
 
-最后更新时间：2022/1/8
+最后更新时间：2022/5/3
 By ben1222
 
 版本选择：[version_selector]
@@ -18,10 +18,13 @@ By ben1222
 * 技能半哑火：指虽然技能发动了（有发动特效），但是技能效果却没有（仍能触发连锁）。目前只有复读发动了但是被复读的技能哑火了的时候会产生这种效果。 [version:5.3:6.0]
 * 完美判：指判定强化效果发动的情况下获得真实Perfect评价会得到更多的分数加成。 [version:6.5:6.5]
 * 溢出奶：指满血情况下奶卡发动导致溢出的血条可以带来额外的属性加成。 [version:6.5:6.5]
+* LA：指演唱会竞技场（Live Arena）。 [version:8.0:9.2]
 
 # 歌曲得分
-一首歌的得分`S_song`，是从歌曲开始（队伍出现）到结束之间每一帧的得分`S_frame(i)`之和：
-`S_song = ∑(S_frame(i), i = 1 .. frame_total)`
+一首歌的得分`S_song`，是从歌曲开始（队伍出现）到结束之间每一帧的得分`S_frame(i)`之和： [version_from:1.0:1.0]
+一首歌的得分`S_song`，是从歌曲开始（队伍出现）到结束之间每一帧的得分`S_frame(i)`之和，乘上方宝石总加成`TotalLAGemFactor`： [version:8.0:9.2]
+`S_song = ∑(S_frame(i), i = 1 .. frame_total)` [version_from:1.0:1.0]
+`S_song = ∑(S_frame(i), i = 1 .. frame_total) * TotalLAGemFactor` [version:8.0:9.2]
 
 llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-帧率]。
 一个角色在一帧中最多只能发动一次技能（主要是爆分技能会受此限制）。 [version_from:1.0:1.0]
@@ -95,9 +98,11 @@ llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-�
 `MemberAttribute = MemberStaticAttribute + AccuracyGemFactor * MemberStaticAttribute + AttributeBuffFactor * MemberStaticAttribute + SyncAttributeDiff` [version:5.3:6.0]
 
 成员的属性值在进入演唱会时就决定了，受成员基础属性、主唱技能、好友主唱技能、绊影响： [version_from:1.0:1.0]
-其中，静态属性值受成员基础属性、绊、宝石、主唱技能、好友主唱技能影响： [version:4.0:4.0]
+其中，静态属性值受成员基础属性、绊、宝石、主唱技能、好友主唱技能影响： [version_from:4.0:4.0]
+其中，静态属性值受成员基础属性、绊、饰品、宝石、主唱技能、好友主唱技能影响： [version:9.1:9.2]
 `MemberAttribute = MemberBaseAttribute * (1 + Center_skill_factor) + Kizuna_bonus` [version_from:1.0:1.0]
-`MemberStaticAttribute = ((MemberBaseAttribute + Kizuna_bonus) * (1 + Gem_percentage_factor) + Gem_value_bonus) * (1 + Center_skill_bonus)` [version:4.0:4.0]
+`MemberStaticAttribute = ((MemberBaseAttribute + Kizuna_bonus) * (1 + Gem_percentage_factor) + Gem_value_bonus) * (1 + Center_skill_bonus)` [version_from:4.0:4.0]
+`MemberStaticAttribute = ((MemberBaseAttribute + Kizuna_bonus + Accessory_bonus) * (1 + Gem_self_percentage_factor) + (MemberBaseAttribute + Kizuna_bonus) * Gem_team_percentage_factor + Gem_value_bonus) * (1 + Center_skill_bonus)` [version:9.1:9.2]
 
 该公式只是用于简单的讲解各类加成间的关系，而不是实际计算时使用的公式。实际计算中，百分比的加成是每个单个百分比与属性值的乘积向上取整后的数值相加，所以实际值可能会因为向上取整比上述公式得到的结果略高。
 其中：
@@ -106,8 +111,12 @@ llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-�
 * `Kizuna_bonus`：成员的绊加成，每1点绊增加1点该成员主属性值。该加成加在主唱加成之后。 [version_from:1.0:1.0]
 * `Kizuna_bonus`：成员的绊加成，每1点绊增加1点该成员主属性值。该加成加在宝石、主唱加成之前。 [version:4.0:4.0]
 * `Center_skill_factor`：主唱技能、好友主唱技能的百分比加成之和。实际计算中，因为每个百分比加成都需要做一次取整，故主唱技能有副技能的须拆成两个技能来算。
-* `Gem_percentage_factor`：百分比类宝石的百分比加成之和。实际计算中，每个百分比加成都要做一次取整。 [version:4.0:4.0]
-* `Gem_value_bonus`：数值类宝石的数值加成之和。 [version:4.0:4.0]
+* `Gem_percentage_factor`：百分比类宝石的百分比加成之和。实际计算中，每个百分比加成都要做一次取整。 [version_from:4.0:4.0]
+* `Gem_percentage_factor`：百分比类宝石的百分比加成之和。实际计算中，每个百分比加成都要做一次取整。在LA中，由于圆宝石无效，这部分为0。 [version_from:8.0:9.2]
+* `Gem_self_percentage_factor`：对自身加成的百分比类宝石的百分比加成之和。饰品享受这部分加成。实际计算中，每个百分比加成都要做一次取整。在LA中，由于圆宝石无效，这部分为0。 [version:9.1:9.2]
+* `Gem_team_percentage_factor`：对队伍加成的百分比类宝石的百分比加成之和。饰品不享受这部分加成。实际计算中，每个百分比加成都要做一次取整。在LA中，由于圆宝石无效，这部分为0。 [version:9.1:9.2]
+* `Gem_value_bonus`：数值类宝石的数值加成之和。 [version_from:4.0:4.0]
+* `Gem_value_bonus`：数值类宝石的数值加成之和。在LA中，由于圆宝石无效，这部分为0。 [version:8.0:9.2]
 
 动态属性值中： [version:4.0:4.0]
 * `AccuracyGemFactor`：装备了判定宝石的成员，在被判定覆盖期间，该系数取值为0.33，加成到判定宝石对应的属性上。未被判定覆盖期间，该系数取值为0。 [version_from:4.0:4.0]
@@ -117,19 +126,43 @@ llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-�
   * 若同步对象正在同步另一个对象，则该差值为：`SyncAttributeDiff(self) = MemberStaticAttribute(target) + SyncAttributeDiff(target) - MemberStaticAttribute(self)` [ref:存疑-同步正在同步的对象] [version:5.3:6.0]
   * 若同步对象不在同步，则该差值为：`SyncAttributeDiff(self) = MemberStaticAttribute(target) + AttributeBuffFactor(target) * MemberStaticAttribute(target) - MemberStaticAttribute(self)` [version:5.3:6.0]
 
+## 方宝石 [version:8.0:9.2]
+
+方宝石只在LA中起效，相对的，圆宝石在LA中无效。 [version:8.0:9.2]
+
+方宝石的特效有下列几种： [version:8.0:9.2]
+* 得分增加： [version:8.0:9.2]
+  * 直接在完成演唱会后的得分上进行加成。 [version:8.0:9.2]
+  * 方宝石加成`TotalLAGemFactor`是队伍中所有达成条件的方宝石的得分加成效果的乘积：`TotalLAGemFactor = Π(LAGemFactor)` [version:8.0:9.2]
+* 对手体力减少： [version:8.0:9.2]
+  * 对手专用，演唱会过程中每隔一定时间我方会受到体力伤害。 [version:8.0:9.2]
+  * 该体力伤害会打断溢出奶进度，但是不会打断combo。 [version:8.0:9.2]
+* 对手技能发动率下降： [version:8.0:9.2]
+  * 对手专用，演唱会过程中我方的技能发动率会减少，详见技能发动率一节。 [version:8.0:9.2]
+
 ## 模拟计算流程
 
-1. 单局模拟开始时，以等概率随机选择两种技能发动顺序中的一种，同类技能按从右往左顺序 [version:5.3:6.0]
+1. 单局模拟开始时，以等概率随机选择两种技能发动顺序中的一种，同类技能按从右往左顺序 [version_from:5.3:6.0]
+1. 单局模拟开始时，以等概率随机选择两种技能发动顺序中的一种，同类技能按从右往左顺序，只看卡片技能，不看饰品技能 [version:9.1:9.2]
    1. 顺序一：技能等级提升，其它技能，复读，连锁 [version:5.3:6.0]
    1. 顺序二：其它技能，技能等级提升，复读，连锁 [version:5.3:6.0]
 1. 循环模拟每一帧（并不是真的每一帧都模拟，如果有连续的很多帧不会有技能发动、停止发动、note出现、note点击的话，这些帧会直接跳过以节省时间）
 1. 帧开始时，模拟note出现、note点击。如果被点击的note是单点或长条结尾，则计算点击得分。
 1. 检查正在发动中的持续性技能，如果有时间到了的，就停止发动。
-1. 对所有成员的技能发动条件进行判断，得到所有满足发动条件的成员。
+1. 对所有成员的技能发动条件进行判断，得到所有满足发动条件的成员。 [version_from:1.0:1.0]
+1. 对所有成员的未达到发动次数上限的技能发动条件进行判断，得到所有满足发动条件的成员。 [version:9.2:9.2]
 1. 对所有满足发动条件的成员按从右往左顺序尝试发动技能，发动技能首先需要进行发动率判定，通过发动率判定的立即发动技能。 [version_from:1.0:1.0]
-1. 按该局模拟开始定好的技能发动顺序，对所有满足发动条件的成员按顺序尝试发动技能，发动技能首先需要进行哑火判定，不哑火的进行发动率判定，通过发动率判定的立即发动技能。 [version:5.3:6.0]
+1. 按该局模拟开始定好的技能发动顺序，对所有满足发动条件的成员按顺序尝试发动技能，发动技能首先需要进行哑火判定，不哑火的进行发动率判定，通过发动率判定的立即发动技能。 [version_from:5.3:6.0]
+1. 按该局模拟开始定好的技能发动顺序，对所有满足发动条件的成员按顺序尝试发动技能： [version:9.1:9.2]
+   1. 发动技能首先进行发动率判定，没有通过发动率判定的进行饰品的发动率判定。 [version:9.1:9.2]
+   1. 通过技能发动率判定的情况下，消耗一次技能发动次数（仅针对有发动次数上限的技能）。 [version:9.2:9.2]
+   1. 对通过技能发动率判定的技能，或通过饰品发动率判定的饰品，进行哑火判定。 [version:9.1:9.2]
+   1. 不哑火的技能或饰品会立即发动。（连锁触发条件以到达这一步为准） [version:9.1:9.2]
+   1. 如果发动的是复读技能或复读饰品，会对被复读的技能再进行一次哑火判定，不哑火的会发动被复读技能，否则什么也不做。 [version:9.1:9.2]
 1. 快进到下一个会有技能发动、停止发动、note出现、note点击中最近的帧。
-1. 歌曲时长达到，单局模拟完毕，统计分数和技能发动次数等信息。
+1. 歌曲时长达到，单局模拟完毕。
+1. 计算方宝石加成。 [version:8.0:9.2]
+1. 统计分数和技能发动次数等信息。
 
 ## 技能发动条件详解
 
@@ -163,6 +196,33 @@ llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-�
   * 假设连锁条件所指的小组包含成员A、B、C，而连锁卡自身是成员A，则每当有成员B或C的非连锁技能成功发动，该连锁卡中会给对应的B或C做一个标记，当B和C的标记都存在时，会满足连锁条件，并清除该连锁卡的所有标记。 [version:5.3:6.0]
   * MF活动中，进入下一首歌时，连锁条件标记会继承。 [ref:存疑-MF技能发动条件继承] [version_from:5.3:6.0]
   * MF活动中，进入下一首歌时，连锁条件标记会继承。 [ref:存疑-MF技能发动条件继承] [version:6.5:6.5]
+  * 饰品发动也可触发连锁。 [version:9.1:9.2]
+* 技能未发动时： [version:9.1:9.2]
+  * 饰品专属发动条件，指卡片技能发动率判定未通过时，有机会发动饰品。详见模拟计算流程及饰品发动率。 [version:9.1:9.2]
+
+注： [version:5.3:6.0]
+1. 技能效果如果是复读并且被复读技能是持续性技能，持续期间依然会进行发动条件判断。如果发动条件在该期间满足，会哑火而不是延后判断或延后发动。 [version_from:5.3:6.0]
+1. 技能（或饰品）效果如果是复读并且被复读技能是持续性技能，持续期间依然会进行发动条件判断。如果发动条件在该期间满足，会哑火而不是延后判断或延后发动。 [version:9.1:9.2]
+1. 卡片技能和饰品不同时，技能发动条件对持续性技能或复读的特殊处理方式，是以实际发动的是卡片技能还是饰品为准。 [version:9.1:9.2]
+
+## 技能发动率 [version_from:2.2:2.3]
+## 技能、饰品发动率 [version:9.1:9.2]
+
+技能实际发动率为：`SkillRate = SkillBaseRate * RateUpByEvent`，其中： [version_from:2.2:2.3]
+技能实际发动率为：`SkillRate = SkillBaseRate * RateUpByEvent * RateUpBySkill`，其中： [version_from:5.3:6.0]
+技能实际发动率为：`SkillRate = max(SkillBaseRate - LARateFixedDebuff, 0) * RateUpByEvent * RateUpBySkill`，其中： [version:8.0:9.2]
+* `SkillBaseRate`：技能面板发动率。 [version:2.2:2.3]
+* `RateUpByEvent`：活动中购买或随机得到的技能发动率提升效果。 [version:2.2:2.3]
+* `RateUpBySkill`：技能发动率提升的技能发动时的效果。 [version:5.3:6.0]
+* `LARateFixedDebuff`：LA中对手的技能发动率下降的方宝石的效果。 [version:8.0:9.2]
+
+饰品在卡片技能发动率判定未通过时才会进行发动率判定。 [version:9.1:9.2]
+其发动率为：`AccessoryRate = AccessoryBaseRate * RateUpByEvent * RateUpBySkill`，其中： [version:9.1:9.2]
+* `AccessoryBaseRate`：饰品面板发动率。 [version:9.1:9.2]
+* `RateUpByEvent`：活动中购买或随机得到的技能发动率提升效果。 [version:9.1:9.2]
+* `RateUpBySkill`：技能发动率提升的技能发动时的效果。 [version:9.1:9.2]
+
+值得注意的是，饰品发动率不受LA中对手的技能发动率下降的方宝石影响。 [version:9.1:9.2]
 
 ## 技能效果详解
 
@@ -209,16 +269,15 @@ llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-�
 * 技能发动率提升： [version:5.3:6.0]
   * 持续性技能。 [version:5.3:6.0]
   * 技能发动率提升同时只能有一个起效。一个技能发动率提升在发动期间，其它技能发动率提升的技能将会哑火。 [version:5.3:6.0]
-  * 技能实际发动率为：`SkillRate = SkillBaseRate * RateUpBySkill * RateUpByEvent`，其中： [version:5.3:6.0]
-    * `SkillBaseRate`：技能面板发动率。 [version:5.3:6.0]
-    * `RateUpBySkill`：技能发动率提升的技能发动时的效果。 [version:5.3:6.0]
-    * `RateUpByEvent`：活动中购买或随机得到的技能发动率提升效果。 [version:5.3:6.0]
+  * 技能发动期间，队伍中所有技能的发动率得到提升，详见技能发动率一节。 [version_from:5.3:6.0]
+  * 技能发动期间，队伍中所有技能和饰品的发动率得到提升，详见技能发动率一节。 [version:9.1:9.2]
 * 技能等级提升： [version:5.3:6.0]
   * 技能等级提升可以将下一个发动的技能的等级提升一定数量，最多提升到满级8级。 [version_from:5.3:6.0]
   * 技能等级提升可以将下一个发动的技能的等级提升一定数量，可以提升到超过满级8级：R技能最多提升到9级，SR技能最多提升到11级，SSR技能最多提升到14级，UR技能最多提升到16级。 [version:6.5:6.5]
   * 技能等级提升在同一帧中只能发动一次。如果同一帧中有多个满足发动条件，则只有第一个会发动，其它的会哑火。 [version:5.3:6.0]
   * 连锁技能可以吃到同一帧中发动的技能等级提升的效果，而其它技能则只能吃到之前帧发动的技能等级提升。[ref:存疑-连锁吃同帧技能等级提升] [version:5.3:6.0]
   * 同一帧有多个技能发动的话，只有第一个发动的技能能吃到技能等级提升。（见同帧技能发动顺序） [version:5.3:6.0]
+  * 饰品可以吃到技能等级提升。 [version:9.1:9.2]
 * 属性提升： [version:5.3:6.0]
   * 持续性技能。 [version:5.3:6.0]
   * 当队伍中没有满足属性提升条件的卡，或满足条件的卡都已经受到了属性提升效果，则该技能会哑火。 [version:5.3:6.0]
@@ -238,9 +297,11 @@ llsif是以每帧16毫秒运行的（也就是大约每秒60帧）[ref:存疑-�
   * 如果同一帧里发动了多个非复读技能，则取这一帧第一个发动的非复读技能为复读对象（顺序见同帧技能发动顺序）。 [version:5.3:6.0]
   * 如果同一帧里发动了多个复读技能，则这些复读技能会复读同一个技能。 [version:5.3:6.0]
   * 如果一个复读技能复读了一个和它不是同一帧发动的技能，那么从下一帧开始到下个非复读技能发动前，所有复读技能会哑火。 [ref:存疑-非同帧复读] [version:5.3:6.0]
+  * 非复读饰品可以被复读。 [version:9.1:9.2]
 
 ## 技能哑火判定 [version:5.3:6.0]
-技能哑火时，可以简单认为这个瞬间该技能发动率变为了0。 [version:5.3:6.0]
+技能哑火时，可以简单认为这个瞬间该技能发动率变为了0。 [version_from:5.3:6.0]
+技能、饰品哑火判定发生在发动率判定之后，产生效果之前。哑火时没有技能效果。 [version:9.1:9.2]
 下面列出了会导致哑火的条件： [version:5.3:6.0]
 * 技能发动率提升：在另一个技能发动率提升的发动效果期间，该技能会哑火。 [version:5.3:6.0]
 * 技能等级提升：若在同一帧中如果有另一个技能等级提升已经发动了，则该技能会哑火。 [version:5.3:6.0]

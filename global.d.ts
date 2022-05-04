@@ -555,9 +555,15 @@ declare namespace LLH {
         interface LLAccessorySelectorComponent_Options {
             accessoryData?: API.AccessoryDictDataType;
             cardData?: API.CardDictDataType;
+            showDetail?: boolean;
+            showLevelSelect?: boolean;
+            excludeMaterial?: boolean;
         }
         interface LLAccessorySelectorComponent_DetailController {
             set(data: Internal.ProcessedAccessoryDataType, language: Core.LanguageType): void;
+        }
+        interface LLAccessorySelectorComponent_BriefController {
+            set(data: Internal.ProcessedAccessoryDataType, level: number, language: Core.LanguageType): void;
         }
 
         class LLAccessorySelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
@@ -565,9 +571,13 @@ declare namespace LLH {
 
             accessoryData?: Internal.ProcessedAccessoryDictDataType;
             cardData?: API.CardDictDataType;
+            showDetail: boolean;
+            showLevelSelect: boolean;
+            excludeMaterial: boolean;
 
             setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
             getAccessoryId(): Core.AccessoryIdStringType;
+            getAccessoryLevel(): number; // level range 1~8
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;

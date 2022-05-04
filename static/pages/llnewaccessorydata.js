@@ -10,7 +10,8 @@ function renderPage(loadDeferred) {
         
         var comp_accessory_selector = new LLAccessorySelectorComponent('accessory_selector', {
             'accessoryData': accessoryData,
-            'cardData': cardData
+            'cardData': cardData,
+            'showDetail': true
         });
 
         var comp_language = new LLLanguageComponent('language');

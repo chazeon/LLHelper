@@ -155,6 +155,7 @@ var LLHelperLocalStorage = {
    'localStorageSongSelectKey': 'llhelper_song_select__',
    'localStorageCardSelectKey': 'llhelper_card_select__',
    'localStorageLanguageKey': 'llhelper_language__',
+   'localStorageAccessorySelectKey': 'llhelper_accessory_select__',
 
    'getDataVersion': function () {
       var version;
@@ -398,7 +399,7 @@ var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
-   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id']);
+   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -2055,8 +2056,11 @@ var LLConst = (function () {
 
          return trigger_text + rate_text + effect_text + limit_text + supporting_text;
       },
-      getAccessorySkillDescription: function (accessory, level) {
-         var level_detail = accessory.levels[level];
+      getAccessorySkillDescription: function (accessory, levelIndex) {
+         var level_detail = accessory.levels[levelIndex];
+         if (!level_detail) {
+            return '';
+         }
          var trigger_text = '特技未发动时，就有' + level_detail.rate + '%的概率';
          var effect_text = SkillUtils.getEffectDescription(accessory.effect_type, level_detail.effect_value, level_detail.time, undefined, accessory.effect_target);
          return trigger_text + effect_text;
@@ -8539,6 +8543,7 @@ var LLAccessorySelectorComponent = (function () {
    var SEL_ID_ACCESSORY_MAIN_ATTRIBUTE = 'accessory_main_attribute';
    var SEL_ID_ACCESSORY_TYPE = 'accessory_type';
    var SEL_ID_ACCESSORY_EFFECT_TYPE = 'accessory_effect_type';
+   var SEL_ID_ACCESSORY_LEVEL = 'accessory_level';
    var MEM_ID_LANGUAGE = 'language';
 
    /** @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller */
@@ -8594,6 +8599,32 @@ var LLAccessorySelectorComponent = (function () {
       return createElement('div', undefined, [cardAvatar1, cardAvatar2, container]);
    }
 
+   /** @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} controller */
+   function renderAccessoryBrief(controller) {
+      var constraintElement = createElement('span');
+      var briefElement = createElement('span');
+      controller.set = function (data, level, language) {
+         if (!data) {
+            constraintElement.innerHTML = '';
+            briefElement.innerHTML = '';
+         } else {
+            if (!data.unit_id) {
+               constraintElement.innerHTML = '通用';
+            } else if (level == 8 && data.unit_type_id) {
+               constraintElement.innerHTML = '仅限' + LLConst.Member.getMemberName(data.unit_type_id, language) + '装备';
+            } else {
+               constraintElement.innerHTML = '仅限该卡装备：' + LLConst.getCardDescription(data.card, language);
+            }
+            briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
+         }
+      };
+      return createElement('div', undefined, [
+         '饰品装备限制：', constraintElement,
+         createElement('br'),
+         '饰品技能：', briefElement
+      ]);
+   }
+
    /**
     * @constructor
     * @param {string | HTMLElement} id 
@@ -8606,6 +8637,9 @@ var LLAccessorySelectorComponent = (function () {
       var me = this;
       if (!options) options = {};
       this.accessoryData = undefined;
+      this.showDetail = options.showDetail || false;
+      this.showLevelSelect = options.showLevelSelect || false;
+      this.excludeMaterial = options.excludeMaterial || false;
 
       var accessoryChoice = createFormSelect();
       var accessoryRarity = createFormSelect();
@@ -8627,7 +8661,7 @@ var LLAccessorySelectorComponent = (function () {
       this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
       this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
       this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && !d.main_attribute)));
-      this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.type));
+      this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!d) || (((!v) || (v == d.type)) && !(d.is_material && me.excludeMaterial)));
       this.addFilterCallback(SEL_ID_ACCESSORY_EFFECT_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.effect_type));
 
       updateSubElements(container, [
@@ -8635,19 +8669,35 @@ var LLAccessorySelectorComponent = (function () {
          createFormInlineGroup('饰品：', accessoryChoice)
       ], true);
 
+      var briefController = {};
+      if (this.showLevelSelect) {
+         var accessoryLevel = createFormSelect();
+         this.addFilterable(SEL_ID_ACCESSORY_LEVEL, new LLSelectComponent(accessoryLevel));
+         this.addFilterCallback(SEL_ID_ACCESSORY_CHOICE, SEL_ID_ACCESSORY_LEVEL, (opt, v) => (!v) || (!me.accessoryData) || (!me.accessoryData[v]) || me.accessoryData[v].max_level >= parseInt(opt.value));
+         updateSubElements(container, [
+            createFormInlineGroup('饰品等级：', accessoryLevel),
+            renderAccessoryBrief(briefController)
+         ], false);
+      }
       var detailController = {};
-      updateSubElements(container, [
-         createElement('h3', undefined, '详细信息'),
-         renderAccessoryDetail(detailController)
-      ], false);
+      if (this.showDetail) {
+         updateSubElements(container, [
+            createElement('h3', undefined, '饰品详细信息'),
+            renderAccessoryDetail(detailController)
+         ], false);
+      }
 
       /**
-       * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller
+       * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} contDetail
+       * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} contBrief
        * @param {LLH.Core.AccessoryIdStringType} accessoryId
+       * @param {number} accessoryLevel
        * @param {LLH.Core.LanguageType} language
        */
-      var setDetail = function (controller, accessoryId, language) {
-         if (controller && controller.set) {
+      var setDetail = function (contDetail, contBrief, accessoryId, accessoryLevel, language) {
+         var hasDetail = (contDetail && contDetail.set);
+         var hasBrief = (contBrief && contBrief.set);
+         if (hasDetail || hasBrief) {
             var curAccessory = undefined;
             if (me.accessoryData && me.accessoryData[accessoryId]) {
                curAccessory = me.accessoryData[accessoryId]
@@ -8655,27 +8705,48 @@ var LLAccessorySelectorComponent = (function () {
             if (accessoryId) {
                LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
                   LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
-                  controller.set(accessory, language);
+                  if (hasDetail) {
+                     contDetail.set(accessory, language);
+                  }
+                  if (hasBrief) {
+                     contBrief.set(accessory, accessoryLevel, language);
+                  }
                });
             } else {
-               controller.set(curAccessory, language);
+               if (hasDetail) {
+                  contDetail.set(curAccessory, language);
+               }
+               if (hasBrief) {
+                  contBrief.set(curAccessory, accessoryLevel, language);
+               }
             }
          }
       };
 
       this.onValueChange = function (name, newValue) {
-         var curId, curLanguage, updateDetail = false;
+         var curId, curLanguage, curLevel = 1, updateDetail = false;
          if (name == SEL_ID_ACCESSORY_CHOICE) {
             curId = newValue;
-            curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
             updateDetail = true;
-         } else if (name == MEM_ID_LANGUAGE) {
+         } else {
             curId = me.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+         }
+         if (name == MEM_ID_LANGUAGE) {
             curLanguage = newValue;
             updateDetail = true;
+         } else {
+            curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+         }
+         if (me.showLevelSelect) {
+            if (name == SEL_ID_ACCESSORY_LEVEL) {
+               curLevel = newValue;
+               updateDetail = true;
+            } else {
+               curLevel = me.getComponent(SEL_ID_ACCESSORY_LEVEL).get();
+            }
          }
          if (updateDetail) {
-            setDetail(detailController, curId, curLanguage);
+            setDetail(detailController, briefController, curId, curLevel, curLanguage);
          }
       };
 
@@ -8746,9 +8817,20 @@ var LLAccessorySelectorComponent = (function () {
       var typeOptions = [
          {'value': '', 'text': '分类'},
          {'value': '通用', 'text': '通用'},
-         {'value': '个人', 'text': '个人'},
-         {'value': '材料', 'text': '材料'}
+         {'value': '个人', 'text': '个人'}
       ];
+      if (!this.excludeMaterial) {
+         typeOptions.push({'value': '材料', 'text': '材料'});
+      }
+
+      if (this.showLevelSelect) {
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var levelOptions = [];
+         for (var i = 1; i <= 8; i++) {
+            levelOptions.push({'value': i + '', 'text': i + ''});
+         }
+         this.setFilterOptions(SEL_ID_ACCESSORY_LEVEL, levelOptions);
+      }
 
       this.setFilterOptions(SEL_ID_ACCESSORY_RARITY, rarityOptions);
       this.setFilterOptions(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, mainAttributeOptions);
@@ -8761,6 +8843,13 @@ var LLAccessorySelectorComponent = (function () {
    };
    proto.getAccessoryId = function () {
       return this.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+   };
+   proto.getAccessoryLevel = function () {
+      if (this.showLevelSelect) {
+         return parseInt(this.getComponent(SEL_ID_ACCESSORY_LEVEL).get());
+      } else {
+         return 1;
+      }
    };
    proto.setLanguage = function (language) {
       this.getComponent(MEM_ID_LANGUAGE).set(language);
