@@ -240,8 +240,16 @@ var LLData = (function () {
    proto.getVersion = function() {
       return this.version;
    };
-   proto.getCachedBriefData = function() {
+   proto.getAllCachedBriefData = function() {
       return this.briefCache[this.version];
+   };
+   proto.getCachedDetailedData = function (key) {
+      var v = this.detailCache[this.version];
+      if (v && v[key]) {
+         return v[key];
+      } else {
+         return undefined;
+      }
    };
 
    proto.getAllBriefDataWithVersion = function(version, keys, url) {
@@ -2212,6 +2220,48 @@ var LLConst = (function () {
          } else {
             return '通用';
          }
+      },
+      getAccessoryLevelAttribute: function (accessory, level) {
+         if (accessory) {
+            var levelIndex = level - 1;
+            if (accessory.levels && accessory.levels[levelIndex]) {
+               var levelDetail = accessory.levels[levelIndex];
+               return {
+                  'smile': (levelDetail.smile !== undefined ? levelDetail.smile : accessory.smile) || 0,
+                  'pure': (levelDetail.pure !== undefined ? levelDetail.pure : accessory.pure) || 0,
+                  'cool': (levelDetail.cool !== undefined ? levelDetail.cool : accessory.cool) || 0
+               };
+            } else {
+               return {
+                  'smile': accessory.smile || 0,
+                  'pure': accessory.pure || 0,
+                  'cool': accessory.cool || 0
+               }
+            }
+         } else {
+            return {
+               'smile': 0,
+               'pure': 0,
+               'cool': 0
+            }
+         }
+      },
+      canEquipAccessory: function (accessory, level, cardId) {
+         if ((!accessory) || (!cardId)) {
+            return true;
+         }
+         if (!accessory.unit_id) {
+            return true;
+         }
+         if (accessory.unit_id == cardId) {
+            return true;
+         }
+         if (level < 8) {
+            return false;
+         }
+         var cardBrief = LLCardData.getAllCachedBriefData()[cardId];
+         var accessoryCardBrief = LLCardData.getAllCachedBriefData()[accessory.unit_id];
+         return (cardBrief && accessoryCardBrief && cardBrief.typeid == accessoryCardBrief.typeid);
       }
    };
    ret.Accessory = AccessoryUtils;
@@ -2694,7 +2744,7 @@ var LLUnit = {
    setAvatarSrcList: function (imgComp, cardid, mezame) {
       imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
       if (cardid) {
-         imgComp.setAltText(LLConst.getCardDescription((LLCardData.getCachedBriefData() || {'id': cardid})[cardid], false, mezame));
+         imgComp.setAltText(LLConst.getCardDescription((LLCardData.getAllCachedBriefData() || {'id': cardid})[cardid], false, mezame));
       } else {
          imgComp.setAltText('');
       }
@@ -5778,7 +5828,7 @@ var LLSaveData = (function () {
          for (var i = 0; i < teamMember.length; i++) {
             var curMember = teamMember[i];
             if (curMember.gemmember && parseInt(curMember.gemmember) == 1) {
-               var memberColor = LLConst.getMemberColor(parseInt(LLCardData.getCachedBriefData()[curMember.cardid].typeid));
+               var memberColor = LLConst.getMemberColor(parseInt(LLCardData.getAllCachedBriefData()[curMember.cardid].typeid));
                curMember.gemmember = GEM_MEMBER_COLOR_102_TO_103[memberColor];
             } else if (!curMember.gemmember) {
                curMember.gemmember = 0;
@@ -5826,7 +5876,7 @@ var LLSaveData = (function () {
          if (member.gemskill == '1') {
             var isHeal = false;
             if (member.cardid && LLCardData) {
-               var cardbrief = (LLCardData.getCachedBriefData() || {})[member.cardid];
+               var cardbrief = (LLCardData.getAllCachedBriefData() || {})[member.cardid];
                if (cardbrief && cardbrief.skilleffect == LLConst.SKILL_EFFECT_HEAL) {
                   isHeal = true;
                }
@@ -7134,18 +7184,23 @@ var LLTeamComponent = (function () {
          return [inputElement];
       };
    }
-   // controller
-   // {
-   //    get: function()
-   //    set: function(value)
-   // }
-   function skillLevelCreator(controller) {
-      var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '1', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
+
+   /** @param {LLH.Layout.Team.TeamSkillLevelCellController} controller */
+   function skillLevelCreator(controller, col) {
+      var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '1', 'min': '1', 'max': '8', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
       var inputComponent = new LLValuedComponent(inputElement);
       controller.get = function() {
          return parseInt(inputComponent.get());
       };
       controller.set = function(v) { inputComponent.set(v); };
+      controller.setMaxLevel = function (maxLevel) {
+         inputElement.max = maxLevel;
+      };
+      inputComponent.onValueChange = function (newValue) {
+         if (controller.onChange) {
+            controller.onChange(col, parseInt(newValue));
+         }
+      };
       return ['Lv', inputElement];
    }
    // controller
@@ -7227,12 +7282,8 @@ var LLTeamComponent = (function () {
          return  [buttonElement];
       };
    }
-   // controller
-   // {
-   //    update: function(cardid, mezame)
-   //    getCardId: function()
-   //    getMezame: function()
-   // }
+
+   /** @param {LLH.Layout.Team.TeamAvatarCellController} controller */
    function avatarCreator(controller) {
       var imgElement = createElement('img', {'className': 'avatar'});
       var imgComp = new LLImageComponent(imgElement, {'srcList': ['/static/null.png']});
@@ -7251,12 +7302,65 @@ var LLTeamComponent = (function () {
       controller.getMezame = function() { return curMezame; };
       return [imgElement];
    }
-   // controller
-   // {
-   //    set: function(value)
-   //    get: function()
-   //    reset: function()
-   // }
+
+   /** @param {LLH.Layout.Team.TeamAccessoryIconCellController} controller */
+   function accessoryIconCreator(controller, col) {
+      var accessoryComponent = new LLAccessoryComponent(createElement('div'), {'size': 64});
+      /** @type {LLH.API.AccessoryDataType} */
+      var curAccessory = undefined;
+      var curLevel = undefined;
+      var curCardId = undefined;
+      var isValid = true;
+      var tooltipClassName = 'tooltiptext';
+      var accTooltip = createElement('span');
+      var accContainer = createElement('div', {'className': 'lltooltip', 'style': {'display': 'flex', 'flex-flow': 'row'}}, [accessoryComponent.element, accTooltip]);
+      var validateAndUpdateIcon = function () {
+         if (LLConst.Accessory.canEquipAccessory(curAccessory, curLevel, curCardId)) {
+            if (!isValid) {
+               accessoryComponent.element.style.filter = '';
+               accTooltip.style.display = 'none';
+               accTooltip.className = '';
+               isValid = true;
+            }
+         } else {
+            if (isValid) {
+               accessoryComponent.element.style.filter = 'grayscale(100%)';
+               accTooltip.style.display = '';
+               accTooltip.className = tooltipClassName;
+               accTooltip.innerHTML = '不可装备';
+               isValid = false;
+            }
+         }
+      };
+      controller.updateAccessory = function(accessorySaveData) {
+         if ((!accessorySaveData) || (!accessorySaveData.id)) {
+            curAccessory = undefined;
+            accessoryComponent.setAccessory(undefined);
+         } else {
+            curAccessory = LLAccessoryData.getAllCachedBriefData()[accessorySaveData.id];
+            accessoryComponent.setAccessory(curAccessory);
+            curLevel = accessorySaveData.level;
+         }
+         validateAndUpdateIcon();
+      };
+      controller.updateMember = function(cardid) {
+         curCardId = cardid;
+         validateAndUpdateIcon();
+      };
+      controller.updateAccessoryLevel = function (level) {
+         curLevel = level;
+         validateAndUpdateIcon();
+      };
+      controller.getAccessoryId = function () {
+         return (curAccessory ? curAccessory.id : undefined);
+      };
+      controller.getAccessoryLevel = function () {
+         return curLevel;
+      };
+      return [accContainer];
+   }
+
+   /** @param {LLH.Layout.Team.TeamTextCellController} controller */
    function textCreator(controller) {
       var textElement = createElement('span');
       var curValue = '';
@@ -7503,21 +7607,9 @@ var LLTeamComponent = (function () {
 
    /**
     * @template CellController
-    * @typedef LLTeam_RowController
-    * @property {string} [headColor] (in)
-    * @property {string} [cellColor] (in)
-    * @property {() => void} [fold] (in)
-    * @property {() => void} [unfold] (in)
-    * @property {CellController[]} cells (out) index 0-8
-    * @property {() => void} show (out)
-    * @property {() => void} hide (out)
-    * @property {() => void} [toggleFold] (out)
-    */
-   /**
-    * @template CellController
     * @param {string} head 
     * @param {(controller: CellController, index: number) => HTMLElement[]} cellCreator 
-    * @param {LLTeam_RowController<CellController>} controller 
+    * @param {LLH.Layout.Team.TeamRowController<CellController>} controller 
     * @param {(controller: CellController, index: number) => void} cellControllerDeco
     * @returns {HTMLElement}
     */
@@ -7619,6 +7711,12 @@ var LLTeamComponent = (function () {
          'slot': {'owning': ['put_gem', 'gem_list']},
          'put_gem': {},
          'gem_list': {'memberKey': 'gemlist'},
+         'put_accessory': {},
+         'accessory_icon': {},
+         'accessory_level': {'owning': ['accessory_smile', 'accessory_pure', 'accessory_cool']},
+         'accessory_smile': {'headColor': 'red', 'cellColor': 'red'},
+         'accessory_pure': {'headColor': 'green', 'cellColor': 'green'},
+         'accessory_cool': {'headColor': 'blue', 'cellColor': 'blue'},
          'str_attr': {},
          'str_skill_theory': {},
          'str_card_theory': {},
@@ -7653,6 +7751,39 @@ var LLTeamComponent = (function () {
       };
       var updateSlot = function(i, slots) {
          controllers.slot.cells[i].setUsedSlot(slots);
+      };
+      /** @param {string | LLH.Internal.AttributesValue} attribute */
+      var updateAccessoryAttribute = function (i, attribute) {
+         if (typeof(attribute) == 'string') {
+            controllers.accessory_smile.cells[i].set(attribute);
+            controllers.accessory_pure.cells[i].set(attribute);
+            controllers.accessory_cool.cells[i].set(attribute);
+         } else {
+            controllers.accessory_smile.cells[i].set(attribute.smile);
+            controllers.accessory_pure.cells[i].set(attribute.pure);
+            controllers.accessory_cool.cells[i].set(attribute.cool);
+         }
+      };
+      var updateAccessoryLevel = function (i, level) {
+         controllers.accessory_icon.cells[i].updateAccessoryLevel(level);
+         var accessoryId = controllers.accessory_icon.cells[i].getAccessoryId();
+         if (accessoryId) {
+            var detail = LLAccessoryData.getCachedDetailedData(accessoryId);
+            if (detail) {
+               updateAccessoryAttribute(i, LLConst.Accessory.getAccessoryLevelAttribute(detail, level));
+            } else {
+               updateAccessoryAttribute(i, '...');
+               LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function (accessory) {
+                  if (level == controllers.accessory_icon.cells[i].getAccessoryLevel()
+                     && accessoryId == controllers.accessory_icon.cells[i].getAccessoryId()
+                  ) {
+                     updateAccessoryAttribute(i, LLConst.Accessory.getAccessoryLevelAttribute(accessory, level));
+                  }
+               });
+            }
+         } else {
+            updateAccessoryAttribute(i, '');
+         }
       };
       for (var i in controllers) {
          if (controllers[i].owning) {
@@ -7691,6 +7822,16 @@ var LLTeamComponent = (function () {
          }
       }), controllers.put_gem));
       rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
+      rows.push(createRowFor9('放饰品', makeButtonCreator('放饰品', function (i) {
+         if (controller.onPutAccessoryClicked) {
+            controller.setAccessory(i, controller.onPutAccessoryClicked(i));
+         }
+      }), controllers.put_accessory));
+      rows.push(createRowFor9('饰品', accessoryIconCreator, controllers.accessory_icon));
+      rows.push(createRowFor9('饰品等级', skillLevelCreator, controllers.accessory_level, (c) => c.onChange = updateAccessoryLevel));
+      rows.push(createRowFor9('饰品smile', textCreator, controllers.accessory_smile));
+      rows.push(createRowFor9('饰品pure', textCreator, controllers.accessory_pure));
+      rows.push(createRowFor9('饰品cool', textCreator, controllers.accessory_cool));
       rows.push(createRowFor9('换位', makeSwapCreator(controller), {}));
       rows.push(createRowFor9('属性强度', textCreator, controllers.str_attr));
       rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
@@ -7718,7 +7859,7 @@ var LLTeamComponent = (function () {
          var isMezame = controllers.avatar.cells[i].getMezame();
          var cardbrief = undefined;
          if (cardid) {
-            cardbrief = ((LLCardData && LLCardData.getCachedBriefData()) || {})[cardid];
+            cardbrief = ((LLCardData && LLCardData.getAllCachedBriefData()) || {})[cardid];
          }
          cardsBrief[i] = cardbrief;
          if (cardbrief) {
@@ -7742,6 +7883,7 @@ var LLTeamComponent = (function () {
          } else if (cardbrief && cardbrief.rarity) {
             controllers.slot.cells[i].setMaxSlot(LLConst.getDefaultMinSlot(cardbrief.rarity));
          }
+         controllers.accessory_icon.cells[i].updateMember(cardid);
          if (i == 4 && controller.onCenterChanged) controller.onCenterChanged();
       };
       controller.setMember = controller.putMember;
@@ -7767,6 +7909,20 @@ var LLTeamComponent = (function () {
             gemList.push(LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType()).key);
          }
          controllers.gem_list.cells[i].set(gemList);
+      };
+      controller.setAccessory = function (i, accessory) {
+         if (accessory && accessory.id) {
+            var accessoryBrief = LLAccessoryData.getAllCachedBriefData()[accessory.id];
+            controllers.accessory_icon.cells[i].updateAccessory(accessory);
+            controllers.accessory_level.cells[i].set(accessory.level);
+            controllers.accessory_level.cells[i].setMaxLevel(accessoryBrief.max_level);
+            updateAccessoryLevel(i, accessory.level);
+         } else {
+            controllers.accessory_icon.cells[i].updateAccessory(undefined);
+            controllers.accessory_level.cells[i].set(1);
+            controllers.accessory_level.cells[i].setMaxLevel(8);
+            updateAccessoryLevel(i, 1);
+         }
       };
       controller.getCardId = function(i) { return controllers.avatar.cells[i].getCardId(); };
       controller.getCardIds = makeGet9Function(controller.getCardId);
@@ -7828,6 +7984,7 @@ var LLTeamComponent = (function () {
       this.onPutCardClicked = callbacks && callbacks.onPutCardClicked;
       this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
       this.onCenterChanged = callbacks && callbacks.onCenterChanged;
+      this.onPutAccessoryClicked = callbacks && callbacks.onPutAccessoryClicked;
    }
    /** @type {typeof LLH.Layout.Team.LLTeamComponent} */
    var cls = LLTeamComponent_cls;
@@ -8567,7 +8724,7 @@ var LLAccessoryComponent = (function () {
       /** @type {LLH.API.AccessoryDataType} */
       var accessory = newAccessory;
       if (typeof(newAccessory) == 'string') {
-         accessory = LLAccessoryData.getCachedBriefData()[newAccessory];
+         accessory = LLAccessoryData.getAllCachedBriefData()[newAccessory];
          if (!accessory) {
             console.warn('Not found accessory in cache: ' + newAccessory)
             return;
@@ -8576,12 +8733,12 @@ var LLAccessoryComponent = (function () {
       if (accessory === undefined) {
          if (this.accessoryId !== undefined) {
             this.element.className = 'accessory-base';
-            this.accessoryImage.setSrcList([]);
-            this.accessoryImage.setAltText('');
+            this.accessoryImage.hide();
             this.accessoryId = undefined;
          }
          return;
       }
+      this.accessoryImage.show();
       this.accessoryImage.setAltText(LLConst.Accessory.getAccessoryDescription(accessory, language));
       if (accessory.id == this.accessoryId) {
          return;
@@ -8634,17 +8791,14 @@ var LLAccessorySelectorComponent = (function () {
                   createElement('th', undefined, '技能'),
                ])
             ];
-            for (var i = 0; i < data.levels.length; i++) {
-               var curLevel = data.levels[i];
-               var smile = curLevel.smile !== undefined ? curLevel.smile : data.smile;
-               var pure = curLevel.pure !== undefined ? curLevel.pure : data.pure;
-               var cool = curLevel.cool !== undefined ? curLevel.cool : data.cool;
+            for (var i = 1; i <= data.levels.length; i++) {
+               var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
                levelRows.push(createElement('tr', undefined, [
-                  createElement('td', undefined, curLevel.level + ''),
-                  createElement('td', {'style': {'color': 'red'}}, smile + ''),
-                  createElement('td', {'style': {'color': 'green'}}, pure + ''),
-                  createElement('td', {'style': {'color': 'blue'}}, cool + ''),
-                  createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i))
+                  createElement('td', undefined, i + ''),
+                  createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
+                  createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
+                  createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
+                  createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
                ]));
             }
             updateSubElements(container, [
@@ -8783,6 +8937,7 @@ var LLAccessorySelectorComponent = (function () {
             if (accessoryId) {
                LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
                   LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
+                  me.accessoryData[accessoryId] = accessory;
                   if (hasDetail) {
                      contDetail.set(accessory, language);
                   }
@@ -8927,6 +9082,18 @@ var LLAccessorySelectorComponent = (function () {
          return parseInt(this.getComponent(SEL_ID_ACCESSORY_LEVEL).get());
       } else {
          return 1;
+      }
+   };
+   proto.getAccessorySaveData = function () {
+      var accessoryId = this.getAccessoryId();
+      var level = this.getAccessoryLevel();
+      if (accessoryId && level) {
+         return {
+            'id': accessoryId,
+            'level': level
+         }
+      } else {
+         return undefined;
       }
    };
    proto.setLanguage = function (language) {

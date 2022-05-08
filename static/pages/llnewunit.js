@@ -6,6 +6,7 @@ var comp_skill = 0;
 var comp_cardselector = 0;
 var comp_songselector = 0;
 var comp_gemselector = 0;
+/** @type {LLH.Selector.LLAccessorySelectorComponent} */
 var comp_accessory_selector = undefined;
 var comp_cardavatar = 0;
 var comp_distribution_param = 0;
@@ -250,6 +251,9 @@ function renderPage(loadDeferred) {
                 LoadingUtil.startSingle(LLCardData.getDetailedData(this.getCardId(4) || 0)).then(function (card) {
                     comp_cskill_team.setCSkill(card);
                 }, defaultHandleFailedRequest);
+            },
+            'onPutAccessoryClicked': function () {
+                return comp_accessory_selector.getAccessorySaveData();
             }
         });
         comp_team.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey));

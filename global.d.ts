@@ -38,6 +38,7 @@ declare namespace LLH {
         type TriggerTargetType = MemberTagIdType[];
         type TriggerTargetMemberType = UnitTypeIdType[];
 
+        type MezameType = 0 | 1;
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
     }
@@ -258,6 +259,7 @@ declare namespace LLH {
         }
         type ProcessedAccessoryDictDataType = {[id: Core.AccessoryIdStringType]: ProcessedAccessoryDataType};
 
+
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
         interface NormalGemMetaType {
@@ -304,9 +306,15 @@ declare namespace LLH {
             cool: number;
         }
 
+        interface AccessorySaveDataType {
+            id: Core.AccessoryIdStringType;
+            level: number;
+        }
+
         interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
             hp: number; // int
             gemlist: NormalGemCategoryKeyType[];
+            accessory?: AccessorySaveDataType;
         }
 
         interface UnitSaveDataTypeV104 {
@@ -602,6 +610,7 @@ declare namespace LLH {
             setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
             getAccessoryId(): Core.AccessoryIdStringType;
             getAccessoryLevel(): number; // level range 1~8
+            getAccessorySaveData(): Internal.AccessorySaveDataType;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -650,6 +659,9 @@ declare namespace LLH {
             getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType, language?: Core.LanguageType): string;
             getAccessoryMainAttribute(accessory: API.AccessoryDataType): Core.AttributeType;
             getAccessoryType(accessory: API.AccessoryDataType): string;
+            getAccessoryLevelAttribute(accessory: API.AccessoryDataType, level: number): Internal.AttributesValue;
+
+            canEquipAccessory(accessory: API.AccessoryDataType, level: number, cardId: Core.CardIdOrStringType): boolean;
         }
         interface Common {
             getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType;
@@ -764,9 +776,44 @@ declare namespace LLH {
     namespace Layout {
         namespace Team {
             type IndexType = number; // 0~8
+            interface TeamAvatarCellController {
+                update(cardid: Core.CardIdOrStringType, mezame: Core.MezameType): void;
+                getCardId(): Core.CardIdType;
+                getMezame(): Core.MezameType;
+            }
+            interface TeamAccessoryIconCellController {
+                updateAccessory(accessorySaveData: Internal.AccessorySaveDataType): void;
+                updateAccessoryLevel(level: number): void;
+                updateMember(cardid: Core.CardIdOrStringType): void;
+                getAccessoryId(): Core.AccessoryIdStringType;
+                getAccessoryLevel(): number;
+            }
+            interface TeamTextCellController {
+                set(v: string): void;
+                get(): string;
+                reset(): void;
+            }
+            interface TeamSkillLevelCellController {
+                set(level: number): void;
+                get(): number;
+                setMaxLevel(maxLevel: number): void;
+                onChange?: (i: IndexType, level: number) => void;
+            }
+            interface TeamRowController<TCellController> {
+                headColor?: string; // in
+                cellColor?: string; // in
+                fold?: () => void; // in
+                unfold?: () => void; // in
+
+                cells: TCellController[]; // index 0~8
+                show(): void;
+                hide(): void;
+                toggleFold?: () => void;
+            }
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
                 onCenterChanged?: () => void;
             }
             class LLTeamComponent implements Mixin.SaveLoadJson {
@@ -779,6 +826,7 @@ declare namespace LLH {
                 getMember(i: IndexType): Internal.MemberSaveDataType;
                 getMembers(): Internal.MemberSaveDataType[];
                 setMemberGem(i: IndexType, gem: Model.LLSisGem): void;
+                setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType): void;
                 getCardId(i: IndexType): Core.CardIdType;
                 getCardIds(): Core.CardIdType[];
                 getWeight(i: IndexType): number;
@@ -815,6 +863,7 @@ declare namespace LLH {
                 // callbacks
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
                 onCenterChanged?: () => void;
 
                 // implements
@@ -878,7 +927,8 @@ declare namespace LLH {
 
         getAllBriefData(keys?: string[], url?: string): Depends.Promise<{[id: string]: DataT}, void>;
         getDetailedData(index: string, url?: string): Depends.Promise<DataT, void>;
-        getCachedBriefData(): {[id: string]: DataT};
+        getAllCachedBriefData(): {[id: string]: DataT};
+        getCachedDetailedData(index: string): DataT;
 
         setVersion(version: string): void;
         getVersion(): string;

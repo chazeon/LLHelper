@@ -77,7 +77,7 @@ function renderPage(loadDeferred) {
         return defer;
     }
     function getSongById(songId) {
-        return LLSongData.getCachedBriefData()[songId];
+        return LLSongData.getAllCachedBriefData()[songId];
     }
     function getSongSettingById(songSettingId) {
         return song_settings[songSettingId];
@@ -456,7 +456,7 @@ function renderPage(loadDeferred) {
     }
   
     function initSongSettings() {
-        var songs = LLSongData.getCachedBriefData();
+        var songs = LLSongData.getAllCachedBriefData();
         song_settings = {};
         for (var i in songs) {
             if (!songs[i].settings) continue;
