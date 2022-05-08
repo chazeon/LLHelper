@@ -212,3 +212,34 @@ img.avatar {
 table.gem-series tr.focused {
    border: 3px solid black;
 }
+.accessory-base {
+   background-image: url('/static/accessory_frame/accessory_base.png');
+}
+.accessory-N {
+   background-image: url('/static/accessory_frame/frame_n.png');
+}
+.accessory-R {
+   background-image: url('/static/accessory_frame/frame_r.png');
+}
+.accessory-SR {
+   background-image: url('/static/accessory_frame/frame_sr.png');
+}
+.accessory-SSR {
+   background-image: url('/static/accessory_frame/frame_ssr.png');
+}
+.accessory-UR {
+   background-image: url('/static/accessory_frame/frame_ur_common.png');
+}
+.accessory-UR.accessory-special {
+   background-image: url('/static/accessory_frame/frame_ur_special.png');
+}
+.accessory-base, .accessory-N, .accessory-R, .accessory-SR, .accessory-SSR, .accessory-UR {
+   background-size: contain;
+}
+.accessory-N >img, .accessory-R >img, .accessory-SR >img, .accessory-SSR >img, .accessory-UR >img {
+   width: 66%;
+   height: 66%;
+   left: 16%;
+   top: 16%;
+   position: relative;
+}

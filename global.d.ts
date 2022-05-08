@@ -425,6 +425,30 @@ declare namespace LLH {
             setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
             filterOptions(filter?: LLSelectComponent_FilterCallback): void;
         }
+        interface LLImageComponent_Options extends LLComponentBase_Options {
+            srcList?: string[];
+        }
+        class LLImageComponent extends LLComponentBase {
+            constructor(id: HTMLElementOrId, options: LLImageComponent_Options);
+            
+            srcList: string[];
+            curSrcIndex?: number;
+
+            setSrcList(newSrcList: string[]): void;
+            setAltText(text: string): void;
+        }
+        interface LLAccessoryComponent_Options extends LLComponentBase_Options {
+            size?: number // in pixel, default 128
+        }
+        class LLAccessoryComponent extends LLComponentBase {
+            constructor(id: HTMLElementOrId, options: LLAccessoryComponent_Options);
+
+            accessoryId?: Core.AccessoryIdStringType;
+            size: number;
+            accessoryImage: LLImageComponent;
+
+            setAccessory(newAccessory?: Core.AccessoryIdStringType | API.AccessoryDataType, language?: Core.LanguageType): void;
+        }
         class LLComponentCollection implements Mixin.SaveLoadJson {
             constructor();
 
@@ -854,6 +878,7 @@ declare namespace LLH {
 
         getAllBriefData(keys?: string[], url?: string): Depends.Promise<{[id: string]: DataT}, void>;
         getDetailedData(index: string, url?: string): Depends.Promise<DataT, void>;
+        getCachedBriefData(): {[id: string]: DataT};
 
         setVersion(version: string): void;
         getVersion(): string;

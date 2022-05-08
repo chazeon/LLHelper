@@ -718,11 +718,11 @@ var LLSelectComponent = (function() {
 })();
 
 var LLImageComponent = (function() {
-   /* Properties:
-    *    srcList
-    *    curSrcIndex
-    * Methods:
-    *    setSrcList(list)
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Component.LLImageComponent_Options} options 
+    * @this {LLH.Component.LLImageComponent}
     */
    function LLImageComponent_cls(id, options) {
       LLComponentBase.call(this, id, options);
@@ -749,9 +749,9 @@ var LLImageComponent = (function() {
       });
       this.setSrcList(srcList);
    };
+   /** @type {typeof LLH.Component.LLImageComponent} */
    var cls = LLImageComponent_cls;
-   cls.prototype = new LLComponentBase();
-   cls.prototype.constructor = cls;
+   LLClassUtil.setSuper(cls, LLComponentBase)
    var proto = cls.prototype;
    proto.setSrcList = function (srcList) {
       this.srcList = srcList;
@@ -770,7 +770,14 @@ var LLImageComponent = (function() {
          this.curSrcIndex = undefined;
          this.element.src = '';
       }
-   }
+   };
+   proto.setAltText = function (text) {
+      if (this.element.title == text) {
+         return;
+      }
+      this.element.title = text;
+      // this.element.alt = text;
+   };
    return cls;
 })();
 
@@ -2687,9 +2694,9 @@ var LLUnit = {
    setAvatarSrcList: function (imgComp, cardid, mezame) {
       imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
       if (cardid) {
-         imgComp.element.title = LLConst.getCardDescription((LLCardData.getCachedBriefData() || {'id': cardid})[cardid], false, mezame);
+         imgComp.setAltText(LLConst.getCardDescription((LLCardData.getCachedBriefData() || {'id': cardid})[cardid], false, mezame));
       } else {
-         imgComp.element.title = '';
+         imgComp.setAltText('');
       }
       LLImageServerSwitch.registerCallback(imgComp, function () {
          imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
@@ -8532,6 +8539,66 @@ var LLLanguageComponent = (function() {
    return cls;
 })();
 
+var LLAccessoryComponent = (function () {
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id
+    * @param {LLH.Component.LLAccessoryComponent_Options} options
+    */
+   function LLAccessoryComponent_cls(id, options) {
+      LLComponentBase.call(this, id, options);
+      this.size = 128;
+      if (options && options.size) {
+         this.size = options.size;
+      }
+      this.accessoryId = undefined;
+      this.element.className = 'accessory-base';
+      this.element.style.width = this.size + 'px';
+      this.element.style.height = this.size + 'px';
+      var img = LLUnit.createElement('img');
+      this.accessoryImage = new LLImageComponent(img);
+      LLUnit.updateSubElements(this.element, img);
+   }
+   /** @type {typeof LLH.Component.LLAccessoryComponent} */
+   var cls = LLAccessoryComponent_cls
+   LLClassUtil.setSuper(cls, LLComponentBase);
+   var proto = cls.prototype;
+   proto.setAccessory = function (newAccessory, language) {
+      /** @type {LLH.API.AccessoryDataType} */
+      var accessory = newAccessory;
+      if (typeof(newAccessory) == 'string') {
+         accessory = LLAccessoryData.getCachedBriefData()[newAccessory];
+         if (!accessory) {
+            console.warn('Not found accessory in cache: ' + newAccessory)
+            return;
+         }
+      }
+      if (accessory === undefined) {
+         if (this.accessoryId !== undefined) {
+            this.element.className = 'accessory-base';
+            this.accessoryImage.setSrcList([]);
+            this.accessoryImage.setAltText('');
+            this.accessoryId = undefined;
+         }
+         return;
+      }
+      this.accessoryImage.setAltText(LLConst.Accessory.getAccessoryDescription(accessory, language));
+      if (accessory.id == this.accessoryId) {
+         return;
+      }
+      var newClassName = 'accessory-' + LLConst.Common.getRarityString(accessory.rarity);
+      if (accessory.unit_id) {
+         newClassName = newClassName + ' accessory-special';
+      }
+      if (newClassName != this.element.className) {
+         this.element.className = newClassName;
+      }
+      this.accessoryImage.setSrcList(['/static/accessory/' + accessory.id + '.png']);
+      this.accessoryId = accessory.id;
+   };
+   return cls;
+})();
+
 var LLAccessorySelectorComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
@@ -8552,6 +8619,7 @@ var LLAccessorySelectorComponent = (function () {
       var cardAvatar2 = createElement('img');
       var cardAvatar1Component = new LLImageComponent(cardAvatar1);
       var cardAvatar2Component = new LLImageComponent(cardAvatar2);
+      var accessoryComponent = new LLAccessoryComponent(createElement('div'));
       var container = createElement('div');
       controller.set = function (data, language) {
          if (!data) {
@@ -8585,6 +8653,7 @@ var LLAccessorySelectorComponent = (function () {
                )
             ], true);
          }
+         accessoryComponent.setAccessory(data, language);
          if (data && data.unit_id) {
             LLUnit.setAvatarSrcList(cardAvatar1Component, parseInt(data.unit_id), 0);
             LLUnit.setAvatarSrcList(cardAvatar2Component, parseInt(data.unit_id), 1);
@@ -8596,13 +8665,21 @@ var LLAccessorySelectorComponent = (function () {
          }
          container.scrollIntoView();
       };
-      return createElement('div', undefined, [cardAvatar1, cardAvatar2, container]);
+      return createElement('div', undefined, [
+         createElement('div', {'style': {'display': 'flex', 'flex-flow': 'row'}}, [
+            accessoryComponent.element,
+            cardAvatar1,
+            cardAvatar2
+         ]),
+         container
+      ]);
    }
 
    /** @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} controller */
    function renderAccessoryBrief(controller) {
       var constraintElement = createElement('span');
       var briefElement = createElement('span');
+      var accessoryComponent = new LLAccessoryComponent(createElement('div'), {'size': 64});
       controller.set = function (data, level, language) {
          if (!data) {
             constraintElement.innerHTML = '';
@@ -8617,10 +8694,11 @@ var LLAccessorySelectorComponent = (function () {
             }
             briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
          }
+         accessoryComponent.setAccessory(data, language);
       };
       return createElement('div', undefined, [
-         '饰品装备限制：', constraintElement,
-         createElement('br'),
+         accessoryComponent.element,
+         '饰品装备限制：', constraintElement, createElement('br'),
          '饰品技能：', briefElement
       ]);
    }
