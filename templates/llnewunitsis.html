@@ -198,14 +198,14 @@
       LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitSisTeamKey, comp_team.saveJson());
       var distParam = comp_distribution_param.saveData();
       if (distParam.type == 'sim') {
-         LLUnit.calculate(docalculate, comp_team.getCardIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
+         LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
       } else {
-         LLUnit.calculate(docalculate, comp_team.getCardIds());
+         LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds());
       }
       return true;
    }
 
-   function docalculate(cards, extraData) {
+   function docalculate(cards, accessoryDetails, extraData) {
       var member = comp_team.getMembers();
       var llmembers = [];
 

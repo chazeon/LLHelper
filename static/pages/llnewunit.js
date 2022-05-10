@@ -11,7 +11,8 @@ var comp_accessory_selector = undefined;
 var comp_cardavatar = 0;
 var comp_distribution_param = 0;
 var comp_distribution_chart = 0;
-var comp_team = 0;
+/** @type {LLH.Layout.Team.LLTeamComponent} */
+var comp_team = undefined;
 var comp_cskill_team = 0;
 var comp_cskill_friend = 0;
 var comp_result = 0;
@@ -91,14 +92,14 @@ function check() {
     LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey, comp_team.saveJson());
     var distParam = comp_distribution_param.saveData();
     if (distParam.type == 'sim') {
-        LLUnit.calculate(docalculate, comp_team.getCardIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
+        LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
     } else {
-        LLUnit.calculate(docalculate, comp_team.getCardIds());
+        LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds());
     }
     return true;
 }
 
-function docalculate(cards, extraData) {
+function docalculate(cards, accessoryDetails, extraData) {
     var test_case = {};
     if (enable_make_test_case) {
         test_case.saveData = JSON.parse(makeSaveData().serializeV104());

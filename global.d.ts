@@ -623,7 +623,7 @@ declare namespace LLH {
             isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
             getMemberName(memberId: Core.MemberIdType, language?: Core.LanguageType): string;
             getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
-            isNonetTeam(members: TODO.LLMember[]): Core.BigGroupIdType;
+            isNonetTeam(members: Model.LLMember[]): Core.BigGroupIdType;
         }
         interface Group {
             getBigGroupIds(): Core.BigGroupIdType[];
@@ -771,31 +771,57 @@ declare namespace LLH {
             saveJson(): string;
             loadJson(jsonData: string): void;
         }
+
+        interface LLMember_Options extends Internal.MemberSaveDataType {
+            card: API.CardDataType;
+            accessoryData: API.AccessoryDataType;
+        }
+        class LLMember {
+            constructor(options: LLMember_Options, mapAttribute: Core.AttributeType);
+
+            cardid: Core.CardIdType;
+            smile: number;
+            pure: number;
+            cool: number;
+            skilllevel: number;
+            maxcost: number;
+            hp: number;
+            card: API.CardDataType;
+            gems: LLSisGem[];
+            raw: LLMember_Options;
+
+            /** set after calcDisplayAttr() */
+            displayAttr: Internal.AttributesValue;
+
+            hasSkillGem(): boolean;
+            getAccuracyGemFactor(): number;
+            empty(): boolean;
+            calcDisplayAttr(): Internal.AttributesValue;
+        }
     }
 
     namespace Layout {
         namespace Team {
             type IndexType = number; // 0~8
+            interface TeamMemberKeyGetSet<T> {
+                set(v: T): void;
+                get(): T;
+            }
             interface TeamAvatarCellController {
                 update(cardid: Core.CardIdOrStringType, mezame: Core.MezameType): void;
                 getCardId(): Core.CardIdType;
                 getMezame(): Core.MezameType;
             }
-            interface TeamAccessoryIconCellController {
-                updateAccessory(accessorySaveData: Internal.AccessorySaveDataType): void;
+            interface TeamAccessoryIconCellController extends TeamMemberKeyGetSet<Internal.AccessorySaveDataType> {
                 updateAccessoryLevel(level: number): void;
                 updateMember(cardid: Core.CardIdOrStringType): void;
                 getAccessoryId(): Core.AccessoryIdStringType;
                 getAccessoryLevel(): number;
             }
-            interface TeamTextCellController {
-                set(v: string): void;
-                get(): string;
+            interface TeamTextCellController extends TeamMemberKeyGetSet<string> {
                 reset(): void;
             }
-            interface TeamSkillLevelCellController {
-                set(level: number): void;
-                get(): number;
+            interface TeamSkillLevelCellController extends TeamMemberKeyGetSet<number> {
                 setMaxLevel(maxLevel: number): void;
                 onChange?: (i: IndexType, level: number) => void;
             }
@@ -829,6 +855,8 @@ declare namespace LLH {
                 setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType): void;
                 getCardId(i: IndexType): Core.CardIdType;
                 getCardIds(): Core.CardIdType[];
+                getAccessoryId(i: IndexType): Core.AccessoryIdStringType;
+                getAccessoryIds(): Core.AccessoryIdStringType[];
                 getWeight(i: IndexType): number;
                 getWeights(): number[];
                 setWeight(i: IndexType, w: number): void;
@@ -988,7 +1016,6 @@ declare namespace LLH {
     }
 
     namespace TODO {
-        type LLMember = any;
         type GemStockType = any;
         type LLSwapper = any;
         type LLTeam = any;

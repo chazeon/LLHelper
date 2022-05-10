@@ -2523,19 +2523,12 @@ var LLUnit = {
       return ret;
    },
 
-   calculate: function (docalculate, cardids, addRequests) {
+   calculate: function (docalculate, cardids, accessoryIds, addRequests) {
       var requests = [];
       var i;
       var uniqueCardids = {};
-      if (!cardids) {
-         for (i = 0; i < 9; i++) {
-            var cardid = document.getElementById('cardid' + i).value;
-            if (cardid && uniqueCardids[cardid] === undefined) {
-               requests.push(LLCardData.getDetailedData(cardid));
-               uniqueCardids[cardid] = 1;
-            }
-         }
-      } else {
+      var uniqueAccessoryIds = {};
+      if (cardids) {
          for (i = 0; i < cardids.length; i++) {
             var cardid = cardids[i];
             if (cardid && uniqueCardids[cardid] === undefined) {
@@ -2544,24 +2537,32 @@ var LLUnit = {
             }
          }
       }
+      var accessoryBegin = requests.length;
+      if (accessoryIds) {
+         for (i = 0; i < accessoryIds.length; i++) {
+            var accessoryId = accessoryIds[i];
+            if (accessoryId && uniqueAccessoryIds[accessoryId] === undefined) {
+               requests.push(LLAccessoryData.getDetailedData(accessoryId));
+               uniqueAccessoryIds[accessoryId] = 1;
+            }
+         }
+      }
+      var additionalBegin = requests.length; 
+      var accessoryResults = {};
+      var extraResults = [];
       if (addRequests) {
-         var cardRequestCount = requests.length;
-         var extraResults = [];
          for (i = 0; i < addRequests.length; i++) {
             requests.push(addRequests[i]);
             extraResults.push(undefined);
          }
-         LoadingUtil.start(requests, function (data, index, result) {
-            if (index < cardRequestCount) result[parseInt(data.id)] = data;
-            else extraResults[index-cardRequestCount] = data
-         }).then(function (cards) {
-            docalculate(cards, extraResults);
-         }, defaultHandleFailedRequest);
-      } else {
-         LoadingUtil.start(requests, LoadingUtil.cardDetailMerger).then(function (cards) {
-            docalculate(cards);
-         }, defaultHandleFailedRequest);
       }
+      LoadingUtil.start(requests, function (data, index, result) {
+         if (index < accessoryBegin) result[parseInt(data.id)] = data;
+         else if (index < additionalBegin) accessoryResults[data.id] = data;
+         else extraResults[index-additionalBegin] = data;
+      }).then(function (cards) {
+         docalculate(cards, accessoryResults, extraResults);
+      }, defaultHandleFailedRequest);
    },
 
    getCardCSkillText: function (card, withbr) {
@@ -3998,25 +3999,13 @@ var LLSkill = (function () {
    return cls;
 })();
 
-/**
- * @typedef LLMember_Options
- * @property {number | string} cardid int
- * @property {number} smile int
- * @property {number} pure int
- * @property {number} cool int
- * @property {number} skilllevel int 1~8
- * @property {number} maxcost int 0~8
- * @property {number} hp int
- * @property {string[]} gemlist normal gem meta key list
- * @property {LLH.API.CardDataType} card
- */
 var LLMember = (function() {
    var int_attr = ["cardid", "smile", "pure", "cool", "skilllevel", "maxcost", "hp"];
    var MIC_RATIO = [0, 5, 11, 24, 40, 0]; //'UR': 40, 'SSR': 24, 'SR': 11, 'R': 5, 'N': 0
    /**
     * @constructor
-    * @param {LLMember_Options} v 
-    * @param {AttributeType} mapAttribute
+    * @param {LLH.Model.LLMember_Options} v 
+    * @param {LLH.Core.AttributeType} mapAttribute
     */
    function LLMember_cls(v, mapAttribute) {
       v = v || {};
@@ -7258,7 +7247,7 @@ var LLTeamComponent = (function () {
       // }
       return function(controller, i) {
          var bSwapping = false;
-         var buttonElement = createElement('button', {'type': 'button', 'className': 'btn btn-default', 'innerHTML': '换位'+(i+1)}, undefined, {'click': function() {
+         var buttonElement = createElement('button', {'type': 'button', 'className': 'btn btn-default btn-block', 'innerHTML': '换位'+(i+1)}, undefined, {'click': function() {
             var swapper = parentController.getSwapper();
             if (swapper) swapper.onSwap(controller);
             if (i == 4 && parentController.onCenterChanged) parentController.onCenterChanged();
@@ -7332,7 +7321,7 @@ var LLTeamComponent = (function () {
             }
          }
       };
-      controller.updateAccessory = function(accessorySaveData) {
+      controller.set = function (accessorySaveData) {
          if ((!accessorySaveData) || (!accessorySaveData.id)) {
             curAccessory = undefined;
             accessoryComponent.setAccessory(undefined);
@@ -7342,6 +7331,16 @@ var LLTeamComponent = (function () {
             curLevel = accessorySaveData.level;
          }
          validateAndUpdateIcon();
+      };
+      controller.get = function () {
+         if (curAccessory) {
+            return {
+               'id': curAccessory.id,
+               'level': curLevel
+            };
+         } else {
+            return {};
+         }
       };
       controller.updateMember = function(cardid) {
          curCardId = cardid;
@@ -7883,6 +7882,9 @@ var LLTeamComponent = (function () {
          } else if (cardbrief && cardbrief.rarity) {
             controllers.slot.cells[i].setMaxSlot(LLConst.getDefaultMinSlot(cardbrief.rarity));
          }
+         if (member.accessory !== undefined) {
+            controller.setAccessory(i, member.accessory);
+         }
          controllers.accessory_icon.cells[i].updateMember(cardid);
          if (i == 4 && controller.onCenterChanged) controller.onCenterChanged();
       };
@@ -7898,6 +7900,7 @@ var LLTeamComponent = (function () {
          retMember.cardid = controllers.avatar.cells[i].getCardId();
          retMember.mezame = controllers.avatar.cells[i].getMezame();
          retMember.maxcost = controllers.slot.cells[i].getMaxSlot();
+         retMember.accessory = controllers.accessory_icon.cells[i].get();
          return retMember;
       };
       controller.getMembers = makeGet9Function(controller.getMember);
@@ -7913,12 +7916,12 @@ var LLTeamComponent = (function () {
       controller.setAccessory = function (i, accessory) {
          if (accessory && accessory.id) {
             var accessoryBrief = LLAccessoryData.getAllCachedBriefData()[accessory.id];
-            controllers.accessory_icon.cells[i].updateAccessory(accessory);
+            controllers.accessory_icon.cells[i].set(accessory);
             controllers.accessory_level.cells[i].set(accessory.level);
             controllers.accessory_level.cells[i].setMaxLevel(accessoryBrief.max_level);
             updateAccessoryLevel(i, accessory.level);
          } else {
-            controllers.accessory_icon.cells[i].updateAccessory(undefined);
+            controllers.accessory_icon.cells[i].set(undefined);
             controllers.accessory_level.cells[i].set(1);
             controllers.accessory_level.cells[i].setMaxLevel(8);
             updateAccessoryLevel(i, 1);
@@ -7926,6 +7929,8 @@ var LLTeamComponent = (function () {
       };
       controller.getCardId = function(i) { return controllers.avatar.cells[i].getCardId(); };
       controller.getCardIds = makeGet9Function(controller.getCardId);
+      controller.getAccessoryId = function(i) { return controllers.accessory_icon.cells[i].getAccessoryId(); };
+      controller.getAccessoryIds = makeGet9Function(controller.getAccessoryId);
       controller.getWeight = function(i) { return controllers.weight.cells[i].get(); };
       controller.getWeights = makeGet9Function(controller.getWeight);
       controller.setWeight = function(i, w) { controllers.weight.cells[i].set(w); };

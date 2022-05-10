@@ -322,14 +322,14 @@
       }
       var distParam = comp_distribution_param.saveData();
       if (distParam.type == 'sim') {
-         LLUnit.calculate(docalculate, cardids, [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
+         LLUnit.calculate(docalculate, cardids, comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
       } else {
-         LLUnit.calculate(docalculate, cardids);
+         LLUnit.calculate(docalculate, cardids, comp_team.getAccessoryIds());
       }
       return true;
    }
 
-   function docalculate(cards, extraData) {
+   function docalculate(cards, accessoryDetails, extraData) {
       var member = comp_team.getMembers();
       var llmembers = [];
 
