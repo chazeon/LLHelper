@@ -5,7 +5,7 @@
 {% set title="近期更新" %}
 
 {% block additional_header %}
-   <script type="text/javascript" src="{{ url_for('static', filename='lldata.js') }}"></script>
+   <script type="text/javascript" src="{{ url_for('static', filename='lldata.js', v=config.SITE_VERSION) }}"></script>
    <link rel="shortcut icon" href="/static/shortcuticon.png" />
    <style>
       .update-section-content {

@@ -9,7 +9,7 @@
     <script src="/static/js/bootstrap.min.js"></script>
     <link rel="stylesheet" media="all" href="/static/han.min.css">
     <link rel="shortcut icon" href="/static/shortcuticon.png" />
-    <script src="{{ url_for('static', filename='siteversion.js') }}"></script>
+    <script src="{{ url_for('static', filename='siteversion.js', v=config.SITE_VERSION) }}"></script>
     <script src="/static/vue.min.js"></script>
     <style>
       body:lang(zh-Hans) {
