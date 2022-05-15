@@ -182,6 +182,10 @@ function renderPage(loadDeferred) {
                     }
                 } catch (e) {
                     console.log(e);
+                    if (item.logData) {
+                        console.log('Failed to run ' + item.name + ':');
+                        console.log(item.logData);
+                    }
                     if (typeof (e) == 'string') {
                         setResult('Exception: ' + e);
                     } else {
@@ -203,7 +207,7 @@ function renderPage(loadDeferred) {
 
         var testRow = LLUnit.createElement('tr', undefined, [
             LLUnit.createElement('td', { 'innerHTML': testSet.length }),
-            LLUnit.createElement('td', { 'innerHTML': item.name }),
+            LLUnit.createElement('td', { 'innerHTML': linkedName }),
             resultElement,
             performanceElement
         ]);
@@ -457,7 +461,7 @@ function renderPage(loadDeferred) {
     }
 
     function assertFloatArrayEqualDynamic(arr1, arr2, maxFactor) {
-        return assertFloatArrayEqual(arr1, arr2, arrayMaxValue(arr2) * maxFactor);
+        return assertFloatArrayEqual(arr1, arr2, Math.max(arrayMaxValue(arr2), 1) * maxFactor);
     }
   
     function initSongSettings() {
@@ -885,6 +889,7 @@ function renderPage(loadDeferred) {
             var llteam = new LLTeam(llmembers);
             llteam.calculateAttributeStrength(caseData.map);
             llteam.calculateSkillStrength(caseData.map);
+            caseData.logData = {'result': llteam, 'expected': caseData.result};
 
             var expectedResult = caseData.result;
             assertAttributesValue(llteam.finalAttr, expectedResult.finalAttr, 'finalAttr mismatch');
@@ -898,7 +903,6 @@ function renderPage(loadDeferred) {
                 llteam.calculateScoreDistribution();
             } else if (caseData.type == 'sim') {
                 llteam.simulateScoreDistribution(caseData.map, noteData, 1000);
-                console.log('Simulate result for ' + caseData.name, llteam);
                 diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05));
                 diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05));
                 diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05));
@@ -909,27 +913,34 @@ function renderPage(loadDeferred) {
             caseData.maxDiff = arrayMaxValue(diffs);
         }
 
+        function loadAndRunTestCase(caseFileId) {
+            return loadTestCase(caseFileId).then(function (caseData) {
+                /** @type {LLH.Test.TestItemOptions} */
+                var testOptions = caseData;
+                var cardConfigs = [];
+                var saveData = new LLSaveData(caseData.saveData);
+                var teamMembers = saveData.teamMember;
+                for (var i = 0; i < teamMembers.length; i++) {
+                    cardConfigs.push([parseInt(teamMembers[i].cardid)]);
+                }
+                testOptions.cardConfigs = cardConfigs;
+                testOptions.run = function (cards, noteData) {
+                    return runTestCase(caseData, cards, noteData);
+                }
+                caseData.url = '/llnewunit?unit=' + encodeURI(JSON.stringify(caseData.saveData));
+                addTestItem(caseData).start();
+                return 0;
+            });
+        }
         addTestItem({
             'name': 'Load more test cases',
             'after': test1,
             'run': function () {
-                return loadTestCase('1').then(function (caseData) {
-                    /** @type {LLH.Test.TestItemOptions} */
-                    var testOptions = caseData;
-                    var cardConfigs = [];
-                    var saveData = new LLSaveData(caseData.saveData);
-                    var teamMembers = saveData.teamMember;
-                    for (var i = 0; i < teamMembers.length; i++) {
-                        cardConfigs.push([parseInt(teamMembers[i].cardid)]);
-                    }
-                    testOptions.cardConfigs = cardConfigs;
-                    testOptions.run = function (cards, noteData) {
-                        return runTestCase(caseData, cards, noteData);
-                    }
-                    caseData.url = '/llnewunit?unit=' + encodeURI(JSON.stringify(caseData.saveData));
-                    addTestItem(caseData).start();
-                    return 0;
-                })
+                var runs = [];
+                for (var i = 1; i <= 7; i++) {
+                    runs.push(loadAndRunTestCase(i + ''));
+                }
+                return $.when.apply($, runs);
             }
         });
         // run tests

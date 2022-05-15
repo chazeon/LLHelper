@@ -1262,6 +1262,7 @@ declare namespace LLH {
             version?: "cn" | "latest";
             songId?: Core.SongIdType;
             songSettingId?: Core.SongSettingIdType;
+            logData?: any;
             run(cards: API.CardDictDataType, noteData: API.NoteDataType): Depends.Promise<any, any> | number | string;
         }
 

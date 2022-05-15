@@ -1,0 +1,343 @@
+{
+    "name": "复读机",
+    "saveData": {
+        "version": 104,
+        "team": [
+            {
+                "hp": 6,
+                "smile": 4380,
+                "pure": 4160,
+                "cool": 6280,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 1862,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 4160,
+                "pure": 4380,
+                "cool": 6280,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 1538,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4290,
+                "cool": 4130,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 2034,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4290,
+                "cool": 4130,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 2034,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4290,
+                "cool": 4130,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 2034,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4290,
+                "cool": 4130,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 2034,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4290,
+                "cool": 4130,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 2034,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4290,
+                "cool": 4130,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24"
+                ],
+                "cardid": 2034,
+                "mezame": 1,
+                "maxcost": 4
+            },
+            {
+                "hp": 6,
+                "smile": 4500,
+                "pure": 6310,
+                "cool": 4100,
+                "skilllevel": 8,
+                "gemlist": [
+                    "SCORE_250"
+                ],
+                "cardid": 1590,
+                "mezame": 1,
+                "maxcost": 4
+            }
+        ],
+        "gemstock": {},
+        "submember": []
+    },
+    "songId": "225",
+    "songSettingId": "775",
+    "version": "latest",
+    "page": "llnewunit",
+    "type": "sim",
+    "map": {
+        "attribute": "pure",
+        "songUnit": 4,
+        "combo": 993,
+        "star": 75,
+        "time": 111,
+        "perfect": 844,
+        "starPerfect": 75,
+        "weights": [
+            81.375,
+            114,
+            133.75,
+            87,
+            44.625,
+            87.25,
+            131.75,
+            113,
+            79.5
+        ],
+        "totalWeight": 872.25,
+        "friendCSkill": {
+            "attribute": "pure",
+            "Cskillattribute": "pure",
+            "Cskillpercentage": 0,
+            "Csecondskilllimit": 1,
+            "Csecondskillattribute": 0
+        },
+        "tapup": 0,
+        "skillup": 0,
+        "speed": 9,
+        "combo_fever_pattern": 2,
+        "over_heal_pattern": 1,
+        "perfect_accuracy_pattern": 1,
+        "trigger_limit_pattern": 1
+    },
+    "result": {
+        "attrStrength": [
+            5136,
+            5356,
+            5266,
+            5266,
+            5266,
+            5266,
+            5266,
+            5266,
+            6310
+        ],
+        "finalAttr": {
+            "smile": 58086,
+            "pure": 48398,
+            "cool": 41440
+        },
+        "bonusAttr": {
+            "smile": 7366,
+            "pure": 0,
+            "cool": 0
+        },
+        "totalStrength": 55736,
+        "totalAttrStrength": 40885,
+        "totalSkillStrength": 14851,
+        "totalHP": 54,
+        "averageSkillsActiveCount": [
+            31.7015,
+            32.465,
+            12.4605,
+            12.6235,
+            13.0195,
+            13.81,
+            15.6595,
+            19.998,
+            21.487
+        ],
+        "averageSkillsActiveChanceCount": [
+            43,
+            45,
+            36,
+            36,
+            36,
+            36,
+            36,
+            36,
+            36
+        ],
+        "averageSkillsActiveNoEffectCount": [
+            0.51,
+            0,
+            0.171,
+            0.159,
+            0.173,
+            0.163,
+            0.164,
+            0.176,
+            0
+        ],
+        "averageSkillsActiveHalfEffectCount": [
+            0,
+            0,
+            8.172,
+            7.993,
+            7.6895,
+            6.869,
+            5.0185,
+            0.5865,
+            0
+        ],
+        "averageHeal": 0,
+        "averageAccuracyNCoverage": 0,
+        "naivePercentile": [
+            2037736,
+            2572679,
+            2761082,
+            2851978,
+            2916339,
+            2946594,
+            2983546,
+            3031230,
+            3060131,
+            3094757,
+            3122095,
+            3149441,
+            3170854,
+            3192908,
+            3216687,
+            3242744,
+            3259945,
+            3275728,
+            3294986,
+            3314000,
+            3333280,
+            3350530,
+            3360594,
+            3374187,
+            3388503,
+            3405795,
+            3415765,
+            3433733,
+            3442359,
+            3451612,
+            3459552,
+            3469118,
+            3477855,
+            3489505,
+            3500661,
+            3511929,
+            3526526,
+            3538104,
+            3553286,
+            3564712,
+            3579208,
+            3593315,
+            3600431,
+            3608114,
+            3617673,
+            3630174,
+            3637686,
+            3650843,
+            3662463,
+            3670637,
+            3679452,
+            3687939,
+            3696816,
+            3707532,
+            3716971,
+            3731056,
+            3744050,
+            3752676,
+            3759462,
+            3768667,
+            3779439,
+            3794475,
+            3812003,
+            3830733,
+            3841712,
+            3859288,
+            3873441,
+            3883307,
+            3894651,
+            3910508,
+            3923991,
+            3932666,
+            3943585,
+            3954764,
+            3963808,
+            3976171,
+            3986976,
+            3999340,
+            4016949,
+            4031010,
+            4045470,
+            4059790,
+            4076794,
+            4088303,
+            4104201,
+            4117404,
+            4133913,
+            4153102,
+            4172110,
+            4192567,
+            4215226,
+            4228646,
+            4260143,
+            4290040,
+            4334121,
+            4391026,
+            4426953,
+            4467694,
+            4526864,
+            4621385,
+            4895758
+        ]
+    }
+}
