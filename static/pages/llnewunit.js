@@ -115,6 +115,9 @@ function docalculate(cards, accessoryDetails, extraData) {
 
     for (var i = 0; i < 9; i++) {
         member[i].card = cards[member[i].cardid];
+        if (member[i].accessory) {
+            member[i].accessoryData = accessoryDetails[member[i].accessory.id];
+        }
         llmembers.push(new LLMember(member[i], mainatt));
     }
 

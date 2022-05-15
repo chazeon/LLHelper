@@ -1505,12 +1505,6 @@ var LLConst = (function () {
 
    /** @type {LLH.LLConst} */
    var ret = KEYS;
-   ret.getMemberGrade = function (member) {
-      mCheckInited('unit_type');
-      var memberData = mGetMemberData(member);
-      if (!memberData) return undefined;
-      return memberData.grade;
-   };
    ret.getMemberColor = function (member) {
       var memberData = mGetMemberData(member);
       if (!memberData) return undefined;
@@ -1520,37 +1514,6 @@ var LLConst = (function () {
       var memberData = mGetMemberData(member);
       if (!memberData) return KEYS.BACKGROUND_COLOR_DEFAULT;
       return memberData.background_color;
-   };
-   ret.getMemberNamesInGroups = function (groups) {
-      mCheckInited('unit_type');
-      if (groups === undefined) return [];
-      if (typeof(groups) == 'number') groups = [groups];
-      var memberInGroupCount = {};
-      var expectedCount = groups.length;
-      var i, j;
-      for (i = 0; i < groups.length; i++) {
-         var groupData = mGetGroupData(groups[i]);
-         var groupMembers = groupData && groupData.members;
-         if ((!groupMembers) || groupMembers.length == 0) {
-            console.warn('Group ' + groups[i] + ' has no member!');
-            expectedCount -= 1;
-            continue;
-         }
-         for (j = 0; j < groupMembers.length; j++) {
-            if (memberInGroupCount[groupMembers[j]] !== undefined) {
-               memberInGroupCount[groupMembers[j]] += 1;
-            } else {
-               memberInGroupCount[groupMembers[j]] = 1;
-            }
-         }
-      }
-      var ret = [];
-      for (i in memberInGroupCount) {
-         if (memberInGroupCount[i] == expectedCount) {
-            ret.push(MEMBER_DATA[i].name);
-         }
-      }
-      return ret;
    };
 
    /** @type {LLH.ConstUtil.Common} */
@@ -1566,6 +1529,32 @@ var LLConst = (function () {
       }
    };
    ret.Common = CommonUtils;
+
+   /** @type {LLH.ConstUtil.Attributes} */
+   var AttributesUtils = {
+      makeAttributes: function (smile, pure, cool) {
+         return {'smile': smile || 0, 'pure': pure || 0, 'cool': cool || 0};
+      },
+      makeAttributes0: function () {
+         return AttributesUtils.makeAttributes(0, 0, 0);
+      },
+      copyAttributes: function (fromAttr) {
+         return AttributesUtils.makeAttributes(fromAttr.smile, fromAttr.pure, fromAttr.cool);
+      },
+      multiplyCeilingAttributes: function (lhs, factor) {
+         return AttributesUtils.makeAttributes(Math.ceil(lhs.smile * factor), Math.ceil(lhs.pure * factor), Math.ceil(lhs.cool * factor));
+      },
+      addAttributes: function (lhs, rhs) {
+         return AttributesUtils.makeAttributes(lhs.smile + rhs.smile, lhs.pure + rhs.pure, lhs.cool + rhs.cool);
+      },
+      addToAttributes: function (baseAttr, deltaAttr) {
+         baseAttr.smile = baseAttr.smile + deltaAttr.smile;
+         baseAttr.pure = baseAttr.pure + deltaAttr.pure;
+         baseAttr.cool = baseAttr.cool + deltaAttr.cool;
+         return baseAttr;
+      }
+   };
+   ret.Attributes = AttributesUtils;
 
    /** @type {LLH.ConstUtil.Member} */
    var MemberUtils = {
@@ -1619,6 +1608,51 @@ var LLConst = (function () {
          } else {
             return (distinctMemberCount == 9 ? bigGroup : undefined);
          }
+      },
+      getMemberGrade: function (member) {
+         mCheckInited('unit_type');
+         var memberData = mGetMemberData(member);
+         if (!memberData) return undefined;
+         return memberData.grade;
+      },
+      getMemberTypeIdsInGroups: function (groups) {
+         mCheckInited('unit_type');
+         if (groups === undefined) return [];
+         if (typeof(groups) == 'number') groups = [groups];
+         var memberInGroupCount = {};
+         var expectedCount = groups.length;
+         var i, j;
+         for (i = 0; i < groups.length; i++) {
+            var groupData = mGetGroupData(groups[i]);
+            var groupMembers = groupData && groupData.members;
+            if ((!groupMembers) || groupMembers.length == 0) {
+               console.warn('Group ' + groups[i] + ' has no member!');
+               expectedCount -= 1;
+               continue;
+            }
+            for (j = 0; j < groupMembers.length; j++) {
+               if (memberInGroupCount[groupMembers[j]] !== undefined) {
+                  memberInGroupCount[groupMembers[j]] += 1;
+               } else {
+                  memberInGroupCount[groupMembers[j]] = 1;
+               }
+            }
+         }
+         var ret = [];
+         for (i in memberInGroupCount) {
+            if (memberInGroupCount[i] == expectedCount) {
+               ret.push(i);
+            }
+         }
+         return ret;
+      },
+      getMemberNamesInGroups: function (groups) {
+         var typeIds = MemberUtils.getMemberTypeIdsInGroups(groups);
+         var ret = [];
+         for (var i = 0; i < typeIds.length; i++) {
+            ret.push(MEMBER_DATA[typeids[i]].name);
+         }
+         return ret;
       }
    };
    ret.Member = MemberUtils;
@@ -2226,24 +2260,16 @@ var LLConst = (function () {
             var levelIndex = level - 1;
             if (accessory.levels && accessory.levels[levelIndex]) {
                var levelDetail = accessory.levels[levelIndex];
-               return {
-                  'smile': (levelDetail.smile !== undefined ? levelDetail.smile : accessory.smile) || 0,
-                  'pure': (levelDetail.pure !== undefined ? levelDetail.pure : accessory.pure) || 0,
-                  'cool': (levelDetail.cool !== undefined ? levelDetail.cool : accessory.cool) || 0
-               };
+               return AttributesUtils.makeAttributes(
+                  (levelDetail.smile !== undefined ? levelDetail.smile : accessory.smile),
+                  (levelDetail.pure !== undefined ? levelDetail.pure : accessory.pure),
+                  (levelDetail.cool !== undefined ? levelDetail.cool : accessory.cool)
+               );
             } else {
-               return {
-                  'smile': accessory.smile || 0,
-                  'pure': accessory.pure || 0,
-                  'cool': accessory.cool || 0
-               }
+               return AttributesUtils.copyAttributes(accessory);
             }
          } else {
-            return {
-               'smile': 0,
-               'pure': 0,
-               'cool': 0
-            }
+            return AttributesUtils.makeAttributes0();
          }
       },
       canEquipAccessory: function (accessory, level, cardId) {
@@ -4032,7 +4058,7 @@ var LLMember = (function() {
             var gemMetaId = LLConst.GemType[v.gemlist[i]];
             var memberId = v.card.typeid;
             var sisOptions = {
-               'grade': LLConst.getMemberGrade(memberId),
+               'grade': LLConst.Member.getMemberGrade(memberId),
                'member': memberId,
                'unit': LLConst.Member.getBigGroupId(memberId)
             };
@@ -4044,8 +4070,18 @@ var LLMember = (function() {
             this.gems.push(new LLSisGem(gemMetaId, sisOptions));
          }
       }
+      if (v.accessory && v.accessoryData) {
+         if (LLConst.Accessory.canEquipAccessory(v.accessoryData, v.accessory.level, v.cardid)) {
+            this.accessory = v.accessoryData;
+            this.accessoryLevel = v.accessory.level;
+            this.accessoryAttr = LLConst.Accessory.getAccessoryLevelAttribute(this.accessory, this.accessoryLevel);
+         } else {
+            console.info('Accessory ' + v.accessoryData.id + ' cannot be equipped to ' + v.cardid);
+         }
+      }
       this.raw = v;
    };
+   /** @type {typeof LLH.Model.LLMember} */
    var cls = LLMember_cls;
    var proto = cls.prototype;
    proto.hasSkillGem = function () {
@@ -4066,16 +4102,20 @@ var LLMember = (function() {
    proto.empty = function () {
       return (!this.cardid) || (this.cardid == '0');
    };
-   proto.calcDisplayAttr = function (mapcolor) {
-      //显示属性=(基本属性+绊)*单体百分比宝石加成+数值宝石加成
-      var ret = {'smile': this.smile, 'pure': this.pure, 'cool': this.cool};
+   proto.calcDisplayAttr = function () {
+      //显示属性=(基本属性+绊+饰品属性)*单体百分比宝石加成+数值宝石加成
+      var withAccessory = LLConst.Attributes.copyAttributes(this);
+      if (this.accessory) {
+         LLConst.Attributes.addToAttributes(withAccessory, this.accessoryAttr);
+      }
+      var ret = LLConst.Attributes.copyAttributes(withAccessory);
       for (var i = 0; i < this.gems.length; i++) {
          var gem = this.gems[i];
          if (gem.isAttrAdd()) {
             ret[gem.getAttributeType()] += gem.getEffectValue();
          }
          if (gem.isAttrMultiple() && gem.isEffectRangeSelf()) {
-            ret[gem.getAttributeType()] += Math.ceil(gem.getEffectValue()/100 * this[gem.getAttributeType()]);
+            ret[gem.getAttributeType()] += Math.ceil(gem.getEffectValue()/100 * withAccessory[gem.getAttributeType()]);
          }
       }
       this.displayAttr = ret;
@@ -4085,7 +4125,7 @@ var LLMember = (function() {
       if (!this.displayAttr) throw "Need calcDisplayAttr first";
       if (!(teamgem && teamgem.length == 9)) throw "Expect teamgem length 9";
       //全体宝石累计加成(下标i表示0..i-1位队员所带的全体宝石给该队员带来的总加成, [0]=0)
-      //注意全体宝石是在(基本属性值+绊)基础上计算的, 不是在显示属性上计算的
+      //注意全体宝石是在(基本属性值+绊)基础上计算的, 不是在显示属性上计算的, 并且不包括饰品属性
       var cumulativeTeamGemBonus = [0];
       var sum = 0;
       for (var i = 0; i < 9; i++) {
@@ -4104,10 +4144,10 @@ var LLMember = (function() {
       var cumulativeCSkillBonus = [];
       //属性强度(下标i表示只考虑前i-1个队员的全体宝石时的属性强度)
       var cumulativeAttrStrength = [];
-      var baseAttr = {'smile':this.displayAttr.smile, 'pure':this.displayAttr.pure, 'cool':this.displayAttr.cool};
+      var baseAttr = LLConst.Attributes.copyAttributes(this.displayAttr);
       for (var i = 0; i <= 9; i++) {
          baseAttr[mapcolor] = this.displayAttr[mapcolor] + this.cumulativeTeamGemBonus[i];
-         var bonusAttr = {'smile':0, 'pure':0, 'cool':0};
+         var bonusAttr = LLConst.Attributes.makeAttributes0();
          for (var j = 0; j < cskills.length; j++) {
             var cskill = cskills[j];
             //主c技能
@@ -4125,11 +4165,7 @@ var LLMember = (function() {
          cumulativeAttrStrength.push(baseAttr[mapcolor] + bonusAttr[mapcolor]);
          if (i == 9) {
             this.bonusAttr = bonusAttr;
-            this.finalAttr = {
-               'smile': baseAttr.smile + bonusAttr.smile,
-               'pure': baseAttr.pure + bonusAttr.pure,
-               'cool': baseAttr.cool + bonusAttr.cool
-            };
+            this.finalAttr = LLConst.Attributes.addAttributes(baseAttr, bonusAttr);
             this.attrStrength = this.finalAttr[mapcolor];
             this.attrStrengthWithAccuracy = Math.ceil(this.attrStrength * this.getAccuracyGemFactor());
          }
@@ -4185,13 +4221,9 @@ var LLMember = (function() {
       if (!this.card) throw "No card data";
       if (this.grade !== undefined) return this.grade;
       // N card and some special card has no grade
-      this.grade = LLConst.getMemberGrade(this.card.jpname) || 0;
+      this.grade = LLConst.Member.getMemberGrade(this.card.jpname) || 0;
       return this.grade;
    };
-   /**
-    * @param {number} [levelBoost]
-    * @returns {LLH.API.SkillDetailDataType}
-    */
    proto.getSkillDetail = function(levelBoost) {
       if (!levelBoost) {
          return this.card.skilldetail[this.skilllevel-1];
@@ -4200,63 +4232,28 @@ var LLMember = (function() {
       if (lv > this.card.skilldetail.length) lv = this.card.skilldetail.length;
       return this.card.skilldetail[lv-1];
    };
+   proto.getAccessoryDetail = function (levelBoost) {
+      if (!this.accessory) {
+         return undefined;
+      }
+      if (!levelBoost) {
+         return this.accessory.levels[this.accessoryLevel-1];
+      }
+      var lv = this.accessoryLevel + levelBoost;
+      if (lv > this.accessory.levels.length) lv = this.accessory.levels.length;
+      return this.accessory.levels[lv-1];
+   };
    return cls;
 })();
 
-/**
- * @typedef NoteTriggerDataType
- * @property {1|2|3|4} type 1 for enter, 2 for hit, 3 for hold, 4 for release
- * @property {number} time float
- * @property {LLH.API.NoteDataType} note
- * @property {number} factor 0.5 for swing, 1 for other
- */
-var LLSimulateContext = (function() {
-   function getTargetMembers(members, targets, excludeId) {
-      var ret = [];
-      if ((!targets) || (targets.length == 0)) return ret;
-      for (var i = 0; i < members.length; i++) {
-         if (excludeId !== undefined && i == excludeId) continue;
-         var matched = true;
-         for (var j = 0; j < targets.length; j++) {
-            if (!LLConst.Member.isMemberInGroup(members[i].card.jpname, targets[j])) {
-               matched = false;
-               break;
-            }
-         }
-         if (matched) {
-            ret.push(i);
-         }
-      }
-      return ret;
-   }
-   var IDX_TRIGGER_MEMBER_ID = 0;
-   var IDX_TRIGGER_START_VALUE = 1;
-   var IDX_TRIGGER_IS_ACTIVE = 2;
-   var IDX_TRIGGER_REQUIRE_VALUE = 3;
-   var IDX_TRIGGER_BASE_POSSIBILITY = 4;
-   var IDX_TRIGGER_LIMIT = 5;
-   var IDX_ACTIVE_END_TIME = 0;
-   var IDX_ACTIVE_MEMBER_ID = 1;
-   var IDX_ACTIVE_REAL_MEMMBER_ID = 2;
-   var IDX_ACTIVE_EFFECT_VALUE = 3;
-   var IDX_ACTIVE_EXTRA_DATA = 4;
-   var IDX_LAST_MEMBER_ID = 0;
-   var IDX_LAST_LEVEL_BOOST = 1;
-   var IDX_LAST_FRAME = 2;
-   var IDX_LAST_REPEAT_FRAME = 3;
-
-   var SIM_NOTE_ENTER = 1;
-   var SIM_NOTE_HIT = 2;
-   var SIM_NOTE_HOLD = 3;
-   var SIM_NOTE_RELEASE = 4;
-
+var LLSimulateContextStatic = (function () {
    /**
     * @constructor
     * @param {LLH.Model.LLMap_SaveData} mapdata 
-    * @param {*} members 
-    * @param {*} maxTime 
+    * @param {LLH.Model.LLMember[]} members 
+    * @param {number} maxTime 
     */
-   function LLSimulateContext_cls(mapdata, members, maxTime) {
+   function LLSimulateContextStatic_cls(mapdata, members, maxTime){
       this.members = members;
       this.totalNote = mapdata.combo;
       this.totalTime = maxTime;
@@ -4267,6 +4264,161 @@ var LLSimulateContext = (function() {
       this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
       this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
       this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
+      this.skillPosibilityDownFixed = 0;
+      this.hasRepeatSkill = false;
+
+      for (var i = 0; i < 9; i++) {
+         if ((members[i].card.skilleffect == LLConst.SKILL_EFFECT_REPEAT)
+            || (members[i].accessory && members[i].accessory.effect_type == LLConst.SKILL_EFFECT_REPEAT)) {
+            this.hasRepeatSkill = true;
+            break;
+         }
+      }
+
+      this.skillsStatic = [];
+      for (var i = 0; i < 9; i++) {
+         this.skillsStatic.push(this.makeSkillStaticInfo(i));
+      }
+   }
+
+   /**
+    * @param {LLH.Model.LLMember[]} members 
+    * @param {LLH.Core.TriggerTargetType | LLH.Core.TriggerTargetMemberType} targets 
+    * @param {boolean} byMember true if targets are member (match any), false for group (match all)
+    * @returns {number[]} sync target member ids
+    */
+    function getTargetMembers(members, targets, byMember) {
+      var ret = [];
+      for (var i = 0; i < members.length; i++) {
+         var matched = true;
+         if (targets && targets.length > 0) {
+            if (byMember) {
+               matched = false;
+               for (var j = 0; j < targets.length; j++) {
+                  if (targets[j] == members[i].card.typeid) {
+                     matched = true;
+                     break;
+                  }
+               }
+            } else {
+               for (var j = 0; j < targets.length; j++) {
+                  if (!LLConst.Member.isMemberInGroup(members[i].card.typeid, targets[j])) {
+                     matched = false;
+                     break;
+                  }
+               }
+            }
+         }
+         if (matched) {
+            ret.push(i);
+         }
+      }
+      return ret;
+   }
+
+   /** @type {typeof LLH.Model.LLSimulateContextStatic} */
+   var cls = LLSimulateContextStatic_cls;
+   var proto = cls.prototype;
+   proto.makeSkillStaticInfo = function (index) {
+      /** @type {LLH.Model.LLSimulateContext_SkillStaticInfo} */
+      var ret = {};
+      var curMember = this.members[index];
+      if ((!curMember.card.skill) || (curMember.card.skilleffect == 0)) {
+         ret.neverTrigger = true;
+         return ret;
+      }
+      var triggerType = curMember.card.triggertype;
+      var skillDetail = curMember.getSkillDetail();
+      var skillRequire = skillDetail.require;
+      ret.neverTrigger = false;
+      ret.skillEffect = this.makeEffectStaticInfo(index, false);
+      if (curMember.accessory) {
+         ret.accessoryEffect = this.makeEffectStaticInfo(index, true);
+      }
+      // 连锁发动条件
+      if (triggerType == LLConst.SKILL_TRIGGER_MEMBERS) {
+         // 连锁条件是看要求的人物(例如要求μ's二年级的穗乃果的连锁卡, 要求人物为小鸟和海未)都发动过技能
+         // 而不是所有是要求的人物的卡都发动过技能
+         // 上面的例子中, 只要有任何一张鸟的卡和一张海的卡发动过技能(包括饰品技能)就能触发果的连锁
+         var conditionBitset = 0;
+         var possibleBitset = 0;
+         var typeIdBits = {};
+         var typeIds = LLConst.Member.getMemberTypeIdsInGroups(curMember.card.triggertarget);
+         for (var i = 0; i < typeIds.length; i++) {
+            var typeId = typeIds[i];
+            typeIdBits[typeId] = (1 << i);
+            if (typeId != curMember.card.typeid) {
+               conditionBitset |= (1 << i);
+            }
+         }
+         for (var i = 0; i < this.members.length; i++) {
+            // 持有连锁技能的卡牌不计入连锁发动条件
+            if (this.members[i].card.triggertype == LLConst.SKILL_TRIGGER_MEMBERS) continue;
+            var curBit = typeIdBits[this.members[i].card.typeid];
+            if (curBit !== undefined) {
+               possibleBitset |= curBit;
+            }
+         }
+         // 无连锁对象, 不会触发
+         if ((possibleBitset & conditionBitset) != conditionBitset) {
+            ret.neverTrigger = true;
+         } else {
+            skillRequire = conditionBitset;
+         }
+         ret.chainTypeIdBits = typeIdBits;
+      }
+      if (!ret.neverTrigger) {
+         ret.triggerLimit = (this.triggerLimitPattern ? (skillDetail.limit || 0) : 0);
+         ret.triggerPossibility = Math.max(skillDetail.possibility - this.skillPosibilityDownFixed, 0);
+         ret.triggerRequire = skillRequire;
+         if (curMember.accessory) {
+            var curAccessoryDetail = curMember.getAccessoryDetail();
+            ret.accessoryPosibility = curAccessoryDetail.rate;
+         } else {
+            ret.accessoryPosibility = 0;
+         }
+      }
+      return ret;
+   };
+   proto.makeEffectStaticInfo = function (index, isAccessory) {
+      /** @type {LLH.Model.LLSimulateContext_EffectStaticInfo} */
+      var ret = {};
+      var curMember = this.members[index];
+      var effectType = (isAccessory ? curMember.accessory.effect_type : curMember.card.skilleffect);
+      var effectTarget = (isAccessory ? curMember.accessory.effect_target : curMember.card.effecttarget);
+      ret.effectType = effectType;
+      // init sync target
+      if (effectType == LLConst.SKILL_EFFECT_SYNC) {
+         // include self
+         ret.syncTargets = getTargetMembers(this.members, effectTarget, isAccessory);
+         // exclude one
+         ret.syncTargetsBy = [];
+         for (var i = 0; i < 9; i++) {
+            ret.syncTargetsBy.push(ret.syncTargets.filter((x) => x != i));
+         }
+      }
+      // attribute up target
+      else if (effectType == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
+         ret.attributeUpTargets = getTargetMembers(this.members, effectTarget, isAccessory);
+      }
+      return ret;
+   };
+   return cls;
+})();
+
+var LLSimulateContext = (function() {
+   var SIM_NOTE_ENTER = 1;
+   var SIM_NOTE_HIT = 2;
+   var SIM_NOTE_HOLD = 3;
+   var SIM_NOTE_RELEASE = 4;
+
+   /**
+    * @constructor
+    * @param {LLH.Model.LLSimulateContextStatic} staticData
+    */
+   function LLSimulateContext_cls(staticData) {
+      this.staticData = staticData;
+      this.members = staticData.members;
       this.currentTime = 0;
       this.currentFrame = 0;
       this.currentNote = 0;
@@ -4279,22 +4431,16 @@ var LLSimulateContext = (function() {
       this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.accessoryActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.accessoryActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.accessoryActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      this.accessoryActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.currentAccuracyCoverNote = 0;
       this.totalPerfectScoreUp = 0; // capped at SKILL_LIMIT_PERFECT_SCORE_UP
-      this.remainingPerfect = mapdata.perfect;
-      // trigger_type: [[memberid, start_value, is_active, require, base_possibility, limit], ...]
-      // in SKILL_TRIGGER_MEMBERS case, start_value is members_bitset, require is trigger_condition_members_bitset
-      // limit 0 means no limit, otherwise limited
+      this.remainingPerfect = staticData.totalPerfect;
       this.triggers = {};
-      this.memberToTrigger = [];
       this.memberSkillOrder = [];
-      this.syncTargets = []; // syncTargets[memberId] = [memberIds...]
-      this.attributeUpForMember = []; // attributeUpForMember[memberId] = diff for attribute up for that member
-      this.attributeUpTargetMembers = []; // attributeUpTargetMembers[sourceMemberId] = [<list of target member id>]
-      this.attributeSyncForMember = []; // diff for attribute after sync for that member
-      this.chainNameBit = []; // chainNameBit[memberId][jpname] = bit
       this.lastFrameForLevelUp = -1;
-      this.hasRepeatSkill = false;
 
       var skillOrder = []; // [ [i, priority], ...]
       var lvupSkillPriority = 1;
@@ -4303,83 +4449,22 @@ var LLSimulateContext = (function() {
          lvupSkillPriority = 2;
          otherSkillPriority = 1;
       }
+      this.skillsDynamic = [];
       for (var i = 0; i < 9; i++) {
-         var curMember = members[i];
-         this.memberToTrigger.push(undefined);
-         this.chainNameBit.push(undefined);
-         if ((!curMember.card.skill) || (curMember.skilleffect == 0)) continue;
-         var triggerType = curMember.card.triggertype;
-         var effectType = curMember.card.skilleffect;
-         /** @type {LLH.API.SkillDetailDataType} */
-         var skillDetail = curMember.getSkillDetail();
-         var skillRequire = skillDetail.require;
-         var targets;
-         var neverTrigger = false;
-         if (effectType == LLConst.SKILL_EFFECT_REPEAT) {
-            this.hasRepeatSkill = true;
-         }
-         // 属性同步技能可带来的属性变化量
-         if (effectType == LLConst.SKILL_EFFECT_SYNC) {
-            targets = getTargetMembers(this.members, curMember.card.effecttarget, i);
-            // 无同步对象, 不会触发
-            if (targets.length == 0) neverTrigger = true;
-            this.syncTargets.push(targets);
-         } else {
-            this.syncTargets.push(undefined);
-         }
-         // 属性提升技能带来的属性提升量, 以及属性提升技能的目标
-         this.attributeUpForMember.push(undefined);
-         this.attributeSyncForMember.push(undefined);
-         if (effectType == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
-            targets = getTargetMembers(this.members, curMember.card.effecttarget);
-            if (targets.length > 0) {
-               this.attributeUpTargetMembers.push(targets);
-            } else {
-               this.attributeUpTargetMembers.push(undefined);
-            }
-         } else {
-            this.attributeUpTargetMembers.push(undefined);
-         }
-         // 连锁发动条件
-         if (triggerType == LLConst.SKILL_TRIGGER_MEMBERS) {
-            // 连锁条件是看要求的人物(例如要求μ's二年级的穗乃果的连锁卡, 要求人物为小鸟和海未)都发动过技能
-            // 而不是所有是要求的人物的卡都发动过技能
-            // 上面的例子中, 只要有任何一张鸟的卡和一张海的卡发动过技能就能触发果的连锁
-            var conditionBitset = 0;
-            var possibleBitset = 0;;
-            var nameBits = {};
-            var names = LLConst.getMemberNamesInGroups(curMember.card.triggertarget);
-            for (var j = 0; j < names.length; j++) {
-               nameBits[names[j]] = (1 << j);
-               if (names[j] != curMember.card.jpname) {
-                  conditionBitset |= (1 << j);
-               }
-            }
-            for (var j = 0; j < members.length; j++) {
-               // 持有连锁技能的卡牌不计入连锁发动条件
-               if (members[j].card.triggertype  == LLConst.SKILL_TRIGGER_MEMBERS) continue;
-               if (nameBits[members[j].card.jpname] !== undefined) {
-                  possibleBitset |= nameBits[members[j].card.jpname];
-               }
-            }
-            // 无连锁对象, 不会触发
-            if ((possibleBitset & conditionBitset) != conditionBitset) {
-               neverTrigger = true;
-            } else {
-               skillRequire = conditionBitset;
-            }
-            this.chainNameBit[i] = nameBits;
-         }
-         if (!neverTrigger) {
-            var triggerLimit = (this.triggerLimitPattern ? (skillDetail.limit || 0) : 0);
-            // [member_id, start_value, is_active, require, possibility, limit]
-            var triggerData = [i, 0, 0, skillRequire, skillDetail.possibility, triggerLimit];
+         var curMember = this.members[i];
+         /** @type {LLH.Model.LLSimulateContext_SkillDynamicInfo} */
+         var skillDynamic = {};
+         skillDynamic.staticInfo = this.staticData.skillsStatic[i];
+         var triggerData = this.makeTriggerData(i);
+         if (triggerData) {
+            var triggerType = curMember.card.triggertype;
+            var effectType = curMember.card.skilleffect;
             if (this.triggers[triggerType] === undefined) {
                this.triggers[triggerType] = [triggerData];
             } else {
                this.triggers[triggerType].push(triggerData);
             }
-            this.memberToTrigger[i] = triggerData;
+            skillDynamic.trigger = triggerData;
             var skillPriority; // lower value for higher priority
             if (triggerType == LLConst.SKILL_TRIGGER_MEMBERS) {
                skillPriority = 9;
@@ -4392,6 +4477,7 @@ var LLSimulateContext = (function() {
             }
             skillOrder.push([i, skillPriority]);
          }
+         this.skillsDynamic.push(skillDynamic);
       }
       // sort priority asc, for same priority, put right one before left one (index desc)
       skillOrder.sort(function(a,b){
@@ -4402,16 +4488,20 @@ var LLSimulateContext = (function() {
          this.memberSkillOrder.push(skillOrder[i][0]);
       }
 
-      // activeSkills: [[end_time, memberid, realMemberId, effectValue, extraData], ...]
-      // realMemberId is repeat target memberid for repeat skill, otherwise equal to memberid
-      // for SYNC & ATTRIBUTE_UP effect: effectValue is increased attribute after sync/attribute up
       this.activeSkills = [];
-      // [member id, level boost, activate frame, repeat frame]
       this.lastActiveSkill = undefined;
       // effect_type: effect_value
-      this.effects = {};
-      this.calculateEffects();
+      var eff = {};
+      eff[LLConst.SKILL_EFFECT_ACCURACY_SMALL] = 0; // active count
+      eff[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] = 0; // active count
+      eff[LLConst.SKILL_EFFECT_POSSIBILITY_UP] = 1.0; // possibility *x, no stack
+      eff[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP] = 0; // total bonus
+      eff[LLConst.SKILL_EFFECT_COMBO_FEVER] = 0; // score +(x*combo_factor), need cap at SKILL_LIMIT_COMBO_FEVER
+      eff[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] = 0; // total attribute +x, including sync and attribute up
+      eff[LLConst.SKILL_EFFECT_LEVEL_UP] = 0; // level boost
+      this.effects = eff;
    };
+   /** @type {typeof LLH.Model.LLSimulateContext} */
    var cls = LLSimulateContext_cls;
    var proto = cls.prototype;
    var EPSILON = 1e-8;
@@ -4426,74 +4516,40 @@ var LLSimulateContext = (function() {
       this.currentFrame = minFrame;
       this.currentTime = this.currentFrame * SEC_PER_FRAME;
    };
-   proto.calculateEffects = function() {
-      var hasAccuracySmall = 0; // 1 for active
-      var hasAccuracyNormal = 0; // 1 for active
-      var effPossibilityUp = 1.0; // possibility *x, no stack
-      var effPerfectScoreUp = 0; // total bonus
-      var effComboFever = 0; // score +(x*combo_factor), need cap at SKILL_LIMIT_COMBO_FEVER
-      var effAttributeUp = 0; // total attribute +x, including sync and attribute up and accuracy gem
-      var needCheckAttribute = false;
-      for (var i = 0; i < this.activeSkills.length; i++) {
-         // repeat target member id
-         var curMember = this.members[this.activeSkills[i][IDX_ACTIVE_REAL_MEMMBER_ID]];
-         var curEffect = curMember.card.skilleffect;
-         if (curEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL)
-            hasAccuracySmall = 1;
-         else if (curEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL)
-            hasAccuracyNormal = 1;
-         else if (curEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP)
-            effPossibilityUp = this.activeSkills[i][IDX_ACTIVE_EFFECT_VALUE];
-         else if (curEffect == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP)
-            effPerfectScoreUp += this.activeSkills[i][IDX_ACTIVE_EFFECT_VALUE];
-         else if (curEffect == LLConst.SKILL_EFFECT_COMBO_FEVER)
-            effComboFever += this.activeSkills[i][IDX_ACTIVE_EFFECT_VALUE];
-         else if (curEffect == LLConst.SKILL_EFFECT_ATTRIBUTE_UP || curEffect == LLConst.SKILL_EFFECT_SYNC)
-            needCheckAttribute = true;
-      }
-      if (needCheckAttribute) {
-         for (var i = 0; i < 9; i++) {
-            var curAttributeUp = this.attributeUpForMember[i];
-            var curAttributeSync = this.attributeSyncForMember[i];
-            if (curAttributeUp !== undefined) effAttributeUp += curAttributeUp;
-            if (curAttributeSync !== undefined) effAttributeUp += curAttributeSync;
-         }
-      }
-      var eff = this.effects;
-      eff[LLConst.SKILL_EFFECT_ACCURACY_SMALL] = hasAccuracySmall;
-      eff[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] = hasAccuracyNormal;
-      eff[LLConst.SKILL_EFFECT_POSSIBILITY_UP] = effPossibilityUp;
-      eff[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP] = effPerfectScoreUp;
-      eff[LLConst.SKILL_EFFECT_COMBO_FEVER] = effComboFever;
-      eff[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] = effAttributeUp;
-   };
    proto.processDeactiveSkills = function() {
       if (this.activeSkills.length == 0) return;
       var activeIndex = 0;
-      var needRecalculate = false;
       for (; activeIndex < this.activeSkills.length; activeIndex++) {
          var curActiveSkill = this.activeSkills[activeIndex];
-         if (curActiveSkill[IDX_ACTIVE_END_TIME] <= this.currentTime) {
-            var deactivedMemberId = curActiveSkill[IDX_ACTIVE_MEMBER_ID];
-            var deactivedSkillEffect = this.members[deactivedMemberId].card.skilleffect;
-            this.markTriggerActive(deactivedMemberId, 0);
+         if (curActiveSkill.t <= this.currentTime) {
+            var deactivedMemberId = curActiveSkill.m;
+            var effectStaticInfo = curActiveSkill.e;
+            var deactivedSkillEffect = effectStaticInfo.effectType;
+            this.markTriggerActive(deactivedMemberId, false);
             this.activeSkills.splice(activeIndex, 1);
             if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
-               var realMemberId = curActiveSkill[IDX_ACTIVE_REAL_MEMMBER_ID];
-               for (var i = 0; i < this.attributeUpTargetMembers[realMemberId].length; i++) {
-                  var targetMemberId = this.attributeUpTargetMembers[realMemberId][i];
-                  this.attributeUpForMember[targetMemberId] = undefined;
+               var totalUp = 0;
+               for (var i = 0; i < effectStaticInfo.attributeUpTargets.length; i++) {
+                  var targetMemberId = effectStaticInfo.attributeUpTargets[i];
+                  totalUp += this.skillsDynamic[targetMemberId].attributeUp || 0;
+                  this.skillsDynamic[targetMemberId].attributeUp = undefined;
                }
+               this.effects[deactivedSkillEffect] -= totalUp;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_SYNC) {
-               var syncTarget = curActiveSkill[IDX_ACTIVE_EXTRA_DATA];
-               this.attributeSyncForMember[syncTarget] = undefined;
+               var syncTarget = curActiveSkill.st;
+               this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] -= this.skillsDynamic[syncTarget].attributeSync || 0;
+               this.skillsDynamic[syncTarget].attributeSync = undefined;
+            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL
+               || deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
+               this.effects[deactivedSkillEffect] -= 1;
+            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
+               this.effects[deactivedSkillEffect] = 1.0;
+            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP
+               || deactivedSkillEffect == LLConst.SKILL_EFFECT_COMBO_FEVER) {
+               this.effects[deactivedSkillEffect] -= curActiveSkill.v;
             }
-            needRecalculate = true;
             activeIndex--;
          }
-      }
-      if (needRecalculate) {
-         this.calculateEffects();
       }
    };
    proto.getMinDeactiveTime = function() {
@@ -4501,31 +4557,32 @@ var LLSimulateContext = (function() {
       if (this.activeSkills.length == 0) return minNextTime;
       var activeIndex = 0;
       for (; activeIndex < this.activeSkills.length; activeIndex++) {
-         if (minNextTime === undefined || this.activeSkills[activeIndex][IDX_ACTIVE_END_TIME] < minNextTime) {
-            minNextTime = this.activeSkills[activeIndex][IDX_ACTIVE_END_TIME];
+         if (minNextTime === undefined || this.activeSkills[activeIndex].t < minNextTime) {
+            minNextTime = this.activeSkills[activeIndex].t;
          }
       }
       return minNextTime;
    };
-   proto.markTriggerActive = function(memberId, bActive) {
-      var curTriggerData = this.memberToTrigger[memberId];
+   proto.markTriggerActive = function(memberId, bActive, effectInfo) {
+      var curTriggerData = this.skillsDynamic[memberId].trigger;
       if (!curTriggerData) return;
-      curTriggerData[IDX_TRIGGER_IS_ACTIVE] = bActive;
+      curTriggerData.a = bActive;
+      curTriggerData.ae = effectInfo;
       // special case
       if ((!bActive) && this.members[memberId].card.triggertype == LLConst.SKILL_TRIGGER_TIME) {
-         curTriggerData[IDX_TRIGGER_START_VALUE] = this.currentTime;
+         curTriggerData.s = this.currentTime;
       }
    };
-   proto.isSkillNoEffect = function (memberId) {
-      var skillEffect = this.members[memberId].card.skilleffect;
+   proto.isSkillNoEffect = function (memberId, effectInfo) {
+      var skillEffect = effectInfo.effectType;
       // 在一些情况下技能会无效化
       if (skillEffect == LLConst.SKILL_EFFECT_REPEAT) {
          // 没技能发动时,repeat不能发动
          if (this.lastActiveSkill === undefined) return true;
          // 被非同帧复读过了, 对以后帧就会失效
-         var lastRepeatFrame = this.lastActiveSkill[IDX_LAST_REPEAT_FRAME];
+         var lastRepeatFrame = this.lastActiveSkill.rf;
          if (lastRepeatFrame >= 0 && lastRepeatFrame < this.currentFrame) {
-            this.lastActiveSkill = undefined;
+            this.clearLastActiveSkill();
             return true;
          }
       } else if (skillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
@@ -4538,47 +4595,87 @@ var LLSimulateContext = (function() {
          }
       } else if (skillEffect == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
          // 若队伍中所有满足条件的卡都已经在属性提升状态, 则无法发动
-         for (var i = 0; i < this.attributeUpTargetMembers[memberId].length; i++) {
-            var targetMemberId = this.attributeUpTargetMembers[memberId][i];
-            if (this.attributeUpForMember[targetMemberId] !== undefined) {
-               return true;
+         for (var i = 0; i < effectInfo.attributeUpTargets.length; i++) {
+            var targetMemberId = effectInfo.attributeUpTargets[i];
+            if (!this.skillsDynamic[targetMemberId].attributeUp) {
+               return false;
             }
          }
+         return true;
+      } else if (skillEffect == LLConst.SKILL_EFFECT_SYNC) {
+         // 若队伍中没有同步对象，则无法发动
+         if (effectInfo.syncTargetsBy[memberId].length < 1) return true;
       }
-      // 不检查属性同步没同步对象的情况, 如果没有合适的同步对象会在一开始就不加入列表
       return false;
    };
-   proto.getSkillPossibility = function(memberId) {
-      return this.memberToTrigger[memberId][IDX_TRIGGER_BASE_POSSIBILITY] * this.mapSkillPossibilityUp * this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP];
+   proto.getSkillPossibility = function(memberId, isAccessory) {
+      var triggerData = this.skillsDynamic[memberId].trigger;
+      var possibility = 0;
+      if (triggerData) {
+         possibility = (isAccessory ? triggerData.st.accessoryPosibility : triggerData.st.triggerPossibility) || 0;
+      }
+      return possibility * this.staticData.mapSkillPossibilityUp * this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP];
    };
-   proto.onSkillActive = function(memberId) {
+   proto.setLastActiveSkill = function (memberId, levelBoost, activateFrame, isAccessory) {
+      this.lastActiveSkill = {'m': memberId, 'b': levelBoost, 'af': activateFrame, 'rf': -1, 'a': isAccessory};
+   };
+   proto.clearLastActiveSkill = function () {
+      this.lastActiveSkill = undefined;
+   };
+   proto.setLastFrameForLevelUp = function () {
+      this.lastFrameForLevelUp = this.currentFrame;
+   };
+   proto.addActiveSkill = function (effectInfo, effectTime, memberId, realMemberId, effectValue, syncTarget) {
+      /** @type {LLH.Model.LLSimulateContext_ActiveSkill} */
+      var ret = {};
+      ret.e = effectInfo;
+      ret.m = memberId;
+      ret.rm = realMemberId;
+      ret.st = syncTarget;
+      ret.t = this.currentTime + effectTime;
+      ret.v = effectValue;
+      this.activeSkills.push(ret);
+      this.markTriggerActive(memberId, true, effectInfo);
+      return ret;
+   };
+   proto.onSkillActive = function(memberId, isAccessory) {
       var levelBoost = this.effects[LLConst.SKILL_EFFECT_LEVEL_UP];
+      var triggerType = this.members[memberId].card.triggertype;
       if (levelBoost) {
          // 连锁技能可以吃到同一帧中发动的技能等级提升的效果, 而其它技能则只能吃到之前帧发动的技能等级提升
-         if (this.lastFrameForLevelUp == this.currentFrame && this.members[memberId].card.triggertype != LLConst.SKILL_TRIGGER_MEMBERS) {
+         if (this.lastFrameForLevelUp == this.currentFrame && triggerType != LLConst.SKILL_TRIGGER_MEMBERS) {
             levelBoost = 0;
          } else {
             this.effects[LLConst.SKILL_EFFECT_LEVEL_UP] = 0;
          }
       }
-      var skillEffect = this.members[memberId].card.skilleffect;
+      var skillDynamic = this.skillsDynamic[memberId];
+      var skillEffect = (isAccessory ? skillDynamic.staticInfo.accessoryEffect : skillDynamic.staticInfo.skillEffect);
+      var effectType = skillEffect.effectType;
       var realMemberId = memberId;
+      var realAccessory = isAccessory;
       // update chain trigger
       var chainTriggers = this.triggers[LLConst.SKILL_TRIGGER_MEMBERS];
-      if (chainTriggers && this.members[memberId].card.triggertype != LLConst.SKILL_TRIGGER_MEMBERS) {
+      if (chainTriggers && triggerType != LLConst.SKILL_TRIGGER_MEMBERS) {
          for (var i = 0; i < chainTriggers.length; i++) {
-            var thisNameBit = this.chainNameBit[chainTriggers[i][IDX_TRIGGER_MEMBER_ID]][this.members[memberId].card.jpname];
-            if (thisNameBit !== undefined) {
-               chainTriggers[i][IDX_TRIGGER_START_VALUE] |= thisNameBit;
+            var thisBit = chainTriggers[i].st.chainTypeIdBits[this.members[memberId].card.typeid];
+            if (thisBit !== undefined) {
+               chainTriggers[i].s |= thisBit;
             }
          }
       }
       // set last active skill
-      if (skillEffect == LLConst.SKILL_EFFECT_REPEAT) {
+      if (effectType == LLConst.SKILL_EFFECT_REPEAT) {
          if (this.lastActiveSkill !== undefined) {
-            realMemberId = this.lastActiveSkill[IDX_LAST_MEMBER_ID];
-            levelBoost = this.lastActiveSkill[IDX_LAST_LEVEL_BOOST];
-            skillEffect = this.members[realMemberId].card.skilleffect;
+            realMemberId = this.lastActiveSkill.m;
+            levelBoost = this.lastActiveSkill.b;
+            realAccessory = this.lastActiveSkill.a;
+            if (realAccessory) {
+               skillEffect = this.skillsDynamic[realMemberId].staticInfo.accessoryEffect;
+            } else {
+               skillEffect = this.skillsDynamic[realMemberId].staticInfo.skillEffect;
+            }
+            effectType = skillEffect.effectType;
             // 国服翻译有问题, 说复读技能发动时前一个发动的技能是复读时无效
             // 但是日服的复读技能介绍并没有提到这一点, 而是复读上一个非复读技能
             // 这导致了日服出现的复读boost卡组能获得超高得分的事件, 而llh依照国服翻译无法模拟这一情况
@@ -4586,105 +4683,115 @@ var LLSimulateContext = (function() {
             // 现在更改为按日服介绍进行模拟
             //this.lastActiveSkill = undefined;
             // 记录非同帧复读
-            if (this.lastActiveSkill[IDX_LAST_FRAME] != this.currentFrame) {
-               this.lastActiveSkill[IDX_LAST_REPEAT_FRAME] = this.currentFrame;
+            if (this.lastActiveSkill.af != this.currentFrame) {
+               this.lastActiveSkill.rf = this.currentFrame;
             }
             // 半哑火: 被复读的技能哑火了
-            if (this.isSkillNoEffect(realMemberId)) {
+            if (this.isSkillNoEffect(memberId, skillEffect)) {
                return false;
             }
          } else {
             // no effect
             return false;
          }
-      } else if (this.hasRepeatSkill) {
-         if (this.lastActiveSkill === undefined || this.lastActiveSkill[IDX_LAST_FRAME] != this.currentFrame) {
-            // [member id, level boost, activate frame, repeat frame]
-            this.lastActiveSkill = [memberId, levelBoost, this.currentFrame, -1];
+      } else if (this.staticData.hasRepeatSkill) {
+         if (this.lastActiveSkill === undefined || this.lastActiveSkill.af != this.currentFrame) {
+            this.setLastActiveSkill(memberId, levelBoost, this.currentFrame, isAccessory);
          }
       }
       // take effect
       // should not be a REPEAT skill
-      var skillDetail = this.members[realMemberId].getSkillDetail(levelBoost);
-      if (skillEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL) {
-         this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] = 1;
-         if (skillDetail.time === undefined) skillDetail.time = skillDetail.score;
-         this.activeSkills.push([this.currentTime+skillDetail.time, memberId, realMemberId]);
-         this.markTriggerActive(memberId, 1);
-      } else if (skillEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
-         this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] = 1;
-         if (skillDetail.time === undefined) skillDetail.time = skillDetail.score;
-         this.activeSkills.push([this.currentTime+skillDetail.time, memberId, realMemberId]);
-         this.markTriggerActive(memberId, 1);
-      } else if (skillEffect == LLConst.SKILL_EFFECT_HEAL) {
-         this.currentHeal += skillDetail.score;
+      var effectTime = 0;
+      var effectValue = 0;
+      if (realAccessory) {
+         var accessoryDetail = this.members[realMemberId].getAccessoryDetail(levelBoost);
+         effectTime = accessoryDetail.time;
+         effectValue = accessoryDetail.effect_value;
+      } else {
+         var skillDetail = this.members[realMemberId].getSkillDetail(levelBoost);
+         effectTime = skillDetail.time;
+         effectValue = skillDetail.score;
+      }
+      if (effectType == LLConst.SKILL_EFFECT_ACCURACY_SMALL) {
+         this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] += 1;
+         if (effectTime === undefined) effectTime = effectValue;
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
+      } else if (effectType == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
+         this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] += 1;
+         if (effectTime === undefined) effectTime = effectValue;
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
+      } else if (effectType == LLConst.SKILL_EFFECT_HEAL) {
+         this.currentHeal += effectValue;
          // 奶转分
-         if (this.members[realMemberId].hasSkillGem()) this.currentScore += skillDetail.score * 480;
-      } else if (skillEffect == LLConst.SKILL_EFFECT_SCORE) {
-         if (this.members[realMemberId].hasSkillGem()) this.currentScore += Math.ceil(skillDetail.score * 2.5);
-         else this.currentScore += skillDetail.score;
-      } else if (skillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
+         if (this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
+      } else if (effectType == LLConst.SKILL_EFFECT_SCORE) {
+         if (this.members[realMemberId].hasSkillGem()) this.currentScore += Math.ceil(effectValue * 2.5);
+         else this.currentScore += effectValue;
+      } else if (effectType == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
          // 不可叠加
-         this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP] = skillDetail.score;
-         this.activeSkills.push([this.currentTime + skillDetail.time, memberId, realMemberId, skillDetail.score]);
-         this.markTriggerActive(memberId, 1);
-      } else if (skillEffect == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP) {
-         this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP] += skillDetail.score;
-         this.activeSkills.push([this.currentTime + skillDetail.time, memberId, realMemberId, skillDetail.score]);
-         this.markTriggerActive(memberId, 1);
-      } else if (skillEffect == LLConst.SKILL_EFFECT_COMBO_FEVER) {
-         this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] += skillDetail.score;
-         this.activeSkills.push([this.currentTime + skillDetail.time, memberId, realMemberId, skillDetail.score]);
-         this.markTriggerActive(memberId, 1);
-      } else if (skillEffect == LLConst.SKILL_EFFECT_SYNC) {
-         var syncTargets = this.syncTargets[realMemberId];
+         this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP] = effectValue;
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
+      } else if (effectType == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP) {
+         this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP] += effectValue;
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
+      } else if (effectType == LLConst.SKILL_EFFECT_COMBO_FEVER) {
+         this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] += effectValue;
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
+      } else if (effectType == LLConst.SKILL_EFFECT_SYNC) {
+         // exclude the member that activate the skill, not the one owning the skill
+         var syncTargets = skillEffect.syncTargetsBy[memberId];
          var syncTarget = syncTargets[Math.floor(Math.random() * syncTargets.length)];
          var attrDiff = 0;
-         if (this.attributeSyncForMember[syncTarget] !== undefined) {
-            attrDiff = this.members[syncTarget].attrStrength + this.attributeSyncForMember[syncTarget] - this.members[memberId].attrStrength;
-         } else if (this.attributeUpForMember[syncTarget] !== undefined) {
-            attrDiff = this.members[syncTarget].attrStrength + this.attributeUpForMember[syncTarget] - this.members[memberId].attrStrength;
+         var targetDynamic = this.skillsDynamic[syncTarget];
+         if (targetDynamic.attributeSync !== undefined) {
+            attrDiff = this.members[syncTarget].attrStrength + targetDynamic.attributeSync - this.members[memberId].attrStrength;
+         } else if (targetDynamic.attributeUp !== undefined) {
+            attrDiff = this.members[syncTarget].attrStrength + targetDynamic.attributeUp - this.members[memberId].attrStrength;
          } else {
             attrDiff = this.members[syncTarget].attrStrength - this.members[memberId].attrStrength;
          }
          this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] += attrDiff;
-         this.attributeSyncForMember[memberId] = attrDiff;
-         this.activeSkills.push([this.currentTime + skillDetail.time, memberId, realMemberId, attrDiff, syncTarget]);
-         this.markTriggerActive(memberId, 1);
-      } else if (skillEffect == LLConst.SKILL_EFFECT_LEVEL_UP) {
-         this.effects[LLConst.SKILL_EFFECT_LEVEL_UP] = skillDetail.score;
-         this.lastFrameForLevelUp = this.currentFrame;
-      } else if (skillEffect == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
+         skillDynamic.attributeSync = attrDiff;
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, attrDiff, syncTarget);
+      } else if (effectType == LLConst.SKILL_EFFECT_LEVEL_UP) {
+         this.effects[LLConst.SKILL_EFFECT_LEVEL_UP] = effectValue;
+         this.setLastFrameForLevelUp();
+      } else if (effectType == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
          var attrBuff = 0;
-         for (var i = 0; i < this.attributeUpTargetMembers[realMemberId].length; i++) {
-            var targetMemberId = this.attributeUpTargetMembers[realMemberId][i];
-            if (this.attributeUpForMember[targetMemberId] === undefined) {
-               this.attributeUpForMember[targetMemberId] = this.members[targetMemberId].attrStrength * (skillDetail.score-1);
-               attrBuff += this.attributeUpForMember[targetMemberId];
+         for (var i = 0; i < skillEffect.attributeUpTargets.length; i++) {
+            var targetMemberId = skillEffect.attributeUpTargets[i];
+            var targetDynamic = this.skillsDynamic[targetMemberId];
+            if (targetDynamic.attributeUp === undefined) {
+               targetDynamic.attributeUp = Math.ceil(this.members[targetMemberId].attrStrength * (effectValue-1));
+               attrBuff += targetDynamic.attributeUp;
             }
          }
          this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] += attrBuff;
-         this.activeSkills.push([this.currentTime + skillDetail.time, memberId, realMemberId, attrBuff]);
-         this.markTriggerActive(memberId, 1);
+         this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, attrBuff);
       } else {
-         console.warn('Unknown skill effect ' + skillEffect);
+         console.warn('Unknown skill effect ' + effectType);
          return false;
       }
       return true;
    };
    var makeDeltaTriggerCheck = function(key) {
+      /**
+       * @param {LLH.Model.LLSimulateContext} context
+       * @param {LLH.Model.LLSimulateContext_Trigger} data
+       */
       return function(context, data) {
-         var startValue = data[IDX_TRIGGER_START_VALUE];
-         var requireValue = data[IDX_TRIGGER_REQUIRE_VALUE];
+         var startValue = data.s;
+         var requireValue = data.st.triggerRequire;
          var curValue = context[key];
          if (curValue - startValue >= requireValue) {
-            data[IDX_TRIGGER_START_VALUE] = curValue - (curValue - startValue)%requireValue
+            data.s = curValue - (curValue - startValue)%requireValue
             return true;
          }
          return false;
       };
    };
    var triggerChecks = (function() {
+      /** @type {{[type: number]: (context: LLH.Model.LLSimulateContext, data: LLH.Model.LLSimulateContext_Trigger) => boolean}} */
       var ret = {};
       ret[LLConst.SKILL_TRIGGER_TIME] = makeDeltaTriggerCheck('currentTime');
       ret[LLConst.SKILL_TRIGGER_NOTE] = makeDeltaTriggerCheck('currentNote');
@@ -4693,10 +4800,10 @@ var LLSimulateContext = (function() {
       ret[LLConst.SKILL_TRIGGER_PERFECT] = makeDeltaTriggerCheck('currentPerfect');
       ret[LLConst.SKILL_TRIGGER_STAR_PERFECT] = makeDeltaTriggerCheck('currentStarPerfect');
       ret[LLConst.SKILL_TRIGGER_MEMBERS] = function(context, data) {
-         var requireBits = data[IDX_TRIGGER_REQUIRE_VALUE];
-         var curBits = data[IDX_TRIGGER_START_VALUE];
+         var requireBits = data.st.triggerRequire;
+         var curBits = data.s;
          if (requireBits && ((curBits & requireBits) == requireBits)) {
-            data[IDX_TRIGGER_START_VALUE] = 0;
+            data.s = 0;
             return true;
          }
          return false;
@@ -4707,23 +4814,23 @@ var LLSimulateContext = (function() {
       var ret = [];
       for (var i = 0; i < this.memberSkillOrder.length; i++) {
          var memberId = this.memberSkillOrder[i];
-         var curTrigger = this.memberToTrigger[memberId];
+         var curTrigger = this.skillsDynamic[memberId].trigger;
          var curTriggerType = this.members[memberId].card.triggertype;
          // active skill
-         if (curTrigger[IDX_TRIGGER_IS_ACTIVE]) {
+         if (curTrigger.a) {
             // 复读到持续性技能的话不会保留机会到持续性技能结束
-            if (this.members[memberId].card.skilleffect == LLConst.SKILL_EFFECT_REPEAT) {
+            if (curTrigger.ae.effectType == LLConst.SKILL_EFFECT_REPEAT) {
                triggerChecks[curTriggerType](this, curTrigger);
             }
             continue;
          }
          // trigger limit
-         if (curTrigger[IDX_TRIGGER_LIMIT] > 0 && this.skillsActiveCount[memberId] >= curTrigger[IDX_TRIGGER_LIMIT]) {
+         if (curTrigger.st.triggerLimit > 0 && this.skillsActiveCount[memberId] >= curTrigger.st.triggerLimit) {
             continue;
          }
          // inactive skill, check trigger chance
          if (triggerChecks[curTriggerType](this, curTrigger)) {
-            ret.push(curTrigger[IDX_TRIGGER_MEMBER_ID]);
+            ret.push(curTrigger.m);
          }
       }
       return ret;
@@ -4734,16 +4841,26 @@ var LLSimulateContext = (function() {
       var curTriggerList = this.triggers[LLConst.SKILL_TRIGGER_TIME];
       if ((!curTriggerList) || curTriggerList.length == 0) return minNextTime;
       for (var i = 0; i < curTriggerList.length; i++) {
-         if (minNextTime === undefined || curTriggerList[i][IDX_TRIGGER_START_VALUE] + curTriggerList[i][IDX_TRIGGER_REQUIRE_VALUE] < minNextTime) {
-            minNextTime = curTriggerList[i][IDX_TRIGGER_START_VALUE] + curTriggerList[i][IDX_TRIGGER_REQUIRE_VALUE];
+         var curNextTime = curTriggerList[i].s + curTriggerList[i].st.triggerRequire;
+         if (minNextTime === undefined || curNextTime < minNextTime) {
+            minNextTime = curNextTime;
          }
       }
       return minNextTime;
    };
-   /**
-    * @param {NoteTriggerDataType[]} noteTriggerData
-    * @param {LLTeam} teamData
-    */
+   proto.makeTriggerData = function (index) {
+      var skillStatic = this.staticData.skillsStatic[index];
+      if (skillStatic.neverTrigger) {
+         return undefined;
+      }
+      /** @type {LLH.Model.LLSimulateContext_Trigger} */
+      var ret = {};
+      ret.m = index;
+      ret.s = 0;
+      ret.a = false;
+      ret.st = skillStatic;
+      return ret;
+   };
    proto.simulate = function (noteTriggerData, teamData) {
       // 1. 1速下如果有note时间点<1.8秒的情况下,歌曲会开头留白吗? 不留白的话瞬间出现的note会触发note系技能吗? 数量超过触发条件2倍的能触发多次吗?
       //   A1. 似乎不留白, note一帧出一个, 不会瞬间全出
@@ -4760,7 +4877,8 @@ var LLSimulateContext = (function() {
       //   A7. 似乎会重新选择, 不会选到自己但有可能选到之前发动同步的卡
 
       var noteTriggerIndex = 0;
-      while (noteTriggerIndex < noteTriggerData.length || this.currentTime < this.totalTime) {
+      var totalTime = this.staticData.totalTime;
+      while (noteTriggerIndex < noteTriggerData.length || this.currentTime < totalTime) {
          // 1, check if any active skill need deactive
          this.processDeactiveSkills();
          // 2. check if any skill can be activated
@@ -4770,18 +4888,35 @@ var LLSimulateContext = (function() {
             for (var iChance = 0; iChance < nextActiveChances.length; iChance++) {
                var nextActiveChance = nextActiveChances[iChance];
                this.skillsActiveChanceCount[nextActiveChance]++;
-               // validate and check possibility
-               if (this.isSkillNoEffect(nextActiveChance)) {
-                  this.skillsActiveNoEffectCount[nextActiveChance]++;
-                  continue;
-               }
-               var possibility = this.getSkillPossibility(nextActiveChance);
-               if (Math.random() < possibility/100) {
-                  // activate
-                  if (this.onSkillActive(nextActiveChance)) {
-                     this.skillsActiveCount[nextActiveChance]++;
+               // check card skill possibility first, then accessory possibility
+               var possibility = this.getSkillPossibility(nextActiveChance, false);
+               var staticInfo = this.skillsDynamic[nextActiveChance].staticInfo;
+               if (Math.random() < possibility / 100) {
+                  if (this.isSkillNoEffect(nextActiveChance, staticInfo.skillEffect)) {
+                     this.skillsActiveNoEffectCount[nextActiveChance]++;
                   } else {
-                     this.skillsActiveHalfEffectCount[nextActiveChance]++;
+                     // activate
+                     if (this.onSkillActive(nextActiveChance, false)) {
+                        this.skillsActiveCount[nextActiveChance]++;
+                     } else {
+                        this.skillsActiveHalfEffectCount[nextActiveChance]++;
+                     }
+                  }
+               } else if (staticInfo.accessoryEffect) {
+                  // accessory
+                  this.accessoryActiveChanceCount[nextActiveChance]++;
+                  possibility = this.getSkillPossibility(nextActiveChance, true);
+                  if (possibility > 0 && Math.random() < possibility / 100) {
+                     if (this.isSkillNoEffect(nextActiveChance, staticInfo.accessoryEffect)) {
+                        this.accessoryActiveNoEffectCount[nextActiveChance]++;
+                     } else {
+                        // activate
+                        if (this.onSkillActive(nextActiveChance, true)) {
+                           this.accessoryActiveCount[nextActiveChance]++;
+                        } else {
+                           this.accessoryActiveHalfEffectCount[nextActiveChance]++;
+                        }
+                     }
                   }
                }
             }
@@ -4790,7 +4925,7 @@ var LLSimulateContext = (function() {
          var minNoteTime = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex].time : undefined);
          var minNextTime = this.currentTime;
          if (quickSkip) {
-            minNextTime = this.totalTime;
+            minNextTime = totalTime;
             var minDeactiveTime = this.getMinDeactiveTime();
             var minTriggerTime = this.getMinTriggerChanceTime();
             if (minDeactiveTime !== undefined && minTriggerTime < minNextTime) {
@@ -4804,6 +4939,7 @@ var LLSimulateContext = (function() {
             }
          }
          this.updateNextFrameByMinTime(minNextTime);
+         // TODO: damage sis
          var handleNote = (minNoteTime !== undefined && minNoteTime <= this.currentTime);
          // process at most one note per frame
          // need update time before process note so that the time-related skills uses correct current time
@@ -4812,18 +4948,18 @@ var LLSimulateContext = (function() {
             if (curNote.type == SIM_NOTE_ENTER) {
                this.currentNote++;
             } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
-               var isPerfect = (Math.random() * (this.totalNote - this.currentCombo) < this.remainingPerfect);
+               var isPerfect = (Math.random() * (this.staticData.totalNote - this.currentCombo) < this.remainingPerfect);
                var accuracyBonus = LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
                var isAccuracyState = this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] || this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL];
                var comboFeverScore = 0;
                var perfectScoreUp = 0;
-               var healBonus = (this.overHealPattern ? LLConst.getHealBonus(teamData.totalHP, this.currentHeal + teamData.totalHP) : 1);
+               var healBonus = (this.staticData.overHealPattern ? LLConst.getHealBonus(teamData.totalHP, this.currentHeal + teamData.totalHP) : 1);
                this.currentCombo++;
                if (isPerfect) {
                   this.currentPerfect++;
                   this.remainingPerfect--;
                   perfectScoreUp = this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
-                  if (isAccuracyState && this.perfectAccuracyPattern) {
+                  if (isAccuracyState && this.staticData.perfectAccuracyPattern) {
                      accuracyBonus = LLConst.NOTE_WEIGHT_ACC_PERFECT_FACTOR;
                   }
                } else {
@@ -4842,7 +4978,7 @@ var LLSimulateContext = (function() {
                   //TODO: 如果被完美判覆盖到长条开头呢?
                }
                if (this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] > 0) {
-                  comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.comboFeverPattern) * this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
+                  comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.staticData.comboFeverPattern) * this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
                   if (comboFeverScore > LLConst.SKILL_LIMIT_COMBO_FEVER) {
                      comboFeverScore = LLConst.SKILL_LIMIT_COMBO_FEVER;
                   }
@@ -4856,7 +4992,7 @@ var LLSimulateContext = (function() {
                var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * healBonus * teamData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
                // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
-               this.currentScore += Math.ceil(baseNoteScore * this.mapTapScoreUp);
+               this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
                this.totalPerfectScoreUp += perfectScoreUp;
             }
             noteTriggerIndex++;
@@ -4872,6 +5008,7 @@ var LLTeam = (function() {
       if (members.length != 9) throw("Expect 9 members");
       this.members = members;
    };
+   /** @type {typeof LLH.Model.LLTeam} */
    var cls = LLTeam_cls;
    var MAX_SCORE = 10000000;
    var MAX_SCORE_TEXT = '1000w+';
@@ -4925,14 +5062,14 @@ var LLTeam = (function() {
    var proto = cls.prototype;
    proto.calculateAttributeStrength = function (mapdata) {
       var mapcolor = mapdata.attribute;
-      //((基本属性+绊)*百分比宝石加成+数值宝石加成)*主唱技能加成
+      //((基本属性+绊+饰品)*个人百分比宝石加成+(基本属性+绊)*全体百分比宝石加成+数值宝石加成)*主唱技能加成
       var teamgem = [];
       var i, j;
       var isNonetTeam = LLConst.Member.isNonetTeam(this.members);
       //数值和单体百分比宝石
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
-         curMember.calcDisplayAttr(mapcolor);
+         curMember.calcDisplayAttr();
          /** @type {LLH.Model.LLSisGem[]} */
          var curGems = [];
          for (j = 0; j < curMember.gems.length; j++) {
@@ -4957,8 +5094,8 @@ var LLTeam = (function() {
       }
       //全体宝石的提升统合到携带全体宝石的队员的属性强度上
       var attrStrength = [];
-      var finalAttr = {'smile':0, 'pure':0, 'cool':0};
-      var bonusAttr = {'smile':0, 'pure':0, 'cool':0};
+      var finalAttr = LLConst.Attributes.makeAttributes0();
+      var bonusAttr = LLConst.Attributes.makeAttributes0();
       var totalAttrWithAccuracy = 0;
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
@@ -4969,10 +5106,8 @@ var LLTeam = (function() {
             curAttrStrength += jMember.cumulativeAttrStrength[i+1] - jMember.cumulativeAttrStrength[i];
          }
          attrStrength.push(curAttrStrength);
-         for (j in finalAttr) {
-            finalAttr[j] += curMember.finalAttr[j];
-            bonusAttr[j] += curMember.bonusAttr[j];
-         }
+         LLConst.Attributes.addToAttributes(finalAttr, curMember.finalAttr);
+         LLConst.Attributes.addToAttributes(bonusAttr, curMember.bonusAttr);
       }
       //debuff
       var attrDebuff = [];
@@ -5210,10 +5345,15 @@ var LLTeam = (function() {
       var skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var skillsActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var accessoryActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var accessoryActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var accessoryActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      var accessoryActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var totalHeal = 0;
       var totalAccuracyCoverNote = 0;
+      var staticData = new LLSimulateContextStatic(mapdata, this.members, maxTime);
       for (i = 0; i < simCount; i++) {
-         var env = new LLSimulateContext(mapdata, this.members, maxTime);
+         var env = new LLSimulateContext(staticData);
          env.simulate(noteTriggerData, this);
 
          if (scores[env.currentScore] !== undefined) {
@@ -5228,6 +5368,10 @@ var LLTeam = (function() {
             skillsActiveChanceCount[j] += env.skillsActiveChanceCount[j];
             skillsActiveNoEffectCount[j] += env.skillsActiveNoEffectCount[j];
             skillsActiveHalfEffectCount[j] += env.skillsActiveHalfEffectCount[j];
+            accessoryActiveCount[j] += env.accessoryActiveCount[j];
+            accessoryActiveChanceCount[j] += env.accessoryActiveChanceCount[j];
+            accessoryActiveNoEffectCount[j] += env.accessoryActiveNoEffectCount[j];
+            accessoryActiveHalfEffectCount[j] += env.accessoryActiveHalfEffectCount[j];
          }
       }
       for (i = 0; i < 9; i++) {
@@ -5235,6 +5379,10 @@ var LLTeam = (function() {
          skillsActiveChanceCount[i] /= simCount;
          skillsActiveNoEffectCount[i] /= simCount;
          skillsActiveHalfEffectCount[i] /= simCount;
+         accessoryActiveCount[i] /= simCount;
+         accessoryActiveChanceCount[i] /= simCount;
+         accessoryActiveNoEffectCount[i] /= simCount;
+         accessoryActiveHalfEffectCount[i] /= simCount;
       }
       var scoreValues = Object.keys(scores).sort(function(a,b){return parseInt(a) - parseInt(b);});
       var minScore = parseInt(scoreValues[0]);
@@ -5252,6 +5400,10 @@ var LLTeam = (function() {
       this.averageSkillsActiveChanceCount = skillsActiveChanceCount;
       this.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
       this.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
+      this.averageAccessoryActiveCount = accessoryActiveCount;
+      this.averageAccessoryActiveChanceCount = accessoryActiveChanceCount;
+      this.averageAccessoryActiveNoEffectCount = accessoryActiveNoEffectCount;
+      this.averageAccessoryActiveHalfEffectCount = accessoryActiveHalfEffectCount;
       this.averageHeal = totalHeal / simCount;
       this.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
    };
@@ -5657,7 +5809,9 @@ var LLTeam = (function() {
       var ret = {};
       var keys = ['attrStrength', 'finalAttr', 'bonusAttr', 'totalStrength', 'totalAttrStrength', 'totalSkillStrength', 'totalHP',
          'averageSkillsActiveCount', 'averageSkillsActiveChanceCount', 'averageSkillsActiveNoEffectCount', 'averageSkillsActiveHalfEffectCount',
-         'averageHeal', 'averageAccuracyNCoverage', 'naivePercentile', 'equivalentURLevel'];
+         'averageHeal', 'averageAccuracyNCoverage', 'naivePercentile', 'equivalentURLevel',
+         'averageAccessoryActiveCount', 'averageAccessoryActiveChanceCount', 'averageAccessoryActiveNoEffectCount', 'averageAccessoryActiveHalfEffectCount'
+      ];
       for (var i = 0; i < keys.length; i++) {
          var k = keys[i];
          if (this[k] !== undefined) ret[k] = this[k];
@@ -7721,10 +7875,17 @@ var LLTeamComponent = (function () {
          'str_card_theory': {},
          'str_debuff': {},
          'str_total_theory': {},
-         'skill_active_count_sim': {'owning': ['skill_active_chance_sim', 'skill_active_no_effect_sim', 'skill_active_half_effect_sim']},
+         'skill_active_count_sim': {'owning': [
+            'skill_active_chance_sim', 'skill_active_no_effect_sim', 'skill_active_half_effect_sim',
+            'accessory_active_count_sim', 'accessory_active_chance_sim', 'accessory_active_no_effect_sim', 'accessory_active_half_effect_sim'
+         ]},
          'skill_active_chance_sim': {},
          'skill_active_no_effect_sim': {},
          'skill_active_half_effect_sim': {},
+         'accessory_active_count_sim': {},
+         'accessory_active_chance_sim': {},
+         'accessory_active_no_effect_sim': {},
+         'accessory_active_half_effect_sim': {},
          'heal': {},
       };
       var cardsBrief = new Array(9);
@@ -7841,6 +8002,10 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
       rows.push(createRowFor9('技能哑火次数（模拟）', textCreator, controllers.skill_active_no_effect_sim));
       rows.push(createRowFor9('技能半哑火次数（模拟）', textCreator, controllers.skill_active_half_effect_sim));
+      rows.push(createRowFor9('饰品发动次数（模拟）', textCreator, controllers.accessory_active_count_sim));
+      rows.push(createRowFor9('饰品发动条件达成次数（模拟）', textCreator, controllers.accessory_active_chance_sim));
+      rows.push(createRowFor9('饰品哑火次数（模拟）', textCreator, controllers.accessory_active_no_effect_sim));
+      rows.push(createRowFor9('饰品半哑火次数（模拟）', textCreator, controllers.accessory_active_half_effect_sim));
       rows.push(createRowFor9('回复', textCreator, controllers.heal));
 
       controllers.info.toggleFold();
@@ -7953,6 +8118,14 @@ var LLTeamComponent = (function () {
       controller.setSkillActiveNoEffectSims = makeSet9Function(controller.setSkillActiveNoEffectSim);
       controller.setSkillActiveHalfEffectSim = function(i, count) { controllers.skill_active_half_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
       controller.setSkillActiveHalfEffectSims = makeSet9Function(controller.setSkillActiveHalfEffectSim);
+      controller.setAccessoryActiveCountSim = function(i, count) { controllers.accessory_active_count_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
+      controller.setAccessoryActiveCountSims = makeSet9Function(controller.setAccessoryActiveCountSim);
+      controller.setAccessoryActiveChanceSim = function(i, count) { controllers.accessory_active_chance_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
+      controller.setAccessoryActiveChanceSims = makeSet9Function(controller.setAccessoryActiveChanceSim);
+      controller.setAccessoryActiveNoEffectSim = function(i, count) { controllers.accessory_active_no_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
+      controller.setAccessoryActiveNoEffectSims = makeSet9Function(controller.setAccessoryActiveNoEffectSim);
+      controller.setAccessoryActiveHalfEffectSim = function(i, count) { controllers.accessory_active_half_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
+      controller.setAccessoryActiveHalfEffectSims = makeSet9Function(controller.setAccessoryActiveHalfEffectSim);
       controller.setHeal = function(i, heal) { controllers.heal.cells[i].set(heal); };
 
       var swapper = new LLSwapper();
@@ -8013,6 +8186,10 @@ var LLTeamComponent = (function () {
       this.setSkillActiveChanceSims(result.averageSkillsActiveChanceCount);
       this.setSkillActiveNoEffectSims(result.averageSkillsActiveNoEffectCount);
       this.setSkillActiveHalfEffectSims(result.averageSkillsActiveHalfEffectCount);
+      this.setAccessoryActiveCountSims(result.averageAccessoryActiveCount);
+      this.setAccessoryActiveChanceSims(result.averageAccessoryActiveChanceCount);
+      this.setAccessoryActiveNoEffectSims(result.averageAccessoryActiveNoEffectCount);
+      this.setAccessoryActiveHalfEffectSims(result.averageAccessoryActiveHalfEffectCount);
    };
    return cls;
 })();

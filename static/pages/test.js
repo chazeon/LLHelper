@@ -196,6 +196,11 @@ function renderPage(loadDeferred) {
             return defer;
         };
 
+        var linkedName = item.name;
+        if (item.url) {
+            linkedName = '<a href="' + item.url + '">' + linkedName + '</a>';
+        }
+
         var testRow = LLUnit.createElement('tr', undefined, [
             LLUnit.createElement('td', { 'innerHTML': testSet.length }),
             LLUnit.createElement('td', { 'innerHTML': item.name }),
@@ -738,7 +743,7 @@ function renderPage(loadDeferred) {
                     [13, 8, 5, 17, 17, 17, 17, 17, 13], 0.01));
                     diffs.push(assertFloatArrayEqual(team.averageSkillsActiveCount,
                     [3.1235, 3.063, 2.562, 5.914, 5.8885, 5.9145, 5.9905, 5.9475, 7.6535], 0.4));
-                    diffs.push(assertFloatEqual(team.averageSkillsActiveCount[8], team.averageSkillsActiveNoEffectCount[0], 0.001));
+                    diffs.push(assertFloatEqual(team.averageSkillsActiveCount[8] * 0.59, team.averageSkillsActiveNoEffectCount[0], 0.1));
                     diffs.push(assertFloatArrayEqual(team.averageSkillsActiveNoEffectCount.slice(1),
                     [0, 0, 0, 0, 0, 0, 0, 0], 0));
                     return diffs;
@@ -893,6 +898,7 @@ function renderPage(loadDeferred) {
                 llteam.calculateScoreDistribution();
             } else if (caseData.type == 'sim') {
                 llteam.simulateScoreDistribution(caseData.map, noteData, 1000);
+                console.log('Simulate result for ' + caseData.name, llteam);
                 diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05));
                 diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05));
                 diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05));
@@ -920,6 +926,7 @@ function renderPage(loadDeferred) {
                     testOptions.run = function (cards, noteData) {
                         return runTestCase(caseData, cards, noteData);
                     }
+                    caseData.url = '/llnewunit?unit=' + encodeURI(JSON.stringify(caseData.saveData));
                     addTestItem(caseData).start();
                     return 0;
                 })
