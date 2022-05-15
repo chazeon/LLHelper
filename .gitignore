@@ -33,4 +33,5 @@ live
 venv
 static/live
 static/avatar
+static/accessory
 translate-missing.properties

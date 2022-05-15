@@ -38,6 +38,7 @@ declare namespace LLH {
         type TriggerTargetType = MemberTagIdType[];
         type TriggerTargetMemberType = UnitTypeIdType[];
 
+        type MezameType = 0 | 1;
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
     }
@@ -46,7 +47,7 @@ declare namespace LLH {
             score: number; // effect value
             time: number; // discharge time
             require: number; // trigger value
-            possibility: number; // trigger rate
+            possibility: number; // trigger rate, 0~100
             limit?: number; // trigger limit
         }
         interface CardDataType {
@@ -258,6 +259,7 @@ declare namespace LLH {
         }
         type ProcessedAccessoryDictDataType = {[id: Core.AccessoryIdStringType]: ProcessedAccessoryDataType};
 
+
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
         interface NormalGemMetaType {
@@ -304,9 +306,15 @@ declare namespace LLH {
             cool: number;
         }
 
+        interface AccessorySaveDataType {
+            id: Core.AccessoryIdStringType;
+            level: number;
+        }
+
         interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
             hp: number; // int
             gemlist: NormalGemCategoryKeyType[];
+            accessory?: AccessorySaveDataType;
         }
 
         interface UnitSaveDataTypeV104 {
@@ -329,7 +337,21 @@ declare namespace LLH {
             averageSkillsActiveChanceCount: number[];
             averageSkillsActiveNoEffectCount: number[];
             averageSkillsActiveHalfEffectCount: number[];
+            averageAccessoryActiveCount: number[];
+            averageAccessoryActiveChanceCount: number[];
+            averageAccessoryActiveNoEffectCount: number[];
+            averageAccessoryActiveHalfEffectCount: number[];
             naivePercentile: number[];
+        }
+
+        interface NoteTriggerDataType {
+            /** 1: enter, 2: hit, 3: hold, 4: release */
+            type: 1 | 2 | 3 | 4;
+            /** float */
+            time: number;
+            note: API.NoteDataType;
+            /** 0.5 for swing, 1 for other */
+            factor: number;
         }
     }
 
@@ -424,6 +446,30 @@ declare namespace LLH {
 
             setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
             filterOptions(filter?: LLSelectComponent_FilterCallback): void;
+        }
+        interface LLImageComponent_Options extends LLComponentBase_Options {
+            srcList?: string[];
+        }
+        class LLImageComponent extends LLComponentBase {
+            constructor(id: HTMLElementOrId, options: LLImageComponent_Options);
+            
+            srcList: string[];
+            curSrcIndex?: number;
+
+            setSrcList(newSrcList: string[]): void;
+            setAltText(text: string): void;
+        }
+        interface LLAccessoryComponent_Options extends LLComponentBase_Options {
+            size?: number // in pixel, default 128
+        }
+        class LLAccessoryComponent extends LLComponentBase {
+            constructor(id: HTMLElementOrId, options: LLAccessoryComponent_Options);
+
+            accessoryId?: Core.AccessoryIdStringType;
+            size: number;
+            accessoryImage: LLImageComponent;
+
+            setAccessory(newAccessory?: Core.AccessoryIdStringType | API.AccessoryDataType, language?: Core.LanguageType): void;
         }
         class LLComponentCollection implements Mixin.SaveLoadJson {
             constructor();
@@ -555,9 +601,15 @@ declare namespace LLH {
         interface LLAccessorySelectorComponent_Options {
             accessoryData?: API.AccessoryDictDataType;
             cardData?: API.CardDictDataType;
+            showDetail?: boolean;
+            showLevelSelect?: boolean;
+            excludeMaterial?: boolean;
         }
         interface LLAccessorySelectorComponent_DetailController {
             set(data: Internal.ProcessedAccessoryDataType, language: Core.LanguageType): void;
+        }
+        interface LLAccessorySelectorComponent_BriefController {
+            set(data: Internal.ProcessedAccessoryDataType, level: number, language: Core.LanguageType): void;
         }
 
         class LLAccessorySelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
@@ -565,9 +617,14 @@ declare namespace LLH {
 
             accessoryData?: Internal.ProcessedAccessoryDictDataType;
             cardData?: API.CardDictDataType;
+            showDetail: boolean;
+            showLevelSelect: boolean;
+            excludeMaterial: boolean;
 
             setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
             getAccessoryId(): Core.AccessoryIdStringType;
+            getAccessoryLevel(): number; // level range 1~8
+            getAccessorySaveData(): Internal.AccessorySaveDataType;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -580,7 +637,10 @@ declare namespace LLH {
             isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
             getMemberName(memberId: Core.MemberIdType, language?: Core.LanguageType): string;
             getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
-            isNonetTeam(members: TODO.LLMember[]): Core.BigGroupIdType;
+            isNonetTeam(members: Model.LLMember[]): Core.BigGroupIdType;
+            getMemberGrade(memberId: Core.MemberIdType): Core.GradeType;
+            getMemberTypeIdsInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
+            getMemberNamesInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): string[];
         }
         interface Group {
             getBigGroupIds(): Core.BigGroupIdType[];
@@ -616,10 +676,22 @@ declare namespace LLH {
             getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType, language?: Core.LanguageType): string;
             getAccessoryMainAttribute(accessory: API.AccessoryDataType): Core.AttributeType;
             getAccessoryType(accessory: API.AccessoryDataType): string;
+            getAccessoryLevelAttribute(accessory: API.AccessoryDataType, level: number): Internal.AttributesValue;
+
+            canEquipAccessory(accessory: API.AccessoryDataType, level: number, cardId: Core.CardIdOrStringType): boolean;
         }
         interface Common {
             getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType;
             getAttributeColor(attribute: Core.AttributeType): string;
+        }
+        interface Attributes {
+            makeAttributes(smile: number, pure: number, cool: number): Internal.AttributesValue;
+            makeAttributes0(): Internal.AttributesValue;
+            copyAttributes(fromAttribute: Internal.AttributesValue): Internal.AttributesValue;
+            multiplyCeilingAttributes(lhs: Internal.AttributesValue, factor: number): Internal.AttributesValue;
+            addAttributes(lhs: Internal.AttributesValue, rhs: Internal.AttributesValue): Internal.AttributesValue;
+            /** return baseAttribute */
+            addToAttributes(baseAttribute: Internal.AttributesValue, deltaAttribute: Internal.AttributesValue): Internal.AttributesValue;
         }
         interface Skill {
             getTriggerTargetDescription(targets: Core.TriggerTargetType): string;
@@ -725,14 +797,309 @@ declare namespace LLH {
             saveJson(): string;
             loadJson(jsonData: string): void;
         }
+
+        interface LLMember_Options extends Internal.MemberSaveDataType {
+            card: API.CardDataType;
+            accessoryData: API.AccessoryDataType;
+        }
+        class LLMember {
+            constructor(options: LLMember_Options, mapAttribute: Core.AttributeType);
+
+            cardid: Core.CardIdType;
+            smile: number;
+            pure: number;
+            cool: number;
+            skilllevel: number;
+            maxcost: number;
+            hp: number;
+            card: API.CardDataType;
+            gems: LLSisGem[];
+            accessory?: API.AccessoryDataType;
+            accessoryLevel: number;
+            raw: LLMember_Options;
+
+            accessoryAttr: Internal.AttributesValue;
+
+            /** set after calcDisplayAttr() */
+            displayAttr: Internal.AttributesValue;
+            /** set after calcAttrWithGem() */
+            cumulativeTeamGemBonus: number[];
+            attrWithGem: number;
+            /** set after calcAttrWithCSkill() */
+            bonusAttr: Internal.AttributesValue;
+            finalAttr: Internal.AttributesValue;
+            attrStrength: number;
+            attrStrengthWithAccuracy: number;
+            cumulativeCSkillBonus: number[];
+            cumulativeAttrStrength: number[];
+            /** set after calcAttrDebuff() */
+            attrDebuff: number;
+            /** set after getGrade() */
+            grade: Core.GradeType;
+
+            hasSkillGem(): boolean;
+            getAccuracyGemFactor(): number;
+            empty(): boolean;
+            calcDisplayAttr(): Internal.AttributesValue;
+            calcAttrWithGem(mapcolor: Core.AttributeType, teamgem: LLSisGem[][]): number;
+            calcAttrWithCSkill(mapcolor: Core.AttributeType, cskills: Internal.CSkillDataType[]): number;
+            getAttrBuffFactor(mapcolor: Core.AttributeType, mapunit: Core.SongGroupIdType): number;
+            getAttrDebuffFactor(mapcolor: Core.AttributeType, mapunit: Core.SongGroupIdType, weight: number, totalweight: number): number;
+            calcAttrDebuff(mapdata: LLMap_SaveData, pos: number, teamattr: number): number;
+            getMicPoint(): number;
+            calcTotalCSkillPercentageForSameColor(mapcolor: Core.AttributeType, cskills: Internal.CSkillDataType[]): number;
+            getGrade(): Core.GradeType;
+            getSkillDetail(levelBoost?: number): API.SkillDetailDataType;
+            getAccessoryDetail(levelBoost?: number): API.AccessoryLevelDataType;
+        }
+
+        class LLTeam {
+            constructor(members: LLMember[]);
+
+            members: LLMember[];
+
+            /** set after calculateAttributeStrength() */
+            attrStrength: number[];
+            attrDebuff: number[];
+            finalAttr: Internal.AttributesValue;
+            bonusAttr: Internal.AttributesValue;
+            totalAttrNoAccuracy: number;
+            totalAttrWithAccuracy: number;
+            totalWeight: number[];
+            totalAttrStrength: number;
+            totalHP: number;
+            /** set after calculateSkillStength() */
+            avgSkills: TODO.LLSkill[];
+            maxSkills: TODO.LLSkill[];
+            minScore: number;
+            averageScoreNumber: number;
+            averageScore: number | string;
+            maxScoreNumber: number;
+            maxScore: number | string;
+            averageHeal: number;
+            maxHeal: number;
+            totalSkillStrength: number;
+            totalStrength: number;
+            /** set after calculateScoreDistribution() or simulateScoreDistribution() */
+            scoreDistribution: number[];
+            scoreDistributionMinScore: number;
+            probabilityForMinScore: number;
+            probabilityForMaxScore: number;
+            /** set after simulateScoreDistribution() */
+            memberBonusFactor: number[];
+            averageSkillsActiveCount: number[];
+            averageSkillsActiveChanceCount: number[];
+            averageSkillsActiveNoEffectCount: number[];
+            averageSkillsActiveHalfEffectCount: number[];
+            averageAccessoryActiveCount: number[];
+            averageAccessoryActiveChanceCount: number[];
+            averageAccessoryActiveNoEffectCount: number[];
+            averageAccessoryActiveHalfEffectCount: number[];
+            averageAccuracyNCoverage: number;
+            /** set after calculatePercentileNaive() */
+            naivePercentile: number[];
+            naiveExpection: number;
+            /** set after calculateMic() */
+            equivalentURLevel: number;
+
+            calculateAttributeStrength(mapdata: LLMap_SaveData): void;
+            calculateSkillStrength(mapdata: LLMap_SaveData): void;
+            calculateScoreDistribution(): void;
+            simulateScoreDistribution(mapdata: LLMap_SaveData, noteData: API.NoteDataType[], simCount: number): void;
+            calculatePercentileNaive(): void;
+            calculateMic(): void;
+            autoArmGem(mapdata: LLMap_SaveData, gemStock: TODO.GemStockType): void;
+            autoUnit(mapdata: LLMap_SaveData, gemStock: TODO.GemStockType, submembers: LLMember[]): void;
+            getResults(): Internal.CalculateResultType;
+        }
+
+        class LLSimulateContext_ActiveSkill {
+            /** end time */
+            t: number;
+            /** member id */
+            m: number;
+            /** repeated member id, repeat target member */
+            rm: number;
+            /** effect static data */
+            e: LLSimulateContext_EffectStaticInfo;
+            /**
+             * effect value
+             * for SYNC & ATTRIBUTE_UP effect: increased attribute after sync/attribute up
+             */
+            v: number;
+            /** sync target */
+            st: number;
+        }
+        class LLSimulateContext_LastActiveSkill {
+            /** member id */
+            m: number;
+            /** level boost */
+            b: number;
+            /** activate frame */
+            af: number;
+            /** repeat frame */
+            rf: number;
+            /** is accessory skill */
+            a: boolean;
+        }
+
+        class LLSimulateContext_EffectStaticInfo {
+            effectType: number;
+            /** members index list, including self */
+            syncTargets?: number[];
+            /** members index list */
+            attributeUpTargets?: number[];
+            /** [activate member] = member index list excluding activate member */
+            syncTargetsBy?: number[][];
+        }
+        class LLSimulateContext_SkillStaticInfo {
+            /** trigger condition will never be hit */
+            neverTrigger: boolean;
+            /** require, member bitset for SKILL_TRIGGER_MEMBERS */
+            triggerRequire: number;
+            /** percentage 0~100 */
+            triggerPossibility: number;
+            /** percentage 0~100 */
+            accessoryPosibility: number;
+            triggerLimit?: number;
+            chainTypeIdBits?: {[typeId: Core.UnitTypeIdType]: number};
+            skillEffect?: LLSimulateContext_EffectStaticInfo;
+            accessoryEffect?: LLSimulateContext_EffectStaticInfo;
+        }
+        class LLSimulateContext_Trigger {
+            /** member id */
+            m: number;
+            /** start value, member bitset for SKILL_TRIGGER_MEMBERS */
+            s: number;
+            /** is active */
+            a: boolean;
+            st: LLSimulateContext_SkillStaticInfo;
+            /** active effect info */
+            ae: LLSimulateContext_EffectStaticInfo;
+        }
+        class LLSimulateContext_SkillDynamicInfo {
+            staticInfo: LLSimulateContext_SkillStaticInfo;
+            trigger?: LLSimulateContext_Trigger;
+            attributeUp?: number;
+            attributeSync?: number;
+        }
+        class LLSimulateContextStatic {
+            constructor(mapdata: LLMap_SaveData, members: LLMember[], maxTime: number);
+            
+            members: LLMember[];
+            totalNote: number;
+            totalTime: number;
+            totalPerfect: number;
+            mapSkillPossibilityUp: number;
+            mapTapScoreUp: number;
+            comboFeverPattern: number;
+            perfectAccuracyPattern: number;
+            overHealPattern: number;
+            triggerLimitPattern: number;
+            /** percentage 0~100 */
+            skillPosibilityDownFixed: number;
+            hasRepeatSkill: boolean;
+
+            skillsStatic: LLSimulateContext_SkillStaticInfo[];
+
+            makeSkillStaticInfo(index: number): LLSimulateContext_SkillStaticInfo;
+            /** assume the skill/accessory do exist */
+            makeEffectStaticInfo(index: number, isAccessory: boolean): LLSimulateContext_EffectStaticInfo;
+        }
+
+        class LLSimulateContext {
+            constructor(staticData: LLSimulateContextStatic);
+
+            staticData: LLSimulateContextStatic;
+            skillsDynamic: LLSimulateContext_SkillDynamicInfo[];
+
+            members: LLMember[];
+            currentTime: number;
+            currentFrame: number;
+            currentNote: number;
+            currentCombo: number;
+            currentScore: number;
+            currentPerfect: number;
+            currentStarPerfect: number;
+            currentHeal: number;
+            skillsActiveCount: number[];
+            skillsActiveChanceCount: number[];
+            skillsActiveNoEffectCount: number[];
+            skillsActiveHalfEffectCount: number[];
+            accessoryActiveCount: number[];
+            accessoryActiveChanceCount: number[];
+            accessoryActiveNoEffectCount: number[];
+            accessoryActiveHalfEffectCount: number[];
+            currentAccuracyCoverNote: number;
+            totalPerfectScoreUp: number;
+            remainingPerfect: number;
+            triggers: {[type: number]: LLSimulateContext_Trigger[]};
+            memberSkillOrder: number[];
+            lastFrameForLevelUp: number;
+            activeSkills: LLSimulateContext_ActiveSkill[];
+            lastActiveSkill: LLSimulateContext_LastActiveSkill;
+            effects: {[type: number]: number};
+
+            timeToFrame(t: number): number;
+            updateNextFrameByMinTime(minTime: number): void;
+            processDeactiveSkills(): void;
+            getMinDeactiveTime(): void;
+            markTriggerActive(memberId: number, bActive: boolean, effectInfo?: LLSimulateContext_EffectStaticInfo): void;
+            isSkillNoEffect(memberId: number, effectInfo: LLSimulateContext_EffectStaticInfo): boolean;
+            getSkillPossibility(memberId: number, isAccessory: boolean): number;
+            onSkillActive(membereId: number, isAccessory: boolean): boolean;
+            getNextTriggerChances(): number[];
+            getMinTriggerChanceTime(): number;
+            makeTriggerData(index: number): LLSimulateContext_Trigger;
+            addActiveSkill(effectInfo: LLSimulateContext_EffectStaticInfo, effectTime: number, memberId: number, realMemberId: number, effectValue?: number, syncTarget?: number): LLSimulateContext_ActiveSkill;
+            setLastActiveSkill(memberId: number, levelBoost: number, activateFrame: number, isAccessory: boolean): void;
+            clearLastActiveSkill(): void;
+            setLastFrameForLevelUp(): void;
+
+            simulate(NoteTriggerDataType: Internal.NoteTriggerDataType[], teamData: LLTeam): void;
+        }
     }
 
     namespace Layout {
         namespace Team {
             type IndexType = number; // 0~8
+            interface TeamMemberKeyGetSet<T> {
+                set(v: T): void;
+                get(): T;
+            }
+            interface TeamAvatarCellController {
+                update(cardid: Core.CardIdOrStringType, mezame: Core.MezameType): void;
+                getCardId(): Core.CardIdType;
+                getMezame(): Core.MezameType;
+            }
+            interface TeamAccessoryIconCellController extends TeamMemberKeyGetSet<Internal.AccessorySaveDataType> {
+                updateAccessoryLevel(level: number): void;
+                updateMember(cardid: Core.CardIdOrStringType): void;
+                getAccessoryId(): Core.AccessoryIdStringType;
+                getAccessoryLevel(): number;
+            }
+            interface TeamTextCellController extends TeamMemberKeyGetSet<string> {
+                reset(): void;
+            }
+            interface TeamSkillLevelCellController extends TeamMemberKeyGetSet<number> {
+                setMaxLevel(maxLevel: number): void;
+                onChange?: (i: IndexType, level: number) => void;
+            }
+            interface TeamRowController<TCellController> {
+                headColor?: string; // in
+                cellColor?: string; // in
+                fold?: () => void; // in
+                unfold?: () => void; // in
+
+                cells: TCellController[]; // index 0~8
+                show(): void;
+                hide(): void;
+                toggleFold?: () => void;
+            }
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
                 onCenterChanged?: () => void;
             }
             class LLTeamComponent implements Mixin.SaveLoadJson {
@@ -745,8 +1112,11 @@ declare namespace LLH {
                 getMember(i: IndexType): Internal.MemberSaveDataType;
                 getMembers(): Internal.MemberSaveDataType[];
                 setMemberGem(i: IndexType, gem: Model.LLSisGem): void;
+                setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType): void;
                 getCardId(i: IndexType): Core.CardIdType;
                 getCardIds(): Core.CardIdType[];
+                getAccessoryId(i: IndexType): Core.AccessoryIdStringType;
+                getAccessoryIds(): Core.AccessoryIdStringType[];
                 getWeight(i: IndexType): number;
                 getWeights(): number[];
                 setWeight(i: IndexType, w: number): void;
@@ -772,8 +1142,16 @@ declare namespace LLH {
                 setSkillActiveNoEffectSims(counts: number[]): void;
                 setSkillActiveHalfEffectSim(i: IndexType, count: number): void;
                 setSkillActiveHalfEffectSims(counts: number[]): void;
+                setAccessoryActiveCountSim(i: IndexType, count: number): void;
+                setAccessoryActiveCountSims(counts: number[]): void;
+                setAccessoryActiveChanceSim(i: IndexType, count: number): void;
+                setAccessoryActiveChanceSims(counts: number[]): void;
+                setAccessoryActiveNoEffectSim(i: IndexType, count: number): void;
+                setAccessoryActiveNoEffectSims(counts: number[]): void;
+                setAccessoryActiveHalfEffectSim(i: IndexType, count: number): void;
+                setAccessoryActiveHalfEffectSims(counts: number[]): void;
                 setHeal(i: IndexType, heal: number): void;
-                setResult(result: TODO.LLTeam): void;
+                setResult(result: Model.LLTeam): void;
 
                 saveData(): Internal.MemberSaveDataType[];
                 loadData(members: Internal.MemberSaveDataType[]): void;
@@ -781,6 +1159,7 @@ declare namespace LLH {
                 // callbacks
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
                 onCenterChanged?: () => void;
 
                 // implements
@@ -844,6 +1223,8 @@ declare namespace LLH {
 
         getAllBriefData(keys?: string[], url?: string): Depends.Promise<{[id: string]: DataT}, void>;
         getDetailedData(index: string, url?: string): Depends.Promise<DataT, void>;
+        getAllCachedBriefData(): {[id: string]: DataT};
+        getCachedDetailedData(index: string): DataT;
 
         setVersion(version: string): void;
         getVersion(): string;
@@ -868,17 +1249,20 @@ declare namespace LLH {
         Album: ConstUtil.Album;
         Common: ConstUtil.Common;
         Skill: ConstUtil.Skill;
+        Attributes: ConstUtil.Attributes;
         // TODO
     }
 
     namespace Test {
         interface TestItemOptions {
             name: string;
+            url?: string;
             after?: Depends.Promise<any, void> | AcceptedTestItem | AcceptedTestItem[];
             cardConfigs?: Core.CardIdType[][];
             version?: "cn" | "latest";
             songId?: Core.SongIdType;
             songSettingId?: Core.SongSettingIdType;
+            logData?: any;
             run(cards: API.CardDictDataType, noteData: API.NoteDataType): Depends.Promise<any, any> | number | string;
         }
 
@@ -903,11 +1287,10 @@ declare namespace LLH {
     }
 
     namespace TODO {
-        type LLMember = any;
         type GemStockType = any;
         type LLSwapper = any;
-        type LLTeam = any;
         type LLCSkillComponent = any;
+        type LLSkill = any;
     }
 }
 
