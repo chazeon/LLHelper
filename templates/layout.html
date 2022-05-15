@@ -9,12 +9,12 @@
     <script src="/static/js/bootstrap.min.js"></script>
     {% if useMasonry %}<script src="/static/masonry.pkgd.min.js"></script>{% endif %}
     <link rel="stylesheet" media="all" href="/static/han.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='llhelper.css') }}">
-    <script src="{{ url_for('static', filename='siteversion.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='llhelper.css', v=config.SITE_VERSION) }}">
+    <script src="{{ url_for('static', filename='siteversion.js', v=config.SITE_VERSION) }}"></script>
     {% if jsPage %}
     <link rel="shortcut icon" href="/static/shortcuticon.png" />
     <script type="text/javascript" src="{{ url_for('static', filename='twintailosu.js') }}?v=1.12"></script>
-    <script type="text/javascript" src="{{ url_for('static', filename='lldata.js') }}"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='lldata.js', v=config.SITE_VERSION) }}"></script>
     <script type="text/javascript" src="{{ jsPage }}"></script>
     <script>
       var defer_onload = $.Deferred();

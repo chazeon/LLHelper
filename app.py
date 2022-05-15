@@ -25,6 +25,17 @@ g_llsisdata = LLData('sisdata.json', 60)
 # accessorydata
 g_llaccessorydata = LLData('accessorydata.json', 60)
 
+def loadJsonFile(jsonFile):
+    print('Loading %s ...' % jsonFile)
+    with open(jsonFile, 'rb') as f:
+        return json.load(f)
+
+g_site_config = loadJsonFile('site-config.json')
+if 'version' in g_site_config:
+    app.config['SITE_VERSION'] = g_site_config['version']
+else:
+    app.config['SITE_VERSION'] = '0'
+print('Site version: %s' % app.config['SITE_VERSION'])
 
 ### activity ###
 @app.route("/activitypt")

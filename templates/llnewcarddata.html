@@ -6,7 +6,7 @@
 
 {% block additional_header %}
    <script type="text/javascript" src="{{ url_for('static', filename='twintailosu.js') }}?v=1.12"></script>
-   <script type="text/javascript" src="{{ url_for('static', filename='lldata.js') }}"></script>
+   <script type="text/javascript" src="{{ url_for('static', filename='lldata.js', v=config.SITE_VERSION) }}"></script>
    <link rel="shortcut icon" href="/static/shortcuticon.png" />
    <style type="text/css">
    	table {position:relative;margin-left:30px;}
