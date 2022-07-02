@@ -21,6 +21,18 @@
             {
                'version': LLSiteVersion.current_version,
                'features': [
+                  '更新了#doc-score_calculation#中有关Combo Fever技能上限及复读技能哑火判定相关的内容',
+                  '模拟计算可以选择Combo Fever技能上限是否解除',
+                  '增加火花技能的描述（尚不支持理论和模拟计算）'
+               ],
+               'fixes': [
+                  '修复了上一版本中出现的属性同步的模拟计算不准确的问题',
+                  '复读技能复读同帧等级提升技能从半哑火改成哑火，因此模拟计算中显示的哑火和半哑火次数可能会有所变化。此改动不影响得分'
+               ]
+            },
+            {
+               'version': 20220515,
+               'features': [
                   '更新了#doc-score_calculation#中饰品及方宝石相关的内容',
                   '更新了#llnewaccessorydata#页面，增加饰品图标',
                   '在#llnewunit#,#llnewunitsis#,#llnewautounit#页面中增加饰品的支持',

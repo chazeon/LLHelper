@@ -193,6 +193,7 @@ declare namespace LLH {
         interface AccessoryLevelDataType {
             level: number;
             effect_value: number;
+            trigger_value?: number;
             time: number;
             rate: number;
             smile?: number;
@@ -210,6 +211,10 @@ declare namespace LLH {
             cool: number;
             is_material: 0 | 1;
             effect_type: number;
+            /** none for normal accessory trigger */
+            trigger_type?: number;
+            /** for charged spark skill */
+            trigger_effect_type?: number;
             default_max_level: number; // usually 4
             max_level: number; // usually 8
             icon_asset: string;
@@ -324,6 +329,7 @@ declare namespace LLH {
             submember: SubMemberSaveDataType[];
         }
         type UnitSaveDataType = UnitSaveDataTypeV104;
+        type UnitAnySaveDataType = UnitSaveDataTypeV104;
 
         interface CalculateResultType {
             attrStrength: number[];
@@ -697,8 +703,9 @@ declare namespace LLH {
             getTriggerTargetDescription(targets: Core.TriggerTargetType): string;
             getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
             getTriggerLimitDescription(triggerLimit: number): string;
-            getTriggerDescription(triggerType: number, triggerValue: number, triggerTarget?: Core.TriggerTargetType): string;
+            getTriggerDescription(triggerType: number, triggerValue: number, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
             getEffectDescription(effectType: number, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
+            getRateDescription(rate: number): string;
 
             getEffectBrief(effectType: number): string;
 
@@ -776,9 +783,10 @@ declare namespace LLH {
             /** int 1~10 */
             speed: number;
             combo_fever_pattern: 1 | 2;
+            combo_fever_limit: 1000 | 2147483647;
             over_heal_pattern: 0 | 1;
             perfect_accuracy_pattern: 0 | 1;
-            trigger_limit_pattern: 0 | 1;            
+            trigger_limit_pattern: 0 | 1;
         }
         class LLMap implements Mixin.SaveLoadJson {
             constructor(options?: LLMap_Options);
@@ -984,15 +992,17 @@ declare namespace LLH {
             attributeSync?: number;
         }
         class LLSimulateContextStatic {
-            constructor(mapdata: LLMap_SaveData, members: LLMember[], maxTime: number);
+            constructor(mapdata: LLMap_SaveData, team: LLTeam, maxTime: number);
             
             members: LLMember[];
+            totalHP: number;
             totalNote: number;
             totalTime: number;
             totalPerfect: number;
             mapSkillPossibilityUp: number;
             mapTapScoreUp: number;
             comboFeverPattern: number;
+            comboFeverLimit: number;
             perfectAccuracyPattern: number;
             overHealPattern: number;
             triggerLimitPattern: number;
@@ -1022,6 +1032,7 @@ declare namespace LLH {
             currentPerfect: number;
             currentStarPerfect: number;
             currentHeal: number;
+            currentHealBonus: number;
             skillsActiveCount: number[];
             skillsActiveChanceCount: number[];
             skillsActiveNoEffectCount: number[];
@@ -1055,8 +1066,22 @@ declare namespace LLH {
             setLastActiveSkill(memberId: number, levelBoost: number, activateFrame: number, isAccessory: boolean): void;
             clearLastActiveSkill(): void;
             setLastFrameForLevelUp(): void;
+            updateHeal(delta: number): void;
 
             simulate(NoteTriggerDataType: Internal.NoteTriggerDataType[], teamData: LLTeam): void;
+        }
+
+        class LLSaveData {
+            constructor(data: Internal.UnitAnySaveDataType);
+
+            rawData: Internal.UnitAnySaveDataType;
+            rawVersion: number;
+            teamMember: Internal.MemberSaveDataType[];
+            gemStock: TODO.GemStockType;
+            hasGemStock: boolean;
+            subMember: Internal.SubMemberSaveDataType[];
+
+            serializeV104(excludeTeam: boolean, excludeGemStock: boolean, excludeSubMember: boolean): Internal.UnitSaveDataTypeV104;
         }
     }
 
@@ -1194,6 +1219,7 @@ declare namespace LLH {
                 speed: number;
                 /** 1 for 300 combo, 2 for 220 combo */
                 combo_fever_pattern: 1 | 2;
+                combo_fever_limit: 1000 | 2147483647;
                 /** 0 for disabled, 1 for enabled */
                 over_heal_pattern: 0 | 1;
                 /** 0 for disabled, 1 for enabled */
@@ -1263,6 +1289,8 @@ declare namespace LLH {
             songId?: Core.SongIdType;
             songSettingId?: Core.SongSettingIdType;
             logData?: any;
+            maxDiff?: number;
+            successResult?: string;
             run(cards: API.CardDictDataType, noteData: API.NoteDataType): Depends.Promise<any, any> | number | string;
         }
 

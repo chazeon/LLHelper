@@ -407,7 +407,7 @@ var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
-   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level']);
+   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level', 'trigger_type', 'trigger_effect_type']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -1215,6 +1215,7 @@ var LLConst = (function () {
       'SKILL_TRIGGER_PERFECT': 6,
       'SKILL_TRIGGER_STAR_PERFECT': 12,
       'SKILL_TRIGGER_MEMBERS': 100,
+      'SKILL_TRIGGER_SKILL_ACTIVATE_COUNT': 201,
 
       'SKILL_EFFECT_ACCURACY_SMALL': 4,
       'SKILL_EFFECT_ACCURACY_NORMAL': 5,
@@ -1227,9 +1228,11 @@ var LLConst = (function () {
       'SKILL_EFFECT_SYNC': 2400,
       'SKILL_EFFECT_LEVEL_UP': 2500,
       'SKILL_EFFECT_ATTRIBUTE_UP': 2600,
+      'SKILL_EFFECT_CHARGED_SPARK': 2800,
 
       'SKILL_LIMIT_PERFECT_SCORE_UP': 100000,
       'SKILL_LIMIT_COMBO_FEVER': 1000,
+      'SKILL_LIMIT_COMBO_FEVER_2': 2147483647,
       'SKILL_LIMIT_HEAL_BONUS': 200,
 
       'SONG_GROUP_MUSE': 1,
@@ -1999,6 +2002,7 @@ var LLConst = (function () {
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_SYNC] = '属性同步';
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_LEVEL_UP] = '技能等级';
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_ATTRIBUTE_UP] = '属性提升';
+   SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_CHARGED_SPARK] = '火花';
 
    /** @type {LLH.ConstUtil.Skill} */
    var SkillUtils = {
@@ -2024,22 +2028,24 @@ var LLConst = (function () {
          if (triggerLimit) desc = '（最多' + desc + '次）';
          return desc;
       },
-      getTriggerDescription: function (triggerType, triggerValue, triggerTarget) {
+      getTriggerDescription: function (triggerType, triggerValue, triggerTarget, triggerEffectType) {
          var desc = '(未知条件)';
          if (triggerType == KEYS.SKILL_TRIGGER_TIME)
-           desc = '每' + triggerValue + '秒';
+            desc = '每' + triggerValue + '秒';
          else if (triggerType == KEYS.SKILL_TRIGGER_NOTE)
-           desc = '每' + triggerValue + '个图标';
+            desc = '每' + triggerValue + '个图标';
          else if (triggerType == KEYS.SKILL_TRIGGER_COMBO)
-           desc = '每达成' + triggerValue + '次连击';
+            desc = '每达成' + triggerValue + '次连击';
          else if (triggerType == KEYS.SKILL_TRIGGER_SCORE)
-           desc = '每达成' + triggerValue + '分';
+            desc = '每达成' + triggerValue + '分';
          else if (triggerType == KEYS.SKILL_TRIGGER_PERFECT)
-           desc = '每获得' + triggerValue + '个PERFECT';
+            desc = '每获得' + triggerValue + '个PERFECT';
          else if (triggerType == KEYS.SKILL_TRIGGER_STAR_PERFECT)
-           desc = '每获得' + triggerValue + '个星星图标的PERFECT';
+            desc = '每获得' + triggerValue + '个星星图标的PERFECT';
          else if (triggerType == KEYS.SKILL_TRIGGER_MEMBERS)
-           desc = '自身以外的' + SkillUtils.getTriggerTargetDescription(triggerTarget) + '的成员的特技全部发动时';
+            desc = '自身以外的' + SkillUtils.getTriggerTargetDescription(triggerTarget) + '的成员的特技全部发动时';
+         else if (triggerType == KEYS.SKILL_TRIGGER_SKILL_ACTIVATE_COUNT)
+            desc = '每发动' + triggerValue + '次' + SkillUtils.getEffectBrief(triggerEffectType) + '技能时';
          return desc;
       },
       getEffectDescription: function (effectType, effectValue, dischargeTime, effectTarget, effectTargetMember) {
@@ -2075,7 +2081,8 @@ var LLConst = (function () {
          else if (effectType == KEYS.SKILL_EFFECT_ATTRIBUTE_UP) {
             if (effectTarget) targetDesc += '的成员'
             desc = dischargeTime + '秒内' + targetDesc + '的属性P提高到' + effectValue + '倍';
-         }
+         } else if (effectType == KEYS.SKILL_EFFECT_CHARGED_SPARK)
+            desc = dischargeTime + '秒内的点击得分提升' + effectValue + '分';
          return desc;
       },
       isStrengthSupported: function (card) {
@@ -2099,20 +2106,27 @@ var LLConst = (function () {
          }
          var trigger_text = SkillUtils.getTriggerDescription(card.triggertype, level_detail.require, card.triggertarget);
          var effect_text = SkillUtils.getEffectDescription(effect_type, effect_value, discharge_time, card.effecttarget);
-         var rate_text = '就有' + level_detail.possibility + '%的概率';
+         var rate_text = SkillUtils.getRateDescription(level_detail.possibility);
          var limit_text = SkillUtils.getTriggerLimitDescription(level_detail.limit);
          var supporting_text = (SkillUtils.isStrengthSupported(card) ? '' : '(该技能暂不支持理论强度计算，仅支持模拟)');
 
          return trigger_text + rate_text + effect_text + limit_text + supporting_text;
+      },
+      getRateDescription: function (rate) {
+         return '就有' + rate + '%的概率';
       },
       getAccessorySkillDescription: function (accessory, levelIndex) {
          var level_detail = accessory.levels[levelIndex];
          if (!level_detail) {
             return '';
          }
-         var trigger_text = '特技未发动时，就有' + level_detail.rate + '%的概率';
+         var trigger_text = '特技未发动时，';
+         if (accessory.trigger_type) {
+            trigger_text += SkillUtils.getTriggerDescription(accessory.trigger_type, level_detail.trigger_value, undefined, accessory.trigger_effect_type);
+         }
+         var rate_text = SkillUtils.getRateDescription(level_detail.rate);
          var effect_text = SkillUtils.getEffectDescription(accessory.effect_type, level_detail.effect_value, level_detail.time, undefined, accessory.effect_target);
-         return trigger_text + effect_text;
+         return trigger_text + rate_text + effect_text;
       },
       getEffectBrief: function (effectType) {
          if (!effectType) return '无';
@@ -3245,7 +3259,8 @@ var LLCardSelectorComponent = (function() {
          makeEffectTypeOption(LLConst.SKILL_EFFECT_COMBO_FEVER),
          makeEffectTypeOption(LLConst.SKILL_EFFECT_SYNC),
          makeEffectTypeOption(LLConst.SKILL_EFFECT_LEVEL_UP),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP)
+         makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP),
+         makeEffectTypeOption(LLConst.SKILL_EFFECT_CHARGED_SPARK)
       ]);
       me.setFilterOptions(SEL_ID_SPECIAL, [
          {'value': '', 'text': '是否特典卡'},
@@ -3752,6 +3767,7 @@ var LLMap = (function () {
       this.data.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.data.combo);
       this.data.speed = distParam.speed;
       this.data.combo_fever_pattern = distParam.combo_fever_pattern;
+      this.data.combo_fever_limit = distParam.combo_fever_limit;
       this.data.over_heal_pattern = distParam.over_heal_pattern;
       this.data.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
       this.data.trigger_limit_pattern = distParam.trigger_limit_pattern;
@@ -4250,17 +4266,20 @@ var LLSimulateContextStatic = (function () {
    /**
     * @constructor
     * @param {LLH.Model.LLMap_SaveData} mapdata 
-    * @param {LLH.Model.LLMember[]} members 
+    * @param {LLH.Model.LLTeam} team 
     * @param {number} maxTime 
     */
-   function LLSimulateContextStatic_cls(mapdata, members, maxTime){
+   function LLSimulateContextStatic_cls(mapdata, team, maxTime){
+      var members = team.members;
       this.members = members;
       this.totalNote = mapdata.combo;
       this.totalTime = maxTime;
       this.totalPerfect = mapdata.perfect;
+      this.totalHP = team.totalHP;
       this.mapSkillPossibilityUp = (1 + parseInt(mapdata.skillup || 0)/100);
       this.mapTapScoreUp = (1 + parseInt(mapdata.tapup || 0)/100);
       this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
+      this.comboFeverLimit = parseInt(mapdata.combo_fever_limit || LLConst.SKILL_LIMIT_COMBO_FEVER);
       this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
       this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
       this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
@@ -4427,6 +4446,7 @@ var LLSimulateContext = (function() {
       this.currentPerfect = 0;
       this.currentStarPerfect = 0;
       this.currentHeal = 0;
+      this.currentHealBonus = 1;
       this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -4536,9 +4556,8 @@ var LLSimulateContext = (function() {
                }
                this.effects[deactivedSkillEffect] -= totalUp;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_SYNC) {
-               var syncTarget = curActiveSkill.st;
-               this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] -= this.skillsDynamic[syncTarget].attributeSync || 0;
-               this.skillsDynamic[syncTarget].attributeSync = undefined;
+               this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] -= this.skillsDynamic[deactivedMemberId].attributeSync || 0;
+               this.skillsDynamic[deactivedMemberId].attributeSync = undefined;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL
                || deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
                this.effects[deactivedSkillEffect] -= 1;
@@ -4584,6 +4603,15 @@ var LLSimulateContext = (function() {
          if (lastRepeatFrame >= 0 && lastRepeatFrame < this.currentFrame) {
             this.clearLastActiveSkill();
             return true;
+         }
+         // 当前可复读的技能为当前帧发动的技能等级提升时也会哑火
+         if (this.lastActiveSkill.af == this.currentFrame) {
+            var realMemberId = this.lastActiveSkill.m;
+            var realSkillStatic = this.skillsDynamic[realMemberId].staticInfo;
+            var realSkillEffect = (this.lastActiveSkill.a ? realSkillStatic.accessoryEffect : realSkillStatic.skillEffect);
+            if (realSkillEffect.effectType == LLConst.SKILL_EFFECT_LEVEL_UP) {
+               return true;
+            }
          }
       } else if (skillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
          // 已经有技能发动率上升的话不能发动的技能发动率上升
@@ -4721,7 +4749,7 @@ var LLSimulateContext = (function() {
          if (effectTime === undefined) effectTime = effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
       } else if (effectType == LLConst.SKILL_EFFECT_HEAL) {
-         this.currentHeal += effectValue;
+         this.updateHeal(effectValue);
          // 奶转分
          if (this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
       } else if (effectType == LLConst.SKILL_EFFECT_SCORE) {
@@ -4773,6 +4801,12 @@ var LLSimulateContext = (function() {
          return false;
       }
       return true;
+   };
+   proto.updateHeal = function (delta) {
+      this.currentHeal += delta;
+      if (this.staticData.overHealPattern) {
+         this.currentHealBonus = LLConst.getHealBonus(this.staticData.totalHP, this.currentHeal + this.staticData.totalHP);
+      }
    };
    var makeDeltaTriggerCheck = function(key) {
       /**
@@ -4953,7 +4987,6 @@ var LLSimulateContext = (function() {
                var isAccuracyState = this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] || this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL];
                var comboFeverScore = 0;
                var perfectScoreUp = 0;
-               var healBonus = (this.staticData.overHealPattern ? LLConst.getHealBonus(teamData.totalHP, this.currentHeal + teamData.totalHP) : 1);
                this.currentCombo++;
                if (isPerfect) {
                   this.currentPerfect++;
@@ -4979,8 +5012,8 @@ var LLSimulateContext = (function() {
                }
                if (this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] > 0) {
                   comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.staticData.comboFeverPattern) * this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
-                  if (comboFeverScore > LLConst.SKILL_LIMIT_COMBO_FEVER) {
-                     comboFeverScore = LLConst.SKILL_LIMIT_COMBO_FEVER;
+                  if (comboFeverScore > this.staticData.comboFeverLimit) {
+                     comboFeverScore = this.staticData.comboFeverLimit;
                   }
                }
                // seems not really take effect
@@ -4989,7 +5022,7 @@ var LLSimulateContext = (function() {
                //}
                var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
                // note position 数值1~9, 从右往左数
-               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * healBonus * teamData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
+               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHealBonus * teamData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
                // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
                this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
@@ -5351,7 +5384,7 @@ var LLTeam = (function() {
       var accessoryActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var totalHeal = 0;
       var totalAccuracyCoverNote = 0;
-      var staticData = new LLSimulateContextStatic(mapdata, this.members, maxTime);
+      var staticData = new LLSimulateContextStatic(mapdata, this, maxTime);
       for (i = 0; i < simCount; i++) {
          var env = new LLSimulateContext(staticData);
          env.simulate(noteTriggerData, this);
@@ -5821,14 +5854,6 @@ var LLTeam = (function() {
    return cls;
 })();
 
-/**
- * @typedef LLSaveData
- * @property {any[]} teamMember
- * @property {GemStockType} gemStock
- * @property {boolean} hasGemStock
- * @property {any[]} subMember
- * @property {function(boolean, boolean, boolean): any} serializeV104
- */
 var LLSaveData = (function () {
    // ver 0 : invalid save data
    // ver 1 : [{team member}, ..] total 9 members
@@ -6038,7 +6063,7 @@ var LLSaveData = (function () {
          member.gemlist = gemList;
       }
    };
-   /** @param {LLSaveData} me */
+   /** @param {LLH.Model.LLSaveData} me */
    var convertV103ToV104 = function (me) {
       // convert gem stock
       var i;
@@ -6139,6 +6164,10 @@ var LLSaveData = (function () {
          }
       }
    };
+   /**
+    * @constructor
+    * @param {LLH.Internal.UnitSaveDataType} data 
+    */
    function LLSaveData_cls(data) {
       this.rawData = data;
       this.rawVersion = checkSaveDataVersion(data);
@@ -6179,6 +6208,7 @@ var LLSaveData = (function () {
          convertV103ToV104(this);
       }
    };
+   /** @type {typeof LLH.Model.LLSaveData} */
    var cls = LLSaveData_cls;
    cls.checkSaveDataVersion = checkSaveDataVersion;
    cls.makeFullyExpandedGemStock = function() {
@@ -7026,17 +7056,6 @@ var LLDataVersionSelectorComponent = (function () {
    return cls;
 })();
 
-/**
- * @typedef LLScoreDistributionParameter_SaveDataType
- * @property {'no'|'v1'|'sim'} type
- * @property {number} count int, simulate count
- * @property {number} perfect_percent float 0~100
- * @property {number} speed int 1~10
- * @property {1|2} combo_fever_pattern 1 for 300 combo, 2 for 220 combo
- * @property {0|1} over_heal_pattern 0 for disabled, 1 for enabled
- * @property {0|1} perfect_accuracy_pattern 0 for disabled, 1 for enabled
- * @property {0|1} trigger_limit_pattern 0 for disabled, 1 for enabled
- */
 var LLScoreDistributionParameter = (function () {
    var createElement = LLUnit.createElement;
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
@@ -7062,6 +7081,10 @@ var LLScoreDistributionParameter = (function () {
       {'value': '1', 'text': '技能加强前（300 combo达到最大加成）'},
       {'value': '2', 'text': '技能加强后（220 combo达到最大加成）'}
    ];
+   var comboFeverLimitOptions = [
+      {'value': LLConst.SKILL_LIMIT_COMBO_FEVER + '', 'text': '上限解除前（单键加成上限1000）'},
+      {'value': LLConst.SKILL_LIMIT_COMBO_FEVER_2 + '', 'text': '上限解除后（单键加成上限21亿）'}
+   ];
    var enableDisableSelectOptions = [
       {'value': '0', 'text': '关闭'},
       {'value': '1', 'text': '启用'}
@@ -7079,12 +7102,24 @@ var LLScoreDistributionParameter = (function () {
       ['饰品: 火花', '不支持', '不支持']
    ];
 
-   /** @returns {LLSelectComponent} */
-   function createEnableDisableComponent() {
+   /**
+    * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
+    * @param {string} defaultValue 
+    * @returns {LLH.Component.LLSelectComponent}
+    */
+   function createSelectComponent(options, defaultValue) {
       var ret = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
-      ret.setOptions(enableDisableSelectOptions);
-      ret.set('0');
+      ret.setOptions(options);
+      ret.set(defaultValue);
       return ret;
+   }
+
+   /**
+    * @param {boolean?} defaultEnable
+    * @returns {LLH.Component.LLSelectComponent}
+    */
+   function createEnableDisableComponent(defaultEnable) {
+      return createSelectComponent(enableDisableSelectOptions, (defaultEnable ? '1' : '0'));
    }
 
    /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller */
@@ -7102,28 +7137,24 @@ var LLScoreDistributionParameter = (function () {
       detailLink.style.cursor = 'help';
       var simParamCount = createElement('input', {'className': 'form-control', 'type': 'number', 'size': 5, 'value': 2000});
       var simParamPerfectPercent = createElement('input', {'className': 'form-control num-size-3', 'type': 'number', 'size': 3, 'value': 90});
-      var simParamSpeedComponent = new LLSelectComponent(createElement('select', {'className': 'form-control', 'value': '8'}));
-      simParamSpeedComponent.setOptions(speedSelectOptions);
-      simParamSpeedComponent.set('8');
-      var simParamComboFeverPatternComponent = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
-      simParamComboFeverPatternComponent.setOptions(comboFeverPatternSelectOptions);
-      simParamComboFeverPatternComponent.set('2');
-      var simParamOverHealComponent = createEnableDisableComponent();
-      var simParamPerfectAccuracyComponent = createEnableDisableComponent();
-      var simParamTriggerLimitComponent = createEnableDisableComponent();
+      var simParamSpeedComponent = createSelectComponent(speedSelectOptions, '8');
+      var simParamComboFeverPatternComponent = createSelectComponent(comboFeverPatternSelectOptions, '2');
+      var simParamComboFeverLimitComponent = createSelectComponent(comboFeverLimitOptions, LLConst.SKILL_LIMIT_COMBO_FEVER_2 + '');
+      var simParamOverHealComponent = createEnableDisableComponent(true);
+      var simParamPerfectAccuracyComponent = createEnableDisableComponent(true);
+      var simParamTriggerLimitComponent = createEnableDisableComponent(true);
       var simParamContainer = createElement('div', {'className': 'filter-form'}, [
          createFormInlineGroup('模拟次数：', [simParamCount, '（模拟次数越多越接近实际分布，但是也越慢）']),
          createFormInlineGroup('无判perfect率：', [simParamPerfectPercent, '%']),
          createFormInlineGroup('速度：', [simParamSpeedComponent.element, '（图标下落速度，1速最慢，10速最快）']),
-         createFormInlineGroup('Combo Fever技能：', simParamComboFeverPatternComponent.element),
+         createFormInlineGroup('Combo Fever技能：', [simParamComboFeverPatternComponent.element, simParamComboFeverLimitComponent.element]),
          createFormInlineGroup('溢出奶：', simParamOverHealComponent.element),
          createFormInlineGroup('完美判：', simParamPerfectAccuracyComponent.element),
          createFormInlineGroup('爆分发动次数限制：', simParamTriggerLimitComponent.element),
          createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'})
       ]);
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
-      var sel = createElement('select', {'className': 'form-control'});
-      var selComp = new LLSelectComponent(sel);
+      var selComp = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
       selComp.setOptions(distTypeSelectOptions);
       selComp.onValueChange = function (v) {
          if (v == 'sim') {
@@ -7135,7 +7166,7 @@ var LLScoreDistributionParameter = (function () {
       selComp.set('no');
       simParamContainerComponent.hide();
       var container = createElement('div', undefined, [
-         createFormInlineGroup('选择分数分布计算模式：', [sel, detailLink]),
+         createFormInlineGroup('选择分数分布计算模式：', [selComp.element, detailLink]),
          detailContainer,
          simParamContainer
       ]);
@@ -7146,6 +7177,7 @@ var LLScoreDistributionParameter = (function () {
             'perfect_percent': parseFloat(simParamPerfectPercent.value),
             'speed': parseInt(simParamSpeedComponent.get()),
             'combo_fever_pattern': parseInt(simParamComboFeverPatternComponent.get()),
+            'combo_fever_limit': parseInt(simParamComboFeverLimitComponent.get()),
             'over_heal_pattern': parseInt(simParamOverHealComponent.get()),
             'perfect_accuracy_pattern': parseInt(simParamPerfectAccuracyComponent.get()),
             'trigger_limit_pattern': parseInt(simParamTriggerLimitComponent.get())
@@ -7158,6 +7190,7 @@ var LLScoreDistributionParameter = (function () {
          if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent;
          if (data.speed) simParamSpeedComponent.set(data.speed);
          if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern);
+         if (data.combo_fever_limit) simParamComboFeverLimitComponent.set(data.combo_fever_limit);
          if (data.over_heal_pattern !== undefined) simParamOverHealComponent.set(data.over_heal_pattern);
          if (data.perfect_accuracy_pattern !== undefined) simParamPerfectAccuracyComponent.set(data.perfect_accuracy_pattern);
          if (data.trigger_limit_pattern !== undefined) simParamTriggerLimitComponent.set(data.trigger_limit_pattern);

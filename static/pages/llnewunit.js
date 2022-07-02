@@ -4,12 +4,14 @@ var mezame = 0;
 var data_mapnote = 0;
 var comp_skill = 0;
 var comp_cardselector = 0;
-var comp_songselector = 0;
+/** @type {LLH.Selector.LLSongSelectorComponent} */
+var comp_songselector = undefined;
 var comp_gemselector = 0;
 /** @type {LLH.Selector.LLAccessorySelectorComponent} */
 var comp_accessory_selector = undefined;
 var comp_cardavatar = 0;
-var comp_distribution_param = 0;
+/** @type {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
+var comp_distribution_param = undefined;
 var comp_distribution_chart = 0;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
 var comp_team = undefined;
@@ -125,8 +127,12 @@ function docalculate(cards, accessoryDetails, extraData) {
     var llmap = comp_songselector.getMap(comp_team.getWeights());
 
     var llteam = new LLTeam(llmembers);
-    llteam.calculateAttributeStrength(llmap.saveData());
-    llteam.calculateSkillStrength(llmap.saveData());
+    if (distParam.type == 'sim') {
+        llmap.setDistParam(distParam);
+    }
+    var llmapSaveData = llmap.saveData();
+    llteam.calculateAttributeStrength(llmapSaveData);
+    llteam.calculateSkillStrength(llmapSaveData);
 
     comp_team.setStrengthAttributes(llteam.attrStrength);
     comp_team.setStrengthDebuffs(llteam.attrDebuff);
@@ -139,8 +145,7 @@ function docalculate(cards, accessoryDetails, extraData) {
         if (distParam.type == 'v1') {
             err = llteam.calculateScoreDistribution();
         } else if (distParam.type == 'sim') {
-            llmap.setDistParam(distParam);
-            err = llteam.simulateScoreDistribution(llmap.saveData(), extraData[0], parseInt(distParam.count));
+            err = llteam.simulateScoreDistribution(llmapSaveData, extraData[0], parseInt(distParam.count));
         } else {
             err = '未知的得分分布';
         }
@@ -174,7 +179,7 @@ function docalculate(cards, accessoryDetails, extraData) {
 
     if (enable_make_test_case) {
         test_case.type = distParam.type;
-        test_case.map = llmap.saveData();
+        test_case.map = llmapSaveData;
         test_case.result = llteam.getResults();
         console.log(test_case);
     }
