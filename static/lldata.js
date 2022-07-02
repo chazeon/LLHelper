@@ -407,7 +407,7 @@ var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
 var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
-   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level']);
+   ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level', 'trigger_type', 'trigger_effect_type']);
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -1215,6 +1215,7 @@ var LLConst = (function () {
       'SKILL_TRIGGER_PERFECT': 6,
       'SKILL_TRIGGER_STAR_PERFECT': 12,
       'SKILL_TRIGGER_MEMBERS': 100,
+      'SKILL_TRIGGER_SKILL_ACTIVATE_COUNT': 201,
 
       'SKILL_EFFECT_ACCURACY_SMALL': 4,
       'SKILL_EFFECT_ACCURACY_NORMAL': 5,
@@ -2001,6 +2002,7 @@ var LLConst = (function () {
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_SYNC] = '属性同步';
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_LEVEL_UP] = '技能等级';
    SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_ATTRIBUTE_UP] = '属性提升';
+   SKILL_EFFECT_TEXT[KEYS.SKILL_EFFECT_CHARGED_SPARK] = '火花';
 
    /** @type {LLH.ConstUtil.Skill} */
    var SkillUtils = {
@@ -2026,22 +2028,24 @@ var LLConst = (function () {
          if (triggerLimit) desc = '（最多' + desc + '次）';
          return desc;
       },
-      getTriggerDescription: function (triggerType, triggerValue, triggerTarget) {
+      getTriggerDescription: function (triggerType, triggerValue, triggerTarget, triggerEffectType) {
          var desc = '(未知条件)';
          if (triggerType == KEYS.SKILL_TRIGGER_TIME)
-           desc = '每' + triggerValue + '秒';
+            desc = '每' + triggerValue + '秒';
          else if (triggerType == KEYS.SKILL_TRIGGER_NOTE)
-           desc = '每' + triggerValue + '个图标';
+            desc = '每' + triggerValue + '个图标';
          else if (triggerType == KEYS.SKILL_TRIGGER_COMBO)
-           desc = '每达成' + triggerValue + '次连击';
+            desc = '每达成' + triggerValue + '次连击';
          else if (triggerType == KEYS.SKILL_TRIGGER_SCORE)
-           desc = '每达成' + triggerValue + '分';
+            desc = '每达成' + triggerValue + '分';
          else if (triggerType == KEYS.SKILL_TRIGGER_PERFECT)
-           desc = '每获得' + triggerValue + '个PERFECT';
+            desc = '每获得' + triggerValue + '个PERFECT';
          else if (triggerType == KEYS.SKILL_TRIGGER_STAR_PERFECT)
-           desc = '每获得' + triggerValue + '个星星图标的PERFECT';
+            desc = '每获得' + triggerValue + '个星星图标的PERFECT';
          else if (triggerType == KEYS.SKILL_TRIGGER_MEMBERS)
-           desc = '自身以外的' + SkillUtils.getTriggerTargetDescription(triggerTarget) + '的成员的特技全部发动时';
+            desc = '自身以外的' + SkillUtils.getTriggerTargetDescription(triggerTarget) + '的成员的特技全部发动时';
+         else if (triggerType == KEYS.SKILL_TRIGGER_SKILL_ACTIVATE_COUNT)
+            desc = '每发动' + triggerValue + '次' + SkillUtils.getEffectBrief(triggerEffectType) + '技能时';
          return desc;
       },
       getEffectDescription: function (effectType, effectValue, dischargeTime, effectTarget, effectTargetMember) {
@@ -2077,7 +2081,8 @@ var LLConst = (function () {
          else if (effectType == KEYS.SKILL_EFFECT_ATTRIBUTE_UP) {
             if (effectTarget) targetDesc += '的成员'
             desc = dischargeTime + '秒内' + targetDesc + '的属性P提高到' + effectValue + '倍';
-         }
+         } else if (effectType == KEYS.SKILL_EFFECT_CHARGED_SPARK)
+            desc = dischargeTime + '秒内的点击得分提升' + effectValue + '分';
          return desc;
       },
       isStrengthSupported: function (card) {
@@ -2101,20 +2106,27 @@ var LLConst = (function () {
          }
          var trigger_text = SkillUtils.getTriggerDescription(card.triggertype, level_detail.require, card.triggertarget);
          var effect_text = SkillUtils.getEffectDescription(effect_type, effect_value, discharge_time, card.effecttarget);
-         var rate_text = '就有' + level_detail.possibility + '%的概率';
+         var rate_text = SkillUtils.getRateDescription(level_detail.possibility);
          var limit_text = SkillUtils.getTriggerLimitDescription(level_detail.limit);
          var supporting_text = (SkillUtils.isStrengthSupported(card) ? '' : '(该技能暂不支持理论强度计算，仅支持模拟)');
 
          return trigger_text + rate_text + effect_text + limit_text + supporting_text;
+      },
+      getRateDescription: function (rate) {
+         return '就有' + rate + '%的概率';
       },
       getAccessorySkillDescription: function (accessory, levelIndex) {
          var level_detail = accessory.levels[levelIndex];
          if (!level_detail) {
             return '';
          }
-         var trigger_text = '特技未发动时，就有' + level_detail.rate + '%的概率';
+         var trigger_text = '特技未发动时，';
+         if (accessory.trigger_type) {
+            trigger_text += SkillUtils.getTriggerDescription(accessory.trigger_type, level_detail.trigger_value, undefined, accessory.trigger_effect_type);
+         }
+         var rate_text = SkillUtils.getRateDescription(level_detail.rate);
          var effect_text = SkillUtils.getEffectDescription(accessory.effect_type, level_detail.effect_value, level_detail.time, undefined, accessory.effect_target);
-         return trigger_text + effect_text;
+         return trigger_text + rate_text + effect_text;
       },
       getEffectBrief: function (effectType) {
          if (!effectType) return '无';
@@ -3247,7 +3259,8 @@ var LLCardSelectorComponent = (function() {
          makeEffectTypeOption(LLConst.SKILL_EFFECT_COMBO_FEVER),
          makeEffectTypeOption(LLConst.SKILL_EFFECT_SYNC),
          makeEffectTypeOption(LLConst.SKILL_EFFECT_LEVEL_UP),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP)
+         makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP),
+         makeEffectTypeOption(LLConst.SKILL_EFFECT_CHARGED_SPARK)
       ]);
       me.setFilterOptions(SEL_ID_SPECIAL, [
          {'value': '', 'text': '是否特典卡'},

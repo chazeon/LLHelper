@@ -193,6 +193,7 @@ declare namespace LLH {
         interface AccessoryLevelDataType {
             level: number;
             effect_value: number;
+            trigger_value?: number;
             time: number;
             rate: number;
             smile?: number;
@@ -210,6 +211,10 @@ declare namespace LLH {
             cool: number;
             is_material: 0 | 1;
             effect_type: number;
+            /** none for normal accessory trigger */
+            trigger_type?: number;
+            /** for charged spark skill */
+            trigger_effect_type?: number;
             default_max_level: number; // usually 4
             max_level: number; // usually 8
             icon_asset: string;
@@ -698,8 +703,9 @@ declare namespace LLH {
             getTriggerTargetDescription(targets: Core.TriggerTargetType): string;
             getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
             getTriggerLimitDescription(triggerLimit: number): string;
-            getTriggerDescription(triggerType: number, triggerValue: number, triggerTarget?: Core.TriggerTargetType): string;
+            getTriggerDescription(triggerType: number, triggerValue: number, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
             getEffectDescription(effectType: number, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
+            getRateDescription(rate: number): string;
 
             getEffectBrief(effectType: number): string;
 
