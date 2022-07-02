@@ -477,7 +477,7 @@ function renderPage(loadDeferred) {
     }
 
     function assertFloatArrayEqualDynamic(arr1, arr2, maxFactor, message) {
-        return assertFloatArrayEqual(arr1, arr2, Math.max(arrayMaxValue(arr2), 1) * maxFactor, message);
+        return assertFloatArrayEqual(arr1, arr2, Math.max(arrayMaxValue(arr2), 1) * maxFactor,  0, message);
     }
   
     function initSongSettings() {

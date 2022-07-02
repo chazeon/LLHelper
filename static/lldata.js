@@ -1227,6 +1227,7 @@ var LLConst = (function () {
       'SKILL_EFFECT_SYNC': 2400,
       'SKILL_EFFECT_LEVEL_UP': 2500,
       'SKILL_EFFECT_ATTRIBUTE_UP': 2600,
+      'SKILL_EFFECT_CHARGED_SPARK': 2800,
 
       'SKILL_LIMIT_PERFECT_SCORE_UP': 100000,
       'SKILL_LIMIT_COMBO_FEVER': 1000,
@@ -4589,6 +4590,15 @@ var LLSimulateContext = (function() {
          if (lastRepeatFrame >= 0 && lastRepeatFrame < this.currentFrame) {
             this.clearLastActiveSkill();
             return true;
+         }
+         // 当前可复读的技能为当前帧发动的技能等级提升时也会哑火
+         if (this.lastActiveSkill.af == this.currentFrame) {
+            var realMemberId = this.lastActiveSkill.m;
+            var realSkillStatic = this.skillsDynamic[realMemberId].staticInfo;
+            var realSkillEffect = (this.lastActiveSkill.a ? realSkillStatic.accessoryEffect : realSkillStatic.skillEffect);
+            if (realSkillEffect.effectType == LLConst.SKILL_EFFECT_LEVEL_UP) {
+               return true;
+            }
          }
       } else if (skillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
          // 已经有技能发动率上升的话不能发动的技能发动率上升

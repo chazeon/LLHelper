@@ -161,6 +161,7 @@ function renderPage(loadDeferred) {
             var versionedDocContainer = createElement('div');
             var versions = {};
             var i;
+            var FUTURE_VERSION = '999';
             var versionedData = context.parsedData.splice(context.currentLineIndex + 1, context.parsedData.length - context.currentLineIndex - 1);
             context.parsedData.push({
                 'indent': 0,
@@ -179,14 +180,22 @@ function renderPage(loadDeferred) {
                 if (lastContent.type == 'func' && (lastContent.funcName == 'version' || lastContent.funcName == 'version_from')) {
                     var versionParams = lastContent.params;
                     versions['jp' + versionParams[0]] = 1;
-                    versions['cn' + versionParams[1]] = 1;
                     curLine.jpVersionFrom = versionParams[0];
-                    curLine.cnVersionFrom = versionParams[1];
+                    if (versionParams[1]) {
+                        versions['cn' + versionParams[1]] = 1;
+                        curLine.cnVersionFrom = versionParams[1];
+                    } else {
+                        curLine.cnVersionFrom = FUTURE_VERSION;
+                    }
                     if (lastContent.funcName == 'version_from') {
                         var nextContents = versionedData[i + 1].contents;
                         var nextVersionParams = nextContents[nextContents.length - 1].params;
                         curLine.jpVersionTo = nextVersionParams[0];
-                        curLine.cnVersionTo = nextVersionParams[1];
+                        if (nextVersionParams[1]) {
+                            curLine.cnVersionTo = nextVersionParams[1];
+                        } else {
+                            curLine.cnVersionTo = FUTURE_VERSION;
+                        }
                     }
                     curContents.pop();
                 }
