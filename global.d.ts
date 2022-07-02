@@ -324,6 +324,7 @@ declare namespace LLH {
             submember: SubMemberSaveDataType[];
         }
         type UnitSaveDataType = UnitSaveDataTypeV104;
+        type UnitAnySaveDataType = UnitSaveDataTypeV104;
 
         interface CalculateResultType {
             attrStrength: number[];
@@ -776,9 +777,10 @@ declare namespace LLH {
             /** int 1~10 */
             speed: number;
             combo_fever_pattern: 1 | 2;
+            combo_fever_limit: 1000 | 2147483647;
             over_heal_pattern: 0 | 1;
             perfect_accuracy_pattern: 0 | 1;
-            trigger_limit_pattern: 0 | 1;            
+            trigger_limit_pattern: 0 | 1;
         }
         class LLMap implements Mixin.SaveLoadJson {
             constructor(options?: LLMap_Options);
@@ -984,15 +986,17 @@ declare namespace LLH {
             attributeSync?: number;
         }
         class LLSimulateContextStatic {
-            constructor(mapdata: LLMap_SaveData, members: LLMember[], maxTime: number);
+            constructor(mapdata: LLMap_SaveData, team: LLTeam, maxTime: number);
             
             members: LLMember[];
+            totalHP: number;
             totalNote: number;
             totalTime: number;
             totalPerfect: number;
             mapSkillPossibilityUp: number;
             mapTapScoreUp: number;
             comboFeverPattern: number;
+            comboFeverLimit: number;
             perfectAccuracyPattern: number;
             overHealPattern: number;
             triggerLimitPattern: number;
@@ -1022,6 +1026,7 @@ declare namespace LLH {
             currentPerfect: number;
             currentStarPerfect: number;
             currentHeal: number;
+            currentHealBonus: number;
             skillsActiveCount: number[];
             skillsActiveChanceCount: number[];
             skillsActiveNoEffectCount: number[];
@@ -1055,8 +1060,22 @@ declare namespace LLH {
             setLastActiveSkill(memberId: number, levelBoost: number, activateFrame: number, isAccessory: boolean): void;
             clearLastActiveSkill(): void;
             setLastFrameForLevelUp(): void;
+            updateHeal(delta: number): void;
 
             simulate(NoteTriggerDataType: Internal.NoteTriggerDataType[], teamData: LLTeam): void;
+        }
+
+        class LLSaveData {
+            constructor(data: Internal.UnitAnySaveDataType);
+
+            rawData: Internal.UnitAnySaveDataType;
+            rawVersion: number;
+            teamMember: Internal.MemberSaveDataType[];
+            gemStock: TODO.GemStockType;
+            hasGemStock: boolean;
+            subMember: Internal.SubMemberSaveDataType[];
+
+            serializeV104(excludeTeam: boolean, excludeGemStock: boolean, excludeSubMember: boolean): Internal.UnitSaveDataTypeV104;
         }
     }
 
@@ -1194,6 +1213,7 @@ declare namespace LLH {
                 speed: number;
                 /** 1 for 300 combo, 2 for 220 combo */
                 combo_fever_pattern: 1 | 2;
+                combo_fever_limit: 1000 | 2147483647;
                 /** 0 for disabled, 1 for enabled */
                 over_heal_pattern: 0 | 1;
                 /** 0 for disabled, 1 for enabled */
@@ -1263,6 +1283,8 @@ declare namespace LLH {
             songId?: Core.SongIdType;
             songSettingId?: Core.SongSettingIdType;
             logData?: any;
+            maxDiff?: number;
+            successResult?: string;
             run(cards: API.CardDictDataType, noteData: API.NoteDataType): Depends.Promise<any, any> | number | string;
         }
 

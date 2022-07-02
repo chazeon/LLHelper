@@ -117,11 +117,14 @@ function renderPage(loadDeferred) {
                 testStatusSummary.update('running', 'fail');
             } else {
                 var maxDiff = acceptedItem.maxDiff;
+                var resultInfo = 'Success';
                 if (maxDiff !== undefined) {
-                    resultElement.innerHTML = 'Success, max diff = ' + maxDiff.toFixed(6);
-                } else {
-                    resultElement.innerHTML = 'Success';
+                    resultInfo += ', max diff = ' + maxDiff.toFixed(6);
                 }
+                if (acceptedItem.successResult) {
+                    resultInfo += '<br/>' + acceptedItem.successResult;
+                }
+                resultElement.innerHTML = resultInfo;
                 resultElement.className = 'success';
                 testStatusSummary.update('running', 'success');
             }
@@ -422,11 +425,23 @@ function renderPage(loadDeferred) {
         throw new Error((message || 'assertEqual fail') + ': ' + a + ' == ' + b);
     }
   
-    function assertFloatEqual(a, b, eps, lastDiff) {
+    /**
+     * @param {number} a 
+     * @param {number} b 
+     * @param {number} eps 
+     * @param {number} lastDiff 
+     * @param {string} message Message to show when diff exceeds eps
+     * @returns {number} The max (diff, lastDiff), or throw if exceeds eps
+     */
+    function assertFloatEqual(a, b, eps, lastDiff, message) {
         var diff = a-b;
         if (diff < 0) diff = -diff;
         if (diff <= eps) return (lastDiff && diff < lastDiff ? lastDiff : diff);
-        throw 'assertFloatEqual fail: abs(' + a + ' - ' + b + ') = ' + diff + ' > ' + eps;
+        var str = 'assertFloatEqual fail';
+        if (message) {
+            str += ' (' + message + ')';
+        }
+        throw str + ': abs(' + a + ' - ' + b + ') = ' + diff + ' > ' + eps;
     }
 
     /**
@@ -443,10 +458,11 @@ function renderPage(loadDeferred) {
         throw 'assertAttributeP fail: {' + a.smile + ', ' + a.pure + ', ' + a.cool + '} == {' + smilep + ', ' + purep + ', ' + coolp + '}';
     }
   
-    function assertFloatArrayEqual(arr1, arr2, eps, lastDiff) {
+    function assertFloatArrayEqual(arr1, arr2, eps, lastDiff, message) {
         var maxDiff = lastDiff || 0;
+        if (!message) message = '';
         for (var i = 0; i < arr1.length; i++) {
-            maxDiff = assertFloatEqual(arr1[i], arr2[i], eps, maxDiff);
+            maxDiff = assertFloatEqual(arr1[i], arr2[i], eps, maxDiff, message + '[' + i + ']');
         }
         return maxDiff;
     }
@@ -460,8 +476,8 @@ function renderPage(loadDeferred) {
         return maxValue;
     }
 
-    function assertFloatArrayEqualDynamic(arr1, arr2, maxFactor) {
-        return assertFloatArrayEqual(arr1, arr2, Math.max(arrayMaxValue(arr2), 1) * maxFactor);
+    function assertFloatArrayEqualDynamic(arr1, arr2, maxFactor, message) {
+        return assertFloatArrayEqual(arr1, arr2, Math.max(arrayMaxValue(arr2), 1) * maxFactor, message);
     }
   
     function initSongSettings() {
@@ -880,6 +896,7 @@ function renderPage(loadDeferred) {
         function runTestCase(caseData, cards, noteData) {
             var saveData = new LLSaveData(caseData.saveData);
             var member =  saveData.teamMember;
+            /** @type {LLH.Model.LLMember[]} */
             var llmembers = [];
             for (var i = 0; i < 9; i++) {
                 member[i].card = cards[member[i].cardid];
@@ -894,23 +911,39 @@ function renderPage(loadDeferred) {
             var expectedResult = caseData.result;
             assertAttributesValue(llteam.finalAttr, expectedResult.finalAttr, 'finalAttr mismatch');
             assertAttributesValue(llteam.bonusAttr, expectedResult.bonusAttr, 'bonusAttr mismatch');
-            assertEqual(llteam.totalStrength, expectedResult.totalStrength, 'totalStrength mismatch');
             assertEqual(llteam.totalAttrStrength, expectedResult.totalAttrStrength, 'totalAttrStrength mismatch');
             assertEqual(llteam.totalSkillStrength, expectedResult.totalSkillStrength, 'totalSkillStrength mismatch');
+            assertEqual(llteam.totalStrength, expectedResult.totalStrength, 'totalStrength mismatch');
 
             var diffs = [];
             if (caseData.type == 'v1') {
                 llteam.calculateScoreDistribution();
             } else if (caseData.type == 'sim') {
                 llteam.simulateScoreDistribution(caseData.map, noteData, 1000);
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05));
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05));
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05));
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveHalfEffectCount, expectedResult.averageSkillsActiveHalfEffectCount, 0.05));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05, 'averageSkillsActiveChanceCount'));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05, 'averageSkillsActiveCount'));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05, 'averageSkillsActiveNoEffectCount'));
+                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveHalfEffectCount, expectedResult.averageSkillsActiveHalfEffectCount, 0.05, 'averageSkillsActiveHalfEffectCount'));
             } else {
                 return 0;
             }
-            caseData.maxDiff = arrayMaxValue(diffs);
+
+            /** @type {LLH.Test.TestItemOptions} */
+            var testOptions = caseData;
+            testOptions.maxDiff = arrayMaxValue(diffs);
+
+            llteam.calculatePercentileNaive();
+            var distInfo = [];
+            var distPercentage = [5, 10, 25, 50, 75, 90, 95];
+            for (var i = 0; i < distPercentage.length; i++) {
+                var p = distPercentage[i];
+                var a = caseData.result.naivePercentile[p];
+                var b = llteam.naivePercentile[p];
+                var maxAB = (a > b ? a : b);
+                assertFloatEqual(a, b, maxAB * 0.05, 0, 'percentile-' + p);
+                distInfo.push(p + '%: ' + b + ' (' + ((b-a) / a * 100).toFixed(2) + '%)');
+            }
+            testOptions.successResult = distInfo.join('<br/>');
         }
 
         function loadAndRunTestCase(caseFileId) {
@@ -926,7 +959,8 @@ function renderPage(loadDeferred) {
                 testOptions.cardConfigs = cardConfigs;
                 testOptions.run = function (cards, noteData) {
                     return runTestCase(caseData, cards, noteData);
-                }
+                };
+                testOptions.name = testOptions.name + ' (' + caseFileId + '.json)';
                 caseData.url = '/llnewunit?unit=' + encodeURI(JSON.stringify(caseData.saveData));
                 addTestItem(caseData).start();
                 return 0;
@@ -937,7 +971,7 @@ function renderPage(loadDeferred) {
             'after': test1,
             'run': function () {
                 var runs = [];
-                for (var i = 1; i <= 7; i++) {
+                for (var i = 1; i <= 9; i++) {
                     runs.push(loadAndRunTestCase(i + ''));
                 }
                 return $.when.apply($, runs);
