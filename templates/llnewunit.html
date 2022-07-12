@@ -3,7 +3,7 @@
 {% set category="队伍编成和强度" %}
 {% set category_link="/#unit-formation" %}
 {% set title="队伍强度、得分计算" %}
-{% set jsPage=url_for('static', filename='pages/llnewunit.js', v='1') %}
+{% set jsPage=url_for('static', filename='pages/llnewunit.js', v=config.PAGE_VERSION.llnewunit) %}
 
 {% block additional_header %}
    <script type="text/javascript" src="/static/js/highcharts/highcharts.js"></script>

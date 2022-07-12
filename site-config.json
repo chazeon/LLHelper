@@ -1,3 +1,11 @@
 {
-    "version": "20220702"
+    "version": "20220702",
+    "page_version": {
+        "docs": "2",
+        "llnewaccessorydata": "2",
+        "llnewsisdata": "2",
+        "llnewunit": "2",
+        "llsongdata": "1",
+        "test": "2"
+    }
 }

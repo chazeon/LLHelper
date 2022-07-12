@@ -3,7 +3,7 @@
 {% set category="测试" %}
 {% set category_link="/#test" %}
 {% set title="测试" %}
-{% set jsPage=url_for('static', filename='pages/test.js', v='1') %}
+{% set jsPage=url_for('static', filename='pages/test.js', v=config.PAGE_VERSION.test) %}
 
 {% block main %}
 <table class='table table-hover'>

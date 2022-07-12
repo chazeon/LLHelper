@@ -3,7 +3,7 @@
 {% set category="数据查询" %}
 {% set category_link="/#game-data" %}
 {% set title="歌曲数据查询" %}
-{% set jsPage=url_for('static', filename='pages/llsongdata.js', v='1') %}
+{% set jsPage=url_for('static', filename='pages/llsongdata.js', v=config.PAGE_VERSION.llsongdata) %}
 
 {% block front_notice %}
 <h4 class="alert-heading">使用方法</h4>
