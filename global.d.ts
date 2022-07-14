@@ -359,6 +359,11 @@ declare namespace LLH {
             /** 0.5 for swing, 1 for other */
             factor: number;
         }
+
+        interface SimulateScoreResult {
+            score: number;
+            count: number;
+        }
     }
 
     namespace Depends {
@@ -888,12 +893,14 @@ declare namespace LLH {
             maxHeal: number;
             totalSkillStrength: number;
             totalStrength: number;
-            /** set after calculateScoreDistribution() or simulateScoreDistribution() */
+            /** set after calculateScoreDistribution() */
             scoreDistribution: number[];
             scoreDistributionMinScore: number;
+            /** set after calculateScoreDistribution() or simulateScoreDistribution() */
             probabilityForMinScore: number;
             probabilityForMaxScore: number;
             /** set after simulateScoreDistribution() */
+            simulateScoreResults: Internal.SimulateScoreResult[];
             memberBonusFactor: number[];
             averageSkillsActiveCount: number[];
             averageSkillsActiveChanceCount: number[];
@@ -904,7 +911,7 @@ declare namespace LLH {
             averageAccessoryActiveNoEffectCount: number[];
             averageAccessoryActiveHalfEffectCount: number[];
             averageAccuracyNCoverage: number;
-            /** set after calculatePercentileNaive() */
+            /** set after calculatePercentileNaive() or simulateScoreDistribution() */
             naivePercentile: number[];
             naiveExpection: number;
             /** set after calculateMic() */
@@ -1050,6 +1057,7 @@ declare namespace LLH {
             activeSkills: LLSimulateContext_ActiveSkill[];
             lastActiveSkill: LLSimulateContext_LastActiveSkill;
             effects: {[type: number]: number};
+            isAccuracyState: boolean;
 
             timeToFrame(t: number): number;
             updateNextFrameByMinTime(minTime: number): void;
@@ -1067,6 +1075,7 @@ declare namespace LLH {
             clearLastActiveSkill(): void;
             setLastFrameForLevelUp(): void;
             updateHeal(delta: number): void;
+            updateAccuracyState(): void;
 
             simulate(NoteTriggerDataType: Internal.NoteTriggerDataType[], teamData: LLTeam): void;
         }

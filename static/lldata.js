@@ -4520,6 +4520,7 @@ var LLSimulateContext = (function() {
       eff[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] = 0; // total attribute +x, including sync and attribute up
       eff[LLConst.SKILL_EFFECT_LEVEL_UP] = 0; // level boost
       this.effects = eff;
+      this.isAccuracyState = false;
    };
    /** @type {typeof LLH.Model.LLSimulateContext} */
    var cls = LLSimulateContext_cls;
@@ -4539,6 +4540,7 @@ var LLSimulateContext = (function() {
    proto.processDeactiveSkills = function() {
       if (this.activeSkills.length == 0) return;
       var activeIndex = 0;
+      var checkAccuracy = false;
       for (; activeIndex < this.activeSkills.length; activeIndex++) {
          var curActiveSkill = this.activeSkills[activeIndex];
          if (curActiveSkill.t <= this.currentTime) {
@@ -4561,6 +4563,7 @@ var LLSimulateContext = (function() {
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL
                || deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
                this.effects[deactivedSkillEffect] -= 1;
+               checkAccuracy = true;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
                this.effects[deactivedSkillEffect] = 1.0;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP
@@ -4570,6 +4573,12 @@ var LLSimulateContext = (function() {
             activeIndex--;
          }
       }
+      if (checkAccuracy) {
+         this.updateAccuracyState();
+      }
+   };
+   proto.updateAccuracyState = function () {
+      this.isAccuracyState = (this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] > 0) || (this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] > 0);
    };
    proto.getMinDeactiveTime = function() {
       var minNextTime = undefined;
@@ -4748,6 +4757,7 @@ var LLSimulateContext = (function() {
          this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] += 1;
          if (effectTime === undefined) effectTime = effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
+         this.updateAccuracyState();
       } else if (effectType == LLConst.SKILL_EFFECT_HEAL) {
          this.updateHeal(effectValue);
          // 奶转分
@@ -4912,6 +4922,7 @@ var LLSimulateContext = (function() {
 
       var noteTriggerIndex = 0;
       var totalTime = this.staticData.totalTime;
+      var curNote = (0 < noteTriggerData.length ? noteTriggerData[0] : undefined);
       while (noteTriggerIndex < noteTriggerData.length || this.currentTime < totalTime) {
          // 1, check if any active skill need deactive
          this.processDeactiveSkills();
@@ -4956,7 +4967,7 @@ var LLSimulateContext = (function() {
             }
          }
          // 3. move to min next time
-         var minNoteTime = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex].time : undefined);
+         var minNoteTime = (curNote !== undefined ? curNote.time : undefined);
          var minNextTime = this.currentTime;
          if (quickSkip) {
             minNextTime = totalTime;
@@ -4978,13 +4989,12 @@ var LLSimulateContext = (function() {
          // process at most one note per frame
          // need update time before process note so that the time-related skills uses correct current time
          if (handleNote) {
-            var curNote = noteTriggerData[noteTriggerIndex];
             if (curNote.type == SIM_NOTE_ENTER) {
                this.currentNote++;
             } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
                var isPerfect = (Math.random() * (this.staticData.totalNote - this.currentCombo) < this.remainingPerfect);
                var accuracyBonus = LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
-               var isAccuracyState = this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] || this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL];
+               var isAccuracyState = this.isAccuracyState;
                var comboFeverScore = 0;
                var perfectScoreUp = 0;
                this.currentCombo++;
@@ -5029,6 +5039,7 @@ var LLSimulateContext = (function() {
                this.totalPerfectScoreUp += perfectScoreUp;
             }
             noteTriggerIndex++;
+            curNote = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex] : undefined);
          }
       }
    };
@@ -5417,18 +5428,37 @@ var LLTeam = (function() {
          accessoryActiveNoEffectCount[i] /= simCount;
          accessoryActiveHalfEffectCount[i] /= simCount;
       }
-      var scoreValues = Object.keys(scores).sort(function(a,b){return parseInt(a) - parseInt(b);});
-      var minScore = parseInt(scoreValues[0]);
-      var scoreDistribution = new Array(scoreValues[scoreValues.length-1]-minScore+1);
-      for (i = 0; i < scoreValues.length; i++) {
-         scoreDistribution[scoreValues[i]-minScore] = scores[scoreValues[i]]/simCount;
+      /** @type {LLH.Internal.SimulateScoreResult[]} */
+      var simResults = [];
+      for (i in scores) {
+         simResults.push({
+            'score': parseInt(i),
+            'count': scores[i]
+         });
       }
-      this.scoreDistributionMinScore = minScore;
-      this.scoreDistribution = scoreDistribution;
-      this.probabilityForMinScore = this.scoreDistribution[0];
-      this.probabilityForMaxScore = this.scoreDistribution[this.scoreDistribution.length - 1];
-      this.minScore = minScore;
-      this.maxScore = scoreValues[scoreValues.length -1];
+      simResults.sort(function(a, b) {return a.score - b.score;});
+      var minResult = simResults[0];
+      var maxResult = simResults[simResults.length - 1];
+      var expection = 0;
+      var percentile = [minResult.score];
+      var sumResultCount = 0;
+      var nextResultCount = parseInt(percentile.length * simCount / 100);
+      for (i = 0; i < simResults.length; i++) {
+         var curResult = simResults[i];
+         sumResultCount += curResult.count;
+         expection += curResult.count * curResult.score;
+         while (sumResultCount >= nextResultCount) {
+            percentile.push(curResult.score);
+            nextResultCount = parseInt(percentile.length * simCount / 100);
+         }
+      }
+      this.simulateScoreResults = simResults;
+      this.naivePercentile = percentile;
+      this.naiveExpection = Math.round(expection / simCount);
+      this.probabilityForMinScore = minResult.count / simCount;
+      this.probabilityForMaxScore = maxResult.count / simCount;
+      this.minScore = minResult.score;
+      this.maxScore = maxResult.score;
       this.averageSkillsActiveCount = skillsActiveCount;
       this.averageSkillsActiveChanceCount = skillsActiveChanceCount;
       this.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;

@@ -144,6 +144,9 @@ function docalculate(cards, accessoryDetails, extraData) {
         var err;
         if (distParam.type == 'v1') {
             err = llteam.calculateScoreDistribution();
+            if (!err) {
+                llteam.calculatePercentileNaive();
+            }
         } else if (distParam.type == 'sim') {
             err = llteam.simulateScoreDistribution(llmapSaveData, extraData[0], parseInt(distParam.count));
         } else {
@@ -152,7 +155,6 @@ function docalculate(cards, accessoryDetails, extraData) {
         if (err) {
             comp_result.showError(err);
         } else {
-            llteam.calculatePercentileNaive();
             comp_result.hideError();
         }
         var t1 = window.performance.now();
