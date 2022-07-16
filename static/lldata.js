@@ -4275,7 +4275,7 @@ var LLSimulateContextStatic = (function () {
       this.totalNote = mapdata.combo;
       this.totalTime = maxTime;
       this.totalPerfect = mapdata.perfect;
-      this.totalHP = team.totalHP;
+      this.totalHP = team.getResults().totalHP;
       this.mapSkillPossibilityUp = (1 + parseInt(mapdata.skillup || 0)/100);
       this.mapTapScoreUp = (1 + parseInt(mapdata.tapup || 0)/100);
       this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
@@ -4298,6 +4298,12 @@ var LLSimulateContextStatic = (function () {
       for (var i = 0; i < 9; i++) {
          this.skillsStatic.push(this.makeSkillStaticInfo(i));
       }
+
+      var memberBonusFactor = [];
+      for (i = 0; i < 9; i++) {
+         memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
+      }
+      this.memberBonusFactor = memberBonusFactor;
    }
 
    /**
@@ -5032,7 +5038,7 @@ var LLSimulateContext = (function() {
                //}
                var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
                // note position 数值1~9, 从右往左数
-               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHealBonus * teamData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
+               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
                // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
                this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
@@ -5051,6 +5057,7 @@ var LLTeam = (function() {
       if (members === undefined) throw("Missing members");
       if (members.length != 9) throw("Expect 9 members");
       this.members = members;
+      this.calculateResult = {};
    };
    /** @type {typeof LLH.Model.LLTeam} */
    var cls = LLTeam_cls;
@@ -5164,16 +5171,16 @@ var LLTeam = (function() {
          totalAttrStrength += attrStrength[i] - attrDebuff[i];
          totalHP += (curMember.hp || 0);
       }
-      this.attrStrength = attrStrength;
+      this.calculateResult.attrStrength = attrStrength;
       this.attrDebuff = attrDebuff;
-      this.finalAttr = finalAttr;
-      this.bonusAttr = bonusAttr;
+      this.calculateResult.finalAttr = finalAttr;
+      this.calculateResult.bonusAttr = bonusAttr;
       this.totalAttrNoAccuracy = finalAttr[mapcolor];
       this.totalAttrWithAccuracy = totalAttrWithAccuracy;
       // total
       this.totalWeight = mapdata.totalWeight;
-      this.totalAttrStrength = totalAttrStrength;
-      this.totalHP = totalHP;
+      this.calculateResult.totalAttrStrength = totalAttrStrength;
+      this.calculateResult.totalHP = totalHP;
       // TODO:判定宝石
    };
    var calcTeamSkills = function (llskills, env, isAvg) {
@@ -5207,7 +5214,7 @@ var LLTeam = (function() {
       // perfect+accurate: 1.35, perfect: 1.25, great: 1.1, good: 1
       var accuracyMulti = 1.1+0.15*(mapdata.perfect/mapdata.combo);
       var scorePerStrength = 1.21/100*this.totalWeight*comboMulti*accuracyMulti;
-      var minScore = Math.round(this.totalAttrStrength * scorePerStrength * (1+mapdata.tapup/100));
+      var minScore = Math.round(this.calculateResult.totalAttrStrength * scorePerStrength * (1+mapdata.tapup/100));
 
       var avgSkills = [];
       var maxSkills = [];
@@ -5235,19 +5242,19 @@ var LLTeam = (function() {
       }
       this.avgSkills = avgSkills;
       this.maxSkills = maxSkills;
-      this.minScore = minScore;
+      this.calculateResult.minScore = minScore;
       this.averageScoreNumber = env.averageScore;
       this.averageScore = (env.averageScore == MAX_SCORE ? MAX_SCORE_TEXT : env.averageScore);
       this.maxScoreNumber = env.maxScore;
-      this.maxScore = (env.maxScore == MAX_SCORE ? MAX_SCORE_TEXT : env.maxScore);
-      this.averageHeal = env.averageHeal;
+      this.calculateResult.maxScore = (env.maxScore == MAX_SCORE ? MAX_SCORE_TEXT : env.maxScore);
+      this.calculateResult.averageHeal = env.averageHeal;
       this.maxHeal = env.maxHeal;
       // total
-      this.totalSkillStrength = totalSkillStrength;
-      this.totalStrength = this.totalAttrStrength + this.totalSkillStrength;
+      this.calculateResult.totalSkillStrength = totalSkillStrength;
+      this.calculateResult.totalStrength = this.calculateResult.totalAttrStrength + totalSkillStrength;
    };
    proto.calculateScoreDistribution = function () {
-      if (this.maxScore == MAX_SCORE) {
+      if (this.calculateResult.maxScore == MAX_SCORE) {
          console.error('Cannot calculate distribution for infinite max score');
          return '分数太高，无法计算分布';
       }
@@ -5266,7 +5273,7 @@ var LLTeam = (function() {
          }
       }
       // non-score trigger skills
-      var scoreRange = this.maxScore - this.minScore + 1;
+      var scoreRange = this.calculateResult.maxScore - this.calculateResult.minScore + 1;
       var scorePossibility = [new Array(scoreRange), new Array(scoreRange)];
       var pCur = 0, pNext = 1;
       var curMax = 0;
@@ -5298,11 +5305,11 @@ var LLTeam = (function() {
                minIndex = i;
             }
          }
-         if (minNextScore > this.maxScore) break;
+         if (minNextScore > this.calculateResult.maxScore) break;
          var curSkill = scoreTriggerSkills[minIndex];
          var curScore = curSkill.actualScore;
          var curPossibility = curSkill.actualPossibility / 100;
-         var minNextScoreIndex = minNextScore - this.minScore;
+         var minNextScoreIndex = minNextScore - this.calculateResult.minScore;
          if (minNextScoreIndex < 0) minNextScoreIndex = 0;
          var nextMax = curMax + curScore;
          for (var i = 0; i < minNextScoreIndex; i++) {
@@ -5322,9 +5329,9 @@ var LLTeam = (function() {
       }
       //console.debug(scorePossibility[pCur]);
       this.scoreDistribution = scorePossibility[pCur];
-      this.scoreDistributionMinScore = this.minScore;
-      this.probabilityForMinScore = this.scoreDistribution[0];
-      this.probabilityForMaxScore = this.scoreDistribution[this.scoreDistribution.length - 1];
+      this.scoreDistributionMinScore = this.calculateResult.minScore;
+      this.calculateResult.probabilityForMinScore = this.scoreDistribution[0];
+      this.calculateResult.probabilityForMaxScore = this.scoreDistribution[this.scoreDistribution.length - 1];
       return undefined;
    };
    proto.simulateScoreDistribution = function (mapdata, noteData, simCount) {
@@ -5378,11 +5385,6 @@ var LLTeam = (function() {
          // 在缺少歌曲长度数据的情况下, 留1秒空白
          maxTime = maxTime + 1;
       }
-      var memberBonusFactor = [];
-      for (i = 0; i < 9; i++) {
-         memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
-      }
-      this.memberBonusFactor = memberBonusFactor;
 
       var scores = {};
       var skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -5452,23 +5454,23 @@ var LLTeam = (function() {
             nextResultCount = parseInt(percentile.length * simCount / 100);
          }
       }
-      this.simulateScoreResults = simResults;
-      this.naivePercentile = percentile;
-      this.naiveExpection = Math.round(expection / simCount);
-      this.probabilityForMinScore = minResult.count / simCount;
-      this.probabilityForMaxScore = maxResult.count / simCount;
-      this.minScore = minResult.score;
-      this.maxScore = maxResult.score;
-      this.averageSkillsActiveCount = skillsActiveCount;
-      this.averageSkillsActiveChanceCount = skillsActiveChanceCount;
-      this.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
-      this.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
-      this.averageAccessoryActiveCount = accessoryActiveCount;
-      this.averageAccessoryActiveChanceCount = accessoryActiveChanceCount;
-      this.averageAccessoryActiveNoEffectCount = accessoryActiveNoEffectCount;
-      this.averageAccessoryActiveHalfEffectCount = accessoryActiveHalfEffectCount;
-      this.averageHeal = totalHeal / simCount;
-      this.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
+      this.calculateResult.simulateScoreResults = simResults;
+      this.calculateResult.naivePercentile = percentile;
+      this.calculateResult.naiveExpection = Math.round(expection / simCount);
+      this.calculateResult.probabilityForMinScore = minResult.count / simCount;
+      this.calculateResult.probabilityForMaxScore = maxResult.count / simCount;
+      this.calculateResult.minScore = minResult.score;
+      this.calculateResult.maxScore = maxResult.score;
+      this.calculateResult.averageSkillsActiveCount = skillsActiveCount;
+      this.calculateResult.averageSkillsActiveChanceCount = skillsActiveChanceCount;
+      this.calculateResult.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
+      this.calculateResult.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
+      this.calculateResult.averageAccessoryActiveCount = accessoryActiveCount;
+      this.calculateResult.averageAccessoryActiveChanceCount = accessoryActiveChanceCount;
+      this.calculateResult.averageAccessoryActiveNoEffectCount = accessoryActiveNoEffectCount;
+      this.calculateResult.averageAccessoryActiveHalfEffectCount = accessoryActiveHalfEffectCount;
+      this.calculateResult.averageHeal = totalHeal / simCount;
+      this.calculateResult.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
    };
    proto.calculatePercentileNaive = function () {
       if (this.scoreDistribution === undefined || this.scoreDistributionMinScore === undefined) {
@@ -5502,8 +5504,8 @@ var LLTeam = (function() {
          percentile[100] = i+minScore-1;
       }
       console.debug('calculatePercentileNaive: expection = ' + expection + ', percent = 1 ' + (percent >= 1 ? '+ ' : '- ') + Math.abs(percent-1));
-      this.naivePercentile = percentile;
-      this.naiveExpection = Math.round(expection);
+      this.calculateResult.naivePercentile = percentile;
+      this.calculateResult.naiveExpection = Math.round(expection);
    };
    proto.calculateMic = function () {
       var micPoint = 0;
@@ -5513,12 +5515,12 @@ var LLTeam = (function() {
       }
       for (i = 9; i >= 0; i--) {
          if (micPoint >= MIC_BOUNDARIES[i]) {
-            this.micNumber = i+1;
+            this.calculateResult.micNumber = i+1;
             break;
          }
       }
-      if (i < 0) this.micNumber = 0;
-      this.equivalentURLevel = micPoint/40;
+      if (i < 0) this.calculateResult.micNumber = 0;
+      this.calculateResult.equivalentURLevel = micPoint/40;
    };
    proto.autoArmGem = function (mapdata, gemStock) {
       var mapcolor = mapdata.attribute;
@@ -5868,18 +5870,7 @@ var LLTeam = (function() {
       return resultSubMembers;
    };
    proto.getResults = function () {
-      /** @type {LLH.Internal.CalculateResultType} */
-      var ret = {};
-      var keys = ['attrStrength', 'finalAttr', 'bonusAttr', 'totalStrength', 'totalAttrStrength', 'totalSkillStrength', 'totalHP',
-         'averageSkillsActiveCount', 'averageSkillsActiveChanceCount', 'averageSkillsActiveNoEffectCount', 'averageSkillsActiveHalfEffectCount',
-         'averageHeal', 'averageAccuracyNCoverage', 'naivePercentile', 'equivalentURLevel',
-         'averageAccessoryActiveCount', 'averageAccessoryActiveChanceCount', 'averageAccessoryActiveNoEffectCount', 'averageAccessoryActiveHalfEffectCount'
-      ];
-      for (var i = 0; i < keys.length; i++) {
-         var k = keys[i];
-         if (this[k] !== undefined) ret[k] = this[k];
-      }
-      return ret;
+      return this.calculateResult;
    };
    return cls;
 })();
@@ -8236,8 +8227,9 @@ var LLTeamComponent = (function () {
 
    proto.setResult = function (result) {
       var cardStrengthList = [], totalStrengthList = [];
+      var calResult = result.getResults();
       for (var i=0;i<9;i++){
-         var curCardStrength = result.attrStrength[i]+result.avgSkills[i].strength;
+         var curCardStrength = calResult.attrStrength[i]+result.avgSkills[i].strength;
          var curStrength = curCardStrength - result.attrDebuff[i];
          cardStrengthList.push(curCardStrength);
          totalStrengthList.push(curStrength);
@@ -8245,16 +8237,17 @@ var LLTeamComponent = (function () {
          this.setHeal(i, LLUnit.healNumberToString(result.avgSkills[i].averageHeal));
       }
 
+      this.setStrengthAttributes(calResult.attrStrength);
       this.setStrengthCardTheories(cardStrengthList);
       this.setStrengthTotalTheories(totalStrengthList);
-      this.setSkillActiveCountSims(result.averageSkillsActiveCount);
-      this.setSkillActiveChanceSims(result.averageSkillsActiveChanceCount);
-      this.setSkillActiveNoEffectSims(result.averageSkillsActiveNoEffectCount);
-      this.setSkillActiveHalfEffectSims(result.averageSkillsActiveHalfEffectCount);
-      this.setAccessoryActiveCountSims(result.averageAccessoryActiveCount);
-      this.setAccessoryActiveChanceSims(result.averageAccessoryActiveChanceCount);
-      this.setAccessoryActiveNoEffectSims(result.averageAccessoryActiveNoEffectCount);
-      this.setAccessoryActiveHalfEffectSims(result.averageAccessoryActiveHalfEffectCount);
+      this.setSkillActiveCountSims(calResult.averageSkillsActiveCount);
+      this.setSkillActiveChanceSims(calResult.averageSkillsActiveChanceCount);
+      this.setSkillActiveNoEffectSims(calResult.averageSkillsActiveNoEffectCount);
+      this.setSkillActiveHalfEffectSims(calResult.averageSkillsActiveHalfEffectCount);
+      this.setAccessoryActiveCountSims(calResult.averageAccessoryActiveCount);
+      this.setAccessoryActiveChanceSims(calResult.averageAccessoryActiveChanceCount);
+      this.setAccessoryActiveNoEffectSims(calResult.averageAccessoryActiveNoEffectCount);
+      this.setAccessoryActiveHalfEffectSims(calResult.averageAccessoryActiveHalfEffectCount);
    };
    return cls;
 })();
@@ -8421,7 +8414,7 @@ var LLUnitResultComponent = (function () {
 
    /**
     * @typedef {Object} LLUnitResultComponent_ResultController
-    * @property {function(LLTeam): void} update
+    * @property {function(LLH.Model.LLTeam): void} update
     * @property {function(any): void} updateError
     */
 
@@ -8435,9 +8428,10 @@ var LLUnitResultComponent = (function () {
       var resultCool = createElement('td');
 
       controller.update = function (team) {
-         resultSmile.innerHTML = team.finalAttr.smile + ' (+' + team.bonusAttr.smile + ')';
-         resultPure.innerHTML = team.finalAttr.pure + ' (+' + team.bonusAttr.pure + ')';
-         resultCool.innerHTML = team.finalAttr.cool + ' (+' + team.bonusAttr.cool + ')';
+         var calResult = team.getResults();
+         resultSmile.innerHTML = calResult.finalAttr.smile + ' (+' + calResult.bonusAttr.smile + ')';
+         resultPure.innerHTML = calResult.finalAttr.pure + ' (+' + calResult.bonusAttr.pure + ')';
+         resultCool.innerHTML = calResult.finalAttr.cool + ' (+' + calResult.bonusAttr.cool + ')';
       };
 
       controller.updateError = function (e) {
@@ -8466,7 +8460,7 @@ var LLUnitResultComponent = (function () {
     * 
     * @param {LLUnitResultComponent_ResultController} controller 
     * @param {string} label 
-    * @param {function(LLTeam): (string|HTMLElement)} callback Callback to fetch result from team
+    * @param {function(LLH.Model.LLTeam): (string|HTMLElement)} callback Callback to fetch result from team
     * @returns {HTMLElement}
     */
    function createScalarResult(controller, label, callback) {
@@ -8493,7 +8487,8 @@ var LLUnitResultComponent = (function () {
       var comp = new LLMicDisplayComponent(resultElement);
       controller.update = function (team) {
          team.calculateMic();
-         comp.set(team.micNumber, team.equivalentURLevel);
+         var calResult = team.getResults();
+         comp.set(calResult.micNumber, calResult.equivalentURLevel);
       };
       controller.updateError = function (e) {
          comp.set(0, 0);
@@ -8523,15 +8518,15 @@ var LLUnitResultComponent = (function () {
          return controller;
       }
       resultsElement.push(createAttributeResult(addResultController()));
-      resultsElement.push(createScalarResult(addResultController(), '卡组HP', (team) => team.totalHP.toFixed()));
-      resultsElement.push(createScalarResult(addResultController(), '卡组强度', (team) => team.totalStrength + ' (属性 ' + team.totalAttrStrength + ' + 技能 ' + team.totalSkillStrength + ')'));
+      resultsElement.push(createScalarResult(addResultController(), '卡组HP', (team) => team.getResults().totalHP.toFixed()));
+      resultsElement.push(createScalarResult(addResultController(), '卡组强度', (team) => team.getResults().totalStrength + ' (属性 ' + team.getResults().totalAttrStrength + ' + 技能 ' + team.getResults().totalSkillStrength + ')'));
       resultsElement.push(createMicResult(addResultController()));
-      resultsElement.push(createScalarResult(addResultController(), '期望得分', (team) => team.naiveExpection !== undefined ? team.naiveExpection.toFixed() : team.averageScore.toFixed()));
-      resultsElement.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.averageHeal)));
-      resultsElement.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.averageAccuracyNCoverage)));
+      resultsElement.push(createScalarResult(addResultController(), '期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore.toFixed()));
+      resultsElement.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
+      resultsElement.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
 
       /**
-       * @param {function(LLTeam): void} team 
+       * @param {function(LLH.Model.LLTeam): void} team 
        */
       this.showResult = function (team) {
          for (var i = 0; i < resultsController.length; i++) {

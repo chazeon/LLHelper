@@ -134,7 +134,6 @@ function docalculate(cards, accessoryDetails, extraData) {
     llteam.calculateAttributeStrength(llmapSaveData);
     llteam.calculateSkillStrength(llmapSaveData);
 
-    comp_team.setStrengthAttributes(llteam.attrStrength);
     comp_team.setStrengthDebuffs(llteam.attrDebuff);
 
     if (distParam.type != 'no') {
@@ -161,18 +160,19 @@ function docalculate(cards, accessoryDetails, extraData) {
         console.debug(llteam);
 
         console.debug('Elapesd time (ms): ' + (t1 - t0).toFixed(3));
+        var calResult = llteam.getResults();
         for (var i in percentiles) {
-            document.getElementById('simresult' + (100 - percentiles[i]).toString()).innerHTML = llteam.naivePercentile[percentiles[i]];
+            document.getElementById('simresult' + (100 - percentiles[i]).toString()).innerHTML = calResult.naivePercentile[percentiles[i]];
         }
-        document.getElementById('maxscoreprobability').innerHTML = '(' + (llteam.probabilityForMaxScore * 100) + ')%';
-        document.getElementById('minscoreprobability').innerHTML = '(' + (llteam.probabilityForMinScore * 100) + ')%';
-        document.getElementById('simresult0').innerHTML = llteam.maxScore;
-        document.getElementById('simresult100').innerHTML = llteam.minScore;
+        document.getElementById('maxscoreprobability').innerHTML = '(' + (calResult.probabilityForMaxScore * 100) + ')%';
+        document.getElementById('minscoreprobability').innerHTML = '(' + (calResult.probabilityForMinScore * 100) + ')%';
+        document.getElementById('simresult0').innerHTML = calResult.maxScore;
+        document.getElementById('simresult100').innerHTML = calResult.minScore;
         document.getElementById('distributionresult').style.display = '';
         if (!comp_distribution_chart) {
-            comp_distribution_chart = new LLScoreDistributionChart('score_chart', { 'series': [llteam.naivePercentile], 'width': '100%', 'height': '400px' });
+            comp_distribution_chart = new LLScoreDistributionChart('score_chart', { 'series': [calResult.naivePercentile], 'width': '100%', 'height': '400px' });
         } else {
-            comp_distribution_chart.addSeries(llteam.naivePercentile);
+            comp_distribution_chart.addSeries(calResult.naivePercentile);
         }
     } else {
         document.getElementById('distributionresult').style.display = 'none';

@@ -339,6 +339,8 @@ declare namespace LLH {
             totalAttrStrength: number;
             totalSkillStrength: number;
             totalHP: number;
+            averageHeal: number;
+            averageAccuracyNCoverage: number;
             averageSkillsActiveCount: number[];
             averageSkillsActiveChanceCount: number[];
             averageSkillsActiveNoEffectCount: number[];
@@ -348,6 +350,14 @@ declare namespace LLH {
             averageAccessoryActiveNoEffectCount: number[];
             averageAccessoryActiveHalfEffectCount: number[];
             naivePercentile: number[];
+            naiveExpection: number;
+            probabilityForMinScore: number;
+            probabilityForMaxScore: number;
+            minScore: number;
+            maxScore: number | string;
+            simulateScoreResults: SimulateScoreResult[];
+            equivalentURLevel: number;
+            micNumber: number;
         }
 
         interface NoteTriggerDataType {
@@ -872,50 +882,22 @@ declare namespace LLH {
             members: LLMember[];
 
             /** set after calculateAttributeStrength() */
-            attrStrength: number[];
             attrDebuff: number[];
-            finalAttr: Internal.AttributesValue;
-            bonusAttr: Internal.AttributesValue;
             totalAttrNoAccuracy: number;
             totalAttrWithAccuracy: number;
             totalWeight: number[];
-            totalAttrStrength: number;
-            totalHP: number;
             /** set after calculateSkillStength() */
             avgSkills: TODO.LLSkill[];
             maxSkills: TODO.LLSkill[];
-            minScore: number;
             averageScoreNumber: number;
             averageScore: number | string;
             maxScoreNumber: number;
-            maxScore: number | string;
-            averageHeal: number;
             maxHeal: number;
-            totalSkillStrength: number;
-            totalStrength: number;
             /** set after calculateScoreDistribution() */
             scoreDistribution: number[];
             scoreDistributionMinScore: number;
-            /** set after calculateScoreDistribution() or simulateScoreDistribution() */
-            probabilityForMinScore: number;
-            probabilityForMaxScore: number;
-            /** set after simulateScoreDistribution() */
-            simulateScoreResults: Internal.SimulateScoreResult[];
-            memberBonusFactor: number[];
-            averageSkillsActiveCount: number[];
-            averageSkillsActiveChanceCount: number[];
-            averageSkillsActiveNoEffectCount: number[];
-            averageSkillsActiveHalfEffectCount: number[];
-            averageAccessoryActiveCount: number[];
-            averageAccessoryActiveChanceCount: number[];
-            averageAccessoryActiveNoEffectCount: number[];
-            averageAccessoryActiveHalfEffectCount: number[];
-            averageAccuracyNCoverage: number;
-            /** set after calculatePercentileNaive() or simulateScoreDistribution() */
-            naivePercentile: number[];
-            naiveExpection: number;
-            /** set after calculateMic() */
-            equivalentURLevel: number;
+
+            calculateResult: Internal.CalculateResultType;
 
             calculateAttributeStrength(mapdata: LLMap_SaveData): void;
             calculateSkillStrength(mapdata: LLMap_SaveData): void;
@@ -1016,6 +998,7 @@ declare namespace LLH {
             /** percentage 0~100 */
             skillPosibilityDownFixed: number;
             hasRepeatSkill: boolean;
+            memberBonusFactor: number[];
 
             skillsStatic: LLSimulateContext_SkillStaticInfo[];
 
