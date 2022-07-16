@@ -4,7 +4,9 @@
         "docs": "2",
         "llnewaccessorydata": "2",
         "llnewsisdata": "2",
+        "llnewautounit": "1",
         "llnewunit": "2",
+        "llnewunitsis": "1",
         "llsongdata": "1",
         "test": "2"
     }
