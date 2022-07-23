@@ -154,17 +154,19 @@ span.lltooltip {
 .team-table .gem-list {
    font-size: small;
 }
-.team-table .gem-list .gem-dot {
+.team-table .gem-list .gem-dot, .team-table .gem-list .gem-square {
    line-height: 8px;
    display: block;
 }
-.team-table .gem-list .gem-dot div {
+.team-table .gem-list .gem-dot div, .team-table .gem-list .gem-square div {
    width: 6px;
    height: 6px;
-   border-radius: 3px;
    background-color: black;
    display: inline-block;
    margin-right: 1px;
+}
+.team-table .gem-list .gem-dot div {
+   border-radius: 3px;
 }
 .team-table .gem-list .btn {
    padding: 2px 4px;
@@ -172,6 +174,7 @@ span.lltooltip {
    text-align: center;
    overflow: clip;
    border-radius: 12px;
+   white-space: normal;
 }
 .no-padding {
    padding: 0;

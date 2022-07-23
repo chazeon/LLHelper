@@ -30,6 +30,8 @@ declare namespace LLH {
         type SongIdType = string;
         /** string of integer */
         type SongSettingIdType = string;
+        /** string of integer */
+        type SisIdType = string;
         /** float, length 9 */
         type PositionWeightType = string[] | number[];
         /** the string id for accessory */
@@ -132,7 +134,7 @@ declare namespace LLH {
         }
 
         interface SisDataType {
-            id: string;
+            id: Core.SisIdType;
             type: 1 | 2; // type 1 for normal (circle), 2 for live arena (square)
             jpname: string;
             cnname?: string;
@@ -160,7 +162,7 @@ declare namespace LLH {
             /** only available after post processed */
             level_down_skill_data?: SisDataType;
         }
-        type SisDictDataType = {[id: string]: SisDataType};
+        type SisDictDataType = {[id: Core.SisIdType]: SisDataType};
         
         interface AlbumDataType {
             name: string;
@@ -319,6 +321,7 @@ declare namespace LLH {
         interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
             hp: number; // int
             gemlist: NormalGemCategoryKeyType[];
+            laGemList: Core.SisIdType[];
             accessory?: AccessorySaveDataType;
         }
 
@@ -600,6 +603,7 @@ declare namespace LLH {
             includeNormalGemCategory: boolean;
             includeNormalGem: boolean;
             includeLAGem: boolean;
+            showBrief: boolean;
         }
         interface LLGemSelectorComponent_DetailController {
             set(data: string | API.SisDataType, language: Core.LanguageType): void;
@@ -679,6 +683,7 @@ declare namespace LLH {
             /** true if gem color should follow member attribute, false if follow map attribute */
             isGemFollowMemberAttribute(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): boolean;
 
+            getGemBriefDescription(gemData: API.SisDataType, iscn?: boolean): string;
             getGemDescription(gemData: API.SisDataType, iscn?: boolean): string;
             getGemFullDescription(gemData: API.SisDataType, iscn?: boolean): string;
             getGemColor(gemData: API.SisDataType): string;
@@ -1113,11 +1118,58 @@ declare namespace LLH {
                 hide(): void;
                 toggleFold?: () => void;
             }
+            interface TeamGemListItemController {
+                onDelete?: () => void; // in
+
+                setGemColor(gemColor: string): void;
+                setName(name: string): void;
+                setTooltip(tooltip: string): void;
+                setSlot(slot: number): void;
+                getSlot(): number;
+                setId(id: number | string): void;
+                getId(): number | string;
+            }
+            interface TeamNormalGemListItemController extends TeamGemListItemController {
+                resetAttribute(attribute?: Core.AttributeType): void;
+                resetMetaId(metaId: Internal.NormalGemCategoryIdType): void;
+            }
+            interface TeamLAGemListItemController extends TeamGemListItemController {
+                resetGemId(gemId: Core.SisIdType): void;
+            }
+            interface TeamGemListController {
+                getCount(): number;
+                getItemController(itemIndex: number): TeamGemListItemController;
+                getTotalSlot(): number;
+                /** callback return true to break loop */
+                forEachItemController(callback: (itemController: TeamGemListItemController, itemIndex: number) => boolean): void;
+                mapItemController<T>(callback: (itemController: TeamGemListItemController, itemIndex: number) => T): T[];
+                addListItem(element: HTMLElement, itemController: TeamGemListItemController): void;
+                /** return true if remove success */
+                removeListItemByIndex(itemIndex: number): boolean;
+                /** return true if remove success */
+                removeListItemByController(itemController: TeamGemListItemController): boolean;
+                hasListItemId(itemId: number): boolean;
+            }
+            interface TeamNormalGemListController extends TeamGemListController, TeamMemberKeyGetSet<Internal.NormalGemCategoryKeyType[]> {
+                onListChange?: (position: number, slots: number) => void;
+
+                setAttributes(memberAttribute?: Core.AttributeType, mapAttribute?: Core.AttributeType): void;
+                add(normalGemMetaKey: Internal.NormalGemCategoryKeyType): void;
+            }
+            interface TeamLAGemListController extends TeamGemListController, TeamMemberKeyGetSet<Core.SisIdType[]> {
+                onListChange?: (position: number, slots: number) => void;
+
+                add(gemId: Core.SisIdType): void;
+            }
+            type LLTeamComponent_Mode = 'normal' | 'la';
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
                 onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
                 onCenterChanged?: () => void;
+
+                /** default 'normal' */
+                mode?: LLTeamComponent_Mode;
             }
             class LLTeamComponent implements Mixin.SaveLoadJson {
                 constructor(id: Component.HTMLElementOrId, options: LLTeamComponent_Options);

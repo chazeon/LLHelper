@@ -1735,16 +1735,8 @@ var LLConst = (function () {
          if (meta.heal_mul || meta.skill_mul || meta.ease_attr_mul) return true;
          return false;
       },
-      getGemDescription: function (gemData, iscn) {
-         var desc = gemData.id;
-         while (desc.length < 3) desc = '0' + desc;
-         desc += ' ';
-         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
-            desc += '●';
-         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
-            desc += '■';
-         }
-         desc += gemData.size + ' ';
+      getGemBriefDescription: function (gemData, iscn) {
+         var desc = '';
          var effect_type = gemData.effect_type;
          var effect_value = gemData.effect_value;
          if (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
@@ -1790,6 +1782,18 @@ var LLConst = (function () {
          } else {
             desc += gemData.jpname;
          }
+         return desc;
+      },
+      getGemDescription: function (gemData, iscn) {
+         var desc = gemData.id;
+         while (desc.length < 3) desc = '0' + desc;
+         desc += ' ';
+         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
+            desc += '●';
+         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
+            desc += '■';
+         }
+         desc += gemData.size + ' ' + GemUtils.getGemBriefDescription(gemData, iscn);
          if (gemData.member) {
             desc += '[' + ret.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP) + ']';
          }
@@ -7618,22 +7622,12 @@ var LLTeamComponent = (function () {
    }
 
    /**
-    * @typedef LLTeam_NormalGemListItemController
-    * @property {(attribute?: AttributeType) => void} resetAttribute (out)
-    * @property {(metaId: number) => void} resetMetaId (out)
-    * @property {() => number} getMetaId (out)
-    * @property {() => void} [onDelete] (in)
-    */
-   /**
-    * @param {LLTeam_NormalGemListItemController} controller 
-    * @param {number} metaId
-    * @param {AttributeType} [attribute]
+    * @param {LLH.Layout.Team.TeamGemListItemController} controller 
+    * @param {string} dotClass
     * @param {boolean} [popLeft]
     * @returns {HTMLElement} 
     */
-   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
-      var myMetaId = metaId;
-      var myAttr = attribute;
+   function renderGemListItem(controller, dotClass, popLeft) {
       var callbackOnDelete = function () {
          controller.onDelete && controller.onDelete();
       };
@@ -7642,62 +7636,166 @@ var LLTeamComponent = (function () {
       for (var i = 0; i < 8; i++) {
          dots.push(createElement('div', {'style': {'display': 'none'}}));
       }
-      var btnDots = createElement('span', {'className': 'gem-dot'}, dots);
+      var btnDots = createElement('span', {'className': dotClass}, dots);
       var btnTooltip = createElement('span', {'className': 'tooltiptext' + (popLeft ? ' pop-left' : '')});
       var btnContainer = createElement('div', {'className': 'lltooltip'}, [btnName, btnTooltip]);
-      var updateMeta = function () {
-         var meta = LLConst.Gem.getNormalGemMeta(myMetaId);
-         var slot = meta.slot;
-         for (var i = 0; i < 8; i++) {
-            dots[i].style.display = (i < slot ? '' : 'none');
-         }
-         btnTooltip.innerHTML = LLConst.Gem.getNormalGemNameAndDescription(meta) + '<br/>点击移除该宝石';
-         updateSubElements(btnName, [LLConst.Gem.getNormalGemName(meta), btnDots], true);
+      var curSlot = 0;
+      var curId = undefined;
+      controller.setName = function (newName) {
+         updateSubElements(btnName, [newName, btnDots], true);
       };
-      var updateColor = function () {
+      controller.setGemColor = function (newColor) {
          for (var i = 0; i < 8; i++) {
-            dots[i].style['background-color'] = LLConst.Common.getAttributeColor(myAttr);
+            dots[i].style['background-color'] = newColor;
          }
       };
-      controller.resetMetaId = function (id) {
-         myMetaId = id;
-         updateMeta();
+      controller.setSlot = function (newSlot) {
+         for (var i = 0; i < 8; i++) {
+            dots[i].style.display = (i < newSlot ? '' : 'none');
+         }
+         curSlot = newSlot;
       };
-      controller.resetAttribute = function (attr) {
-         myAttr = attr;
-         updateColor();
+      controller.getSlot = function () {
+         return curSlot;
       };
-      controller.getMetaId = function () {
-         return myMetaId;
+      controller.setTooltip = function (newTooltip) {
+         btnTooltip.innerHTML = newTooltip + '<br/>点击移除该宝石';
       };
-      updateMeta();
-      updateColor();
+      controller.setId = function (id) {
+         curId = id;
+      };
+      controller.getId = function () {
+         return curId;
+      };
       return btnContainer;
    }
 
    /**
-    * @typedef LLTeam_NormalGemListController
-    * @property {() => string[]} get (out) normal gem meta key list
-    * @property {(normalGemMetaKeyList: string[]) => void} set (out)
-    * @property {(memberAttribute?: AttributeType, mapAttribute?: AttributeType) => void} setAttributes (out)
-    * @property {(normalGemMetaKey: string) => void} add (out)
-    * @property {(index: number, slots: number) => void} [onListChange] (in)
+    * @param {LLH.Layout.Team.TeamNormalGemListItemController} controller 
+    * @param {number} metaId
+    * @param {LLH.Core.AttributeType} [attribute]
+    * @param {boolean} [popLeft]
+    * @returns {HTMLElement} 
     */
+   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
+      var myAttr = attribute;
+      var ret = renderGemListItem(controller, 'gem-dot', popLeft);
+      controller.resetMetaId = function (id) {
+         controller.setId(id);
+         var meta = LLConst.Gem.getNormalGemMeta(id);
+         controller.setName(LLConst.Gem.getNormalGemName(meta));
+         controller.setSlot(meta.slot);
+         controller.setTooltip(LLConst.Gem.getNormalGemNameAndDescription(meta));
+      };
+      controller.resetAttribute = function (attr) {
+         myAttr = attr;
+         controller.setGemColor(LLConst.Common.getAttributeColor(myAttr));
+      };
+      controller.resetMetaId(metaId);
+      controller.resetAttribute(attribute);
+      return ret;
+   }
+
    /**
-    * @param {LLTeam_NormalGemListController} controller 
-    * @param {number} index
+    * @param {LLH.Layout.Team.TeamLAGemListItemController} controller 
+    * @param {number} gemId
+    * @param {boolean} [popLeft]
+    * @returns {HTMLElement} 
+    */
+   function renderLAGemListItem(controller, gemId, popLeft) {
+      var ret = renderGemListItem(controller, 'gem-square', popLeft);
+      controller.resetGemId = function (id) {
+         controller.setId(id);
+         /** @type {LLH.API.SisDataType} */
+         var gemData = LLSisData.getAllCachedBriefData()[id];
+         controller.setName(LLConst.Gem.getGemBriefDescription(gemData, true));
+         controller.setSlot(gemData.size);
+         controller.setTooltip(LLConst.Gem.getGemDescription(gemData, true));
+         controller.setGemColor(LLConst.Gem.getGemColor(gemData));
+      };
+      controller.resetGemId(gemId);
+      return ret;
+   }
+
+   /**
+    * @param {LLH.Layout.Team.TeamGemListController} controller 
+    * @returns {HTMLElement}
+    */
+   function renderGemList(controller) {
+      var listContainer = createElement('div', {'className': 'gem-list'});
+      /** @type {HTMLElement[]} */
+      var listItems = [];
+      /** @type {LLH.Layout.Team.TeamGemListItemController[]} */
+      var listItemControllers = [];
+      controller.getCount = function () {
+         return listItems.length;
+      };
+      controller.getItemController = function (itemIndex) {
+         return listItemControllers[itemIndex];
+      };
+      controller.getTotalSlot = function () {
+         var totalSlot = 0;
+         for (var i = 0; i < listItemControllers.length; i++) {
+            totalSlot += listItemControllers[i].getSlot();
+         }
+         return totalSlot;
+      };
+      controller.forEachItemController = function (callback) {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (callback(listItemControllers[i], i)) break;
+         }
+      };
+      controller.mapItemController = function (callback) {
+         return listItemControllers.map(callback);
+      };
+      controller.addListItem = function (element, itemController) {
+         listItems.push(element);
+         listItemControllers.push(itemController);
+         updateSubElements(listContainer, element);
+      };
+      controller.removeListItemByIndex = function (itemIndex) {
+         if (itemIndex === undefined || itemIndex < 0 || itemIndex >= listItems.length) {
+            console.error('Invalid index to delete: ' + itemIndex);
+            return false;
+         }
+         listContainer.removeChild(listItems[itemIndex]);
+         listItems.splice(itemIndex, 1);
+         listItemControllers.splice(itemIndex, 1);
+         return true;
+      };
+      controller.removeListItemByController = function (itemController) {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (itemController === listItemControllers[i]) {
+               return controller.removeListItemByIndex(i);
+            }
+         }
+         console.error('Invalid controller to delete');
+         console.info(itemController);
+         return false;
+      };
+      controller.hasListItemId = function (itemId) {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (listItemControllers[i].getId() == itemId) {
+               return true;
+            }
+         }
+         return false;
+      };
+      return listContainer;
+   }
+
+   /**
+    * @param {LLH.Layout.Team.TeamNormalGemListController} controller 
+    * @param {number} position
     * @returns {HTMLElement[]}
     */
-   function normalGemListCreator(controller, index) {
+   function normalGemListCreator(controller, position) {
       /** @type {AttributeType} */
       var memberAttribute = undefined;
       /** @type {AttributeType} */
       var mapAttribute = undefined;
-      var listContainer = createElement('div', {'className': 'gem-list'});
-      /** @type {HTMLElement[]} */
-      var listItems = [];
-      /** @type {LLTeam_NormalGemListItemController[]} */
-      var listItemControllers = [];
+      var listContainer = renderGemList(controller);
+
       /** @param {number} normalGemMetaId */
       var getAttributeForGem = function (normalGemMetaId) {
          if (LLConst.Gem.isGemFollowMemberAttribute(normalGemMetaId)) {
@@ -7708,48 +7806,13 @@ var LLTeamComponent = (function () {
             return mapAttribute;
          }
       };
-      var updateColor = function () {
-         for (var i = 0; i < listItemControllers.length; i++) {
-            var curController = listItemControllers[i];
-            curController.resetAttribute(getAttributeForGem(curController.getMetaId()));
-         }
+      /** @param {LLH.Layout.Team.TeamNormalGemListItemController} curController */
+      var updateOneColor = function (curController) {
+         curController.resetAttribute(getAttributeForGem(curController.getId()));
       };
       var callbackListChange = function () {
          if (controller.onListChange) {
-            var totalSlot = 0;
-            for (var i = 0; i < listItemControllers.length; i++) {
-               var meta = LLConst.Gem.getNormalGemMeta(listItemControllers[i].getMetaId());
-               if (meta) {
-                  totalSlot += meta.slot;
-               }
-            }
-            controller.onListChange(index, totalSlot);
-         }
-      };
-      /**
-       * @param {LLTeam_NormalGemListItemController} [controller] delete by controller ref
-       * @param {number} [index] delete by index
-       * @param {boolean} doCallback
-       */
-      var deleteListItem = function (controller, index, doCallback) {
-         if (index === undefined) {
-            for (var i = 0; i < listItemControllers.length; i++) {
-               if (controller === listItemControllers[i]) {
-                  index = i;
-                  break;
-               }
-            }
-         }
-         if (index === undefined) {
-            console.error('Not found index to delete');
-            console.info(controller);
-            return;
-         }
-         listContainer.removeChild(listItems[index]);
-         listItems.splice(index, 1);
-         listItemControllers.splice(index, 1);
-         if (doCallback) {
-            callbackListChange();
+            controller.onListChange(position, controller.getTotalSlot());
          }
       };
       /**
@@ -7757,28 +7820,33 @@ var LLTeamComponent = (function () {
        * @param {boolean} doCallback 
        */
       var addListItem = function (normalGemMetaId, doCallback) {
-         /** @type {LLTeam_NormalGemListItemController} */
+         /** @type {LLH.Layout.Team.TeamNormalGemListItemController} */
          var itemController = {
-            'onDelete': () => deleteListItem(itemController, undefined, true)
+            'onDelete': function () {
+               controller.removeListItemByController(itemController);
+               callbackListChange();
+            }
          };
-         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), index >= 7);
-         listItems.push(item);
-         listItemControllers.push(itemController);
-         updateSubElements(listContainer, item);
+         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), position >= 7);
+         controller.addListItem(item, itemController);
          if (doCallback) {
             callbackListChange();
          }
       };
       controller.get = function () {
-         return listItemControllers.map((c) => LLConst.Gem.getNormalGemMeta(c.getMetaId()).key);
+         return controller.mapItemController((itemController) => LLConst.Gem.getNormalGemMeta(itemController.getId()).key);
       };
       controller.set = function (normalGemMetaKeyList) {
+         if (normalGemMetaKeyList === undefined) {
+            normalGemMetaKeyList = [];
+         }
          var i = 0;
          for (; i < normalGemMetaKeyList.length; i++) {
             var curId = LLConst.GemType[normalGemMetaKeyList[i]];
-            if (i < listItemControllers.length) {
-               var curController = listItemControllers[i];
-               if (curController.getMetaId() != curId) {
+            if (i < controller.getCount()) {
+               /** @type {LLH.Layout.Team.TeamNormalGemListItemController} */
+               var curController = controller.getItemController(i);
+               if (curController.getId() != curId) {
                   curController.resetMetaId(curId);
                   curController.resetAttribute(getAttributeForGem(curId))
                }
@@ -7786,8 +7854,8 @@ var LLTeamComponent = (function () {
                addListItem(curId, false);
             }
          }
-         for (; i < listItemControllers.length;) {
-            deleteListItem(undefined, i, false);
+         for (; i < controller.getCount();) {
+            controller.removeListItemByIndex(i);
          }
          callbackListChange();
       };
@@ -7798,16 +7866,80 @@ var LLTeamComponent = (function () {
          if (mapAttr !== undefined) {
             mapAttribute = mapAttr;
          }
-         updateColor();
+         controller.forEachItemController(updateOneColor);
       };
       controller.add = function (normalGemMetaKey) {
          var gemId = LLConst.GemType[normalGemMetaKey];
          if (gemId === undefined) return;
-         for (var i = 0; i < listItemControllers.length; i++) {
-            if (listItemControllers[i].getMetaId() == gemId) {
-               console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
-               return;
+         if (controller.hasListItemId(gemId)) {
+            console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
+            return;
+         }
+         addListItem(gemId, true);
+      };
+      return [listContainer];
+   }
+
+   /**
+    * @param {LLH.Layout.Team.TeamLAGemListController} controller 
+    * @param {number} position
+    * @returns {HTMLElement[]}
+    */
+   function laGemListCreator(controller, position) {
+      var listContainer = renderGemList(controller);
+      var callbackListChange = function () {
+         if (controller.onListChange) {
+            controller.onListChange(position, controller.getTotalSlot());
+         }
+      };
+      /**
+       * @param {number} gemId 
+       * @param {boolean} doCallback 
+       */
+       var addListItem = function (gemId, doCallback) {
+         /** @type {LLH.Layout.Team.TeamLAGemListItemController} */
+         var itemController = {
+            'onDelete': function () {
+               controller.removeListItemByController(itemController);
+               callbackListChange();
             }
+         };
+         var item = renderLAGemListItem(itemController, gemId, position >= 7);
+         controller.addListItem(item, itemController);
+         if (doCallback) {
+            callbackListChange();
+         }
+      };
+      controller.get = function () {
+         return controller.mapItemController((itemController) => itemController.getId());
+      };
+      controller.set = function (gemIdList) {
+         if (gemIdList === undefined) {
+            gemIdList = [];
+         }
+         var i = 0;
+         for (; i < gemIdList.length; i++) {
+            var curId = gemIdList[i];
+            if (i < controller.getCount()) {
+               /** @type {LLH.Layout.Team.TeamLAGemListItemController} */
+               var curController = controller.getItemController(i);
+               if (curController.getId() != curId) {
+                  curController.resetGemId(curId);
+               }
+            } else {
+               addListItem(curId, false);
+            }
+         }
+         for (; i < controller.getCount();) {
+            controller.removeListItemByIndex(i);
+         }
+         callbackListChange();
+      };
+      controller.add = function (gemId) {
+         if (gemId === undefined) return;
+         if (controller.hasListItemId(gemId)) {
+            console.info('Cannot add gem ' + gemId + ', it is already added');
+            return;
          }
          addListItem(gemId, true);
       };
@@ -7871,6 +8003,28 @@ var LLTeamComponent = (function () {
       controller.hide = function(){ rowComponent.hide(); }
       return rowElement;
    }
+   /** @param {LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller */
+   function dummyCellCreator(controller) {
+      var val = undefined;
+      controller.get = function () {
+         return val;
+      };
+      controller.set = function (v) {
+         val = v;
+      };
+      return controller;
+   }
+   /** @param {LLH.Layout.Team.TeamRowController<LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller  */
+   function createDummyRowFor9(controller) {
+      var cellControllers = [];
+      var emptyFunction = function () {};
+      for (var i = 0; i < 9; i++) {
+         cellControllers.push(dummyCellCreator({}));
+      }
+      controller.cells = cellControllers;
+      controller.show = emptyFunction;
+      controller.hide = emptyFunction;
+   }
    // make getXXXs() and setXXXs(val) functions
    function makeGet9Function(method) {
       return function() {
@@ -7902,8 +8056,11 @@ var LLTeamComponent = (function () {
       };
    }
 
-   /** @param {LLH.Layout.Team.LLTeamComponent} controller */
-   function createTeamTable(controller) {
+   /**
+    * @param {LLH.Layout.Team.LLTeamComponent} controller
+    * @param {LLH.Layout.Team.LLTeamComponent_Mode} mode
+    */
+   function createTeamTable(controller, mode) {
       var rows = [];
       var controllers = {
          'weight': {},
@@ -7917,9 +8074,10 @@ var LLTeamComponent = (function () {
          'pure': {'headColor': 'green', 'cellColor': 'green', 'memberKey': 'pure', 'memberDefault': 0},
          'cool': {'headColor': 'blue', 'cellColor': 'blue', 'memberKey': 'cool', 'memberDefault': 0},
          'skill_level': {'memberKey': 'skilllevel'},
-         'slot': {'owning': ['put_gem', 'gem_list']},
+         'slot': {'owning': ['put_gem', 'gem_list', 'la_gem_list']},
          'put_gem': {},
          'gem_list': {'memberKey': 'gemlist'},
+         'la_gem_list': {'memberKey': 'laGemList'},
          'put_accessory': {},
          'accessory_icon': {},
          'accessory_level': {'owning': ['accessory_smile', 'accessory_pure', 'accessory_cool']},
@@ -7944,6 +8102,7 @@ var LLTeamComponent = (function () {
          'accessory_active_half_effect_sim': {},
          'heal': {},
       };
+      var isLAGem = (mode == 'la');
       var cardsBrief = new Array(9);
       var doFold = function() {
          for (var i = 0; i < this.owning.length; i++) {
@@ -8032,12 +8191,22 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('放宝石', makeButtonCreator('放宝石', function (i) {
          if (controller.onPutGemClicked) {
             var gemKey = controller.onPutGemClicked(i);
-            if (LLConst.GemType[gemKey] !== undefined) {
-               controllers.gem_list.cells[i].add(gemKey);
+            if (isLAGem) {
+               controllers.la_gem_list.cells[i].add(gemKey)
+            } else {
+               if (LLConst.GemType[gemKey] !== undefined) {
+                  controllers.gem_list.cells[i].add(gemKey);
+               }
             }
          }
       }), controllers.put_gem));
-      rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
+      if (!isLAGem) {
+         rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
+         createDummyRowFor9(controllers.la_gem_list);
+      } else {
+         createDummyRowFor9(controllers.gem_list);
+         rows.push(createRowFor9('方宝石', laGemListCreator, controllers.la_gem_list, (c) => c.onListChange = updateSlot));
+      }
       rows.push(createRowFor9('放饰品', makeButtonCreator('放饰品', function (i) {
          if (controller.onPutAccessoryClicked) {
             controller.setAccessory(i, controller.onPutAccessoryClicked(i));
@@ -8090,13 +8259,17 @@ var LLTeamComponent = (function () {
             if (member.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
-            controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
+            if (!isLAGem) {
+               controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
+            }
          } else {
             controllers.info.cells[i].reset();
             controllers.info_name.cells[i].reset();
             controllers.skill_trigger.cells[i].reset();
             controllers.skill_effect.cells[i].reset();
-            controllers.gem_list.cells[i].setAttributes('');
+            if (!isLAGem) {
+               controllers.gem_list.cells[i].setAttributes('');
+            }
          }
          if (member.maxcost !== undefined) {
             controllers.slot.cells[i].setMaxSlot(parseInt(member.maxcost));
@@ -8187,7 +8360,11 @@ var LLTeamComponent = (function () {
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
       controller.getSwapper = function() { return swapper; };
-      controller.setMapAttribute = function (mapAttr) { controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr)); };
+      controller.setMapAttribute = function (mapAttr) {
+         if (!isLAGem) {
+            controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr));
+         }
+      };
       controller.isAllMembersPresent = function () {
          var cardIds = controller.getCardIds();
          for (var i = 0; i < cardIds.length; i++) {
@@ -8209,16 +8386,16 @@ var LLTeamComponent = (function () {
    /**
     * @constructor
     * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Layout.Team.LLTeamComponent_Options} callbacks 
+    * @param {LLH.Layout.Team.LLTeamComponent_Options} options 
     * @this {LLH.Layout.Team.LLTeamComponent}
     */
-   function LLTeamComponent_cls(id, callbacks) {
+   function LLTeamComponent_cls(id, options) {
       var element = LLUnit.getElement(id);
-      element.appendChild(createTeamTable(this));
-      this.onPutCardClicked = callbacks && callbacks.onPutCardClicked;
-      this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
-      this.onCenterChanged = callbacks && callbacks.onCenterChanged;
-      this.onPutAccessoryClicked = callbacks && callbacks.onPutAccessoryClicked;
+      element.appendChild(createTeamTable(this, (options && options.mode) || 'normal'));
+      this.onPutCardClicked = options && options.onPutCardClicked;
+      this.onPutGemClicked = options && options.onPutGemClicked;
+      this.onCenterChanged = options && options.onCenterChanged;
+      this.onPutAccessoryClicked = options && options.onPutAccessoryClicked;
    }
    /** @type {typeof LLH.Layout.Team.LLTeamComponent} */
    var cls = LLTeamComponent_cls;
@@ -8575,8 +8752,11 @@ var LLGemSelectorComponent = (function () {
    var GEM_GROUP_NORMAL = 1;
    var GEM_GROUP_LA = 2;
 
-   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
-   function renderGemDetail(controller) {
+   /**
+    * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
+    * @param {boolean} showLvup
+    */
+   function renderGemDetail(controller, showLvup) {
       var container = createElement('div');
       controller.set = function (data, language) {
          if (!data) {
@@ -8585,7 +8765,7 @@ var LLGemSelectorComponent = (function () {
             container.innerHTML = '';
          } else {
             var elements = [LLConst.Gem.getGemFullDescription(data, language == 0)];
-            if (data.level_up_skill_data) {
+            if (showLvup && data.level_up_skill_data) {
                var nextData = data.level_up_skill_data;
                elements.push(
                   createElement('br'),
@@ -8733,13 +8913,17 @@ var LLGemSelectorComponent = (function () {
       var seriesController = undefined;
       if (options.includeLAGem || options.includeNormalGem) {
          detailController = {};
-         seriesController = {};
-         updateSubElements(container, [
-            createElement('h3', undefined, '详细信息'),
-            renderGemDetail(detailController),
-            createElement('h3', undefined, '升级序列'),
-            renderGemSeries(seriesController)
-         ], false);
+         if (options.showBrief) {
+            updateSubElements(container, renderGemDetail(detailController, false), false);
+         } else {
+            seriesController = {};
+            updateSubElements(container, [
+               createElement('h3', undefined, '详细信息'),
+               renderGemDetail(detailController, true),
+               createElement('h3', undefined, '升级序列'),
+               renderGemSeries(seriesController)
+            ], false);
+         }
       }
 
       /**

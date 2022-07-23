@@ -1,0 +1,135 @@
+{% extends "layout.html" %}
+
+{% set category="队伍编成和强度" %}
+{% set category_link="/#unit-formation" %}
+{% set title="演唱会竞技场计算" %}
+{% set jsPage=url_for('static', filename='pages/llnewunitla.js', v=config.PAGE_VERSION.llnewunitla) %}
+
+{% block additional_header %}
+   <script type="text/javascript" src="/static/js/highcharts/highcharts.js"></script>
+{% endblock %}
+
+{% block front_notice %}
+<h4 class="alert-heading">使用方法</h4>
+<ol>
+      <li>选择歌曲 或 填写歌曲详细信息 <font style='color:red'><b>务必记得修改perfect数量（若卡组中有判卡，请填写带判情况下的perfect数量）</b></font></li>
+      <li>选择卡牌数据版本</li>
+      <li>从卡牌库中选择一张卡，点击「放卡」来放置到对应位置 <font style='color:red'><b>一张卡默认为满级、一级技能的数据，若不是则需要修改</b></font></li>
+      <li>使用以上方法选择所有的9张卡</li>
+      <li>可以点击「保存队伍」将队伍配置文件保存到本地，也可以在「队伍列表」中保存到浏览器</li>
+      <li>第3、4步可以从保存的文件中读取队伍信息来代替：点击「选择文件」选择本地配置文件，再点击「读取队伍」；或点击「队伍列表」中的队伍名称</li>
+      <li>设置对手造成的伤害和技能发动率减少系数</li>
+      <li>选择分数分布计算模式。目前有3种计算模式，分别为「不计算分布」、「计算理论分布」和「计算模拟分布」。「不计算分布」和「计算理论分布」不支持 <font style='color:red'><b>box新技能的计算</b></font>；「计算模拟分布」 <font style='color:red'><b>支持大部分box新技能的计算</b></font>，若选择该项需要设置模拟次数、 <font style='color:red'><b>无判perfect率</b></font>和图标下落速度， <font style='color:red'><b>如果要计算默认歌曲请选择默认曲目2</b></font>（各模式支持计算的技能/宝石列表请点击「查看支持计算的技能/宝石」）</li>
+      <li>点击calculate进行计算。「不计算分布」仅会显示期望得分；「计算理论分布」会显示期望得分和理论得分分布；「计算模拟分布」会进行模拟打歌，将模拟结果汇总绘制成曲线，如果要清空图中内容请点击「清空曲线」</li>
+</ol>
+<p>当前版本：9.2。</p>
+{% endblock %}
+
+{% block main %}
+<input class='btn btn-default' type="submit" name="clear" value="清空输入" onclick="clearall()" /><br/>
+<input id='language' type='hidden' /><br/>
+<form action="" id="unitform" name="unitform" method="POST" enctype=multipart/form-data>
+<h3>歌曲信息</h3>
+<div id="song_filter" class="filter-form label-size-9">载入中...</div>
+
+{% include 'components/card-selector.html' %}
+
+<div style="clear:both"></div>
+
+<h3>宝石选择</h3>
+<div id="gem_filter" class="filter-form">载入中...</div>
+
+<h3>饰品选择</h3>
+<div id='accessory_selector' class='filter-form'>载入中...</div>
+
+<h3>队伍属性</h3>
+<div class="col-xs-12 col-lg-9" style="overflow-x:auto" id="unit-team"></div>
+<div class="col-xs-12 col-lg-3">
+   <input type="button" value="保存队伍" onclick="saveunit()">
+   <input type="file" name="file"/>
+   <input type="submit" value="读取队伍" onclick="loadunit()">
+
+   <div id="unit-storage" style="margin-top: 30px"></div>
+</div>
+<div style="clear:both"></div>
+
+<div id='cskill_team'></div>
+
+<br/>
+<div id="distribution_param"></div>
+<input type="button" value="calculate" onclick="check()" />
+   <br><br><br>
+</form>
+
+<iframe style="display:none" id='if' name='if' src='about:blank' frameborder='0' allowtransparency="yes"></iframe>
+
+{% include 'components/loadingbox.html' %}
+
+<div id="unit_result"></div>
+<div id='distributionresult' style='display:none'>
+<h3>得分分布</h3>
+最高分：<span id='simresult0'></span>&nbsp;概率：<span id='maxscoreprobability'></span><br/>
+最低分：<span id='simresult100'></span>&nbsp;概率：<span id='minscoreprobability'></span><br/>
+<table border="1">
+<tr>
+	<td>1%</td>
+	<td>2%</td>
+	<td>5%</td>
+	<td>10%</td>
+	<td>20%</td>
+	<td>30%</td>
+	<td>40%</td>
+	<td>50%</td>
+	<td>60%</td>
+	<td>70%</td>
+	<td>80%</td>
+	<td>90%</td>
+	<td>95%</td>
+	<td>98%</td>
+	<td>99%</td>
+</tr>
+<tr>
+	<td id='simresult1'></td>
+   <td id='simresult2'></td>
+   <td id='simresult5'></td>
+   <td id='simresult10'></td>
+   <td id='simresult20'></td>
+   <td id='simresult30'></td>
+   <td id='simresult40'></td>
+   <td id='simresult50'></td>
+   <td id='simresult60'></td>
+   <td id='simresult70'></td>
+   <td id='simresult80'></td>
+   <td id='simresult90'></td>
+   <td id='simresult95'></td>
+   <td id='simresult98'></td>
+   <td id='simresult99'></td>
+</tr>
+</table>
+</div>
+<div id='score_chart' style='width:100%;display:none'></div>
+{% endblock %}
+
+{% block back_notice %}
+<h4 class="alert-heading">注意</h4>
+<ul>
+   <li>「计算理论分布」使用真实分布计算，计算速度比较慢；「计算模拟分布」使用模拟打歌计算，模拟次数越多，计算速度越慢，但也越接近真实分布</li>
+   <li>由于使用歌曲信息计算，最终结果可能会有误差</li>
+   <li>判定期间属性1.33倍的宝石计算有误，暂时按无效计算。</li>
+   <li>由于「不计算分布」和「计算理论分布」不支持box新技能的计算，新技能卡的技能强度会显示为0</li>
+   <li>默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异</li>
+</ul>
+{% endblock %}
+
+{% block back_notice_2 %}
+<h4 class="alert-heading">说明</h4>
+<ul>
+   <li>卡强度指的是不考虑异色和异团带来的负面影响时的强度，该数值方便异团卡、异色横向比较。实际强度则是考虑异色和异团加成的强度</li>
+</ul>
+{% endblock %}
+
+{% block back_script %}
+<script>
+   {{additional_script|safe}}
+</script>
+{% endblock %}
