@@ -187,13 +187,13 @@ span.lltooltip {
 input.num-size-4, input.form-control.num-size-4 {
    width: 70px;
 }
-input.num-size-3 {
+input.num-size-3, input.form-control.num-size-3 {
    width: 60px;
 }
-input.num-size-2 {
+input.num-size-2, input.form-control.num-size-2 {
    width: 50px;
 }
-input.num-size-1 {
+input.num-size-1, input.form-control.num-size-1 {
    width: 40px;
 }
 img.avatar {
@@ -208,6 +208,9 @@ img.avatar {
 }
 .filter-form.label-size-9 label {
    width: 120px;
+}
+.filter-form.label-size-12 label {
+   width: 150px;
 }
 .filter-form.label-size-3 label {
    width: 60px;

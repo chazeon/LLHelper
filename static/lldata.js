@@ -149,8 +149,10 @@ var LLClassUtil = {
 var LLHelperLocalStorage = {
    'localStorageDataVersionKey': 'llhelper_data_version__',
    'localStorageDistParamKey': 'llhelper_dist_param__',
+   'localStorageDistParamLAKey': 'llhelper_dist_param_la__',
    'localStorageLLNewUnitTeamKey': 'llhelper_llnewunit_team__',
    'localStorageLLNewUnitSisTeamKey': 'llhelper_llnewunitsis_team__',
+   'localStorageLLNewUnitLATeamKey': 'llhelper_llnewunitla_team__',
    'localStorageLLNewAutoUnitTeamKey': 'llhelper_llnewautounit_team__',
    'localStorageSongSelectKey': 'llhelper_song_select__',
    'localStorageCardSelectKey': 'llhelper_card_select__',
@@ -3313,13 +3315,17 @@ var LLSongSelectorComponent = (function() {
     * @param {HTMLElement} container 
     */
    function initMapInfo(me, container) {
+      var isLAMode = (me.mode == 'la');
       var selMapAtt = createFormSelect();
       var numMapCombo = createFormNumber(300);
       var numMapPerfect = createFormNumber(285);
       var numMapTime = createFormNumber(100);
       var numMapStarPerfect = createFormNumber(47);
-      var numBuffTapUp = createFormNumber(0);
-      var numBuffSkillUp = createFormNumber(0);
+      var numBuffTapUp = (!isLAMode ? createFormNumber(0) : undefined);
+      var numBuffSkillUp = (!isLAMode ? createFormNumber(0) : undefined);
+      var numDebuffSkillRateDown = (isLAMode ? createFormNumber(0) : undefined);
+      var numDebuffHpDownValue = (isLAMode ? createFormNumber(0): undefined);
+      var numDebuffHpDownInterval = (isLAMode ? createFormNumber(0): undefined);
       me.addFilterable(SEL_ID_MAP_ATT, new LLSelectComponent(selMapAtt));
       me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
          if (v == '') return true;
@@ -3340,10 +3346,19 @@ var LLSongSelectorComponent = (function() {
          createFormInlineGroup('总combo数', numMapCombo),
          createFormInlineGroup('perfect数', numMapPerfect),
          createFormInlineGroup('时间', [numMapTime, '秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）']),
-         createFormInlineGroup('星星perfect数', numMapStarPerfect),
-         createFormInlineGroup('点击得分增加', [numBuffTapUp, '%']),
-         createFormInlineGroup('技能发动率增加', [numBuffSkillUp, '%'])
+         createFormInlineGroup('星星perfect数', numMapStarPerfect)
       ]);
+      if (isLAMode) {
+         updateSubElements(container, [
+            createFormInlineGroup('技能发动率下降：', [numDebuffSkillRateDown, '%']),
+            createFormInlineGroup('体力伤害：', ['每', numDebuffHpDownInterval, '秒造成', numDebuffHpDownValue, '点伤害'])
+         ]);
+      } else {
+         updateSubElements(container, [
+            createFormInlineGroup('点击得分增加', [numBuffTapUp, '%']),
+            createFormInlineGroup('技能发动率增加', [numBuffSkillUp, '%'])
+         ]);
+      }
 
       me.updateMapInfo = function (songSetting) {
          if (songSetting) {
@@ -3364,7 +3379,11 @@ var LLSongSelectorComponent = (function() {
          });
          llmap.attribute = me.getSongAttribute();
          llmap.setSongDifficultyData(parseInt(numMapCombo.value), parseInt(numMapStarPerfect.value), parseInt(numMapTime.value), parseInt(numMapPerfect.value), parseInt(numMapStarPerfect.value));
-         llmap.setMapBuff(parseFloat(numBuffTapUp.value), parseFloat(numBuffSkillUp.value));
+         if (isLAMode) {
+            llmap.setLADebuff(parseFloat(numDebuffSkillRateDown.value), parseInt(numDebuffHpDownValue.value), parseFloat(numDebuffHpDownInterval.value));
+         } else {
+            llmap.setMapBuff(parseFloat(numBuffTapUp.value), parseFloat(numBuffSkillUp.value));
+         }
          llmap.setWeights(customWeights || songSetting.positionweight);
          return llmap;
       };
@@ -3382,6 +3401,7 @@ var LLSongSelectorComponent = (function() {
       var me = this;
       me.includeMapInfo = options.includeMapInfo || false;
       me.friendCSkill = options.friendCSkill || undefined;
+      me.mode = options.mode || 'normal';
 
       var container = LLUnit.getElement(id);
 
@@ -3712,6 +3732,7 @@ var LLMap = (function () {
          me.setFriendCSkill('smile', 'smile', 0, LLConst.GROUP_MUSE, 0);
       }
       me.setMapBuff();
+      me.setLADebuff();
    };
    /** @type {typeof LLH.Model.LLMap} */
    var cls = LLMap_cls;
@@ -3766,6 +3787,11 @@ var LLMap = (function () {
    proto.setMapBuff = function (tapup, skillup) {
       this.data.tapup = parseFloat(tapup || 0);
       this.data.skillup = parseFloat(skillup || 0);
+   };
+   proto.setLADebuff = function (skillRateDown, hpDownValue, hpDownInterval) {
+      this.data.debuff_skill_rate_down = parseFloat(skillRateDown || 0);
+      this.data.debuff_hp_down_value = parseInt(hpDownValue || 0);
+      this.data.debuff_hp_down_interval = parseInt(hpDownInterval || 0);
    };
    proto.setDistParam = function (distParam) {
       this.data.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.data.combo);
@@ -7090,6 +7116,9 @@ var LLScoreDistributionParameter = (function () {
       {'value': 'v1', 'text': '计算理论分布'},
       {'value': 'sim', 'text': '计算模拟分布'}
    ];
+   var distTypeLASelectOptions = [
+      {'value': 'simla', 'text': '计算模拟分布（演唱会竞技场）'}
+   ];
    var speedSelectOptions = [
       {'value': '1', 'text': '1速'},
       {'value': '2', 'text': '2速'},
@@ -7115,16 +7144,18 @@ var LLScoreDistributionParameter = (function () {
       {'value': '1', 'text': '启用'}
    ];
    var distTypeDetail = [
-      ['#要素', '#计算理论分布/计算技能强度', '#计算模拟分布'],
-      ['触发条件: 时间, 图标, 连击, perfect, star perfect, 分数', '支持', '支持'],
-      ['触发条件: 连锁', '不支持', '支持'],
-      ['技能效果: 回血, 加分', '支持', '支持'],
-      ['技能效果: 小判定, 大判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持'],
-      ['宝石: 诡计', '不支持', '支持'],
-      ['溢出奶, 完美判', '不支持', '支持'],
-      ['爆分发动次数限制', '不支持', '支持'],
-      ['饰品: 判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持'],
-      ['饰品: 火花', '不支持', '不支持']
+      ['#要素', '#计算理论分布/计算技能强度', '#计算模拟分布', '#计算模拟分布（演唱会竞技场）'],
+      ['触发条件: 时间, 图标, 连击, perfect, star perfect, 分数', '支持', '支持', '支持'],
+      ['触发条件: 连锁', '不支持', '支持', '支持'],
+      ['技能效果: 回血, 加分', '支持', '支持', '支持'],
+      ['技能效果: 小判定, 大判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持', '支持'],
+      ['圆宝石: 属性提升类，魅力，治愈', '支持', '支持', '不支持'],
+      ['圆宝石: 诡计', '不支持', '支持', '不支持'],
+      ['方宝石', '不支持', '不支持', '支持'],
+      ['溢出奶, 完美判', '不支持', '支持', '支持'],
+      ['爆分发动次数限制', '不支持', '支持', '支持'],
+      ['饰品: 判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持', '支持'],
+      ['饰品: 火花', '不支持', '不支持', '不支持']
    ];
 
    /**
@@ -7147,8 +7178,12 @@ var LLScoreDistributionParameter = (function () {
       return createSelectComponent(enableDisableSelectOptions, (defaultEnable ? '1' : '0'));
    }
 
-   /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller */
-   function createDistributionTypeSelector(controller) {
+   /**
+    * @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller
+    * @param {LLH.Layout.LayoutMode} mode
+    */
+   function createDistributionTypeSelector(controller, mode) {
+      var isLAMode = (mode == 'la');
       var detailContainer = createElement('div');
       var detailContainerComponent = 0;
       var detailLink = createElement('a', {'innerHTML': '查看支持计算的技能/宝石', 'href': 'javascript:;'}, undefined, {'click': function () {
@@ -7168,7 +7203,7 @@ var LLScoreDistributionParameter = (function () {
       var simParamOverHealComponent = createEnableDisableComponent(true);
       var simParamPerfectAccuracyComponent = createEnableDisableComponent(true);
       var simParamTriggerLimitComponent = createEnableDisableComponent(true);
-      var simParamContainer = createElement('div', {'className': 'filter-form'}, [
+      var simParamContainer = createElement('div', {'className': 'filter-form label-size-12'}, [
          createFormInlineGroup('模拟次数：', [simParamCount, '（模拟次数越多越接近实际分布，但是也越慢）']),
          createFormInlineGroup('无判perfect率：', [simParamPerfectPercent, '%']),
          createFormInlineGroup('速度：', [simParamSpeedComponent.element, '（图标下落速度，1速最慢，10速最快）']),
@@ -7180,16 +7215,25 @@ var LLScoreDistributionParameter = (function () {
       ]);
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
       var selComp = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
-      selComp.setOptions(distTypeSelectOptions);
+      if (!isLAMode) {
+         selComp.setOptions(distTypeSelectOptions);
+      } else {
+         selComp.setOptions(distTypeLASelectOptions);
+      }
       selComp.onValueChange = function (v) {
-         if (v == 'sim') {
+         if (v == 'sim' || v == 'simla') {
             simParamContainerComponent.show();
          } else {
             simParamContainerComponent.hide();
          }
       };
-      selComp.set('no');
-      simParamContainerComponent.hide();
+      if (!isLAMode) {
+         selComp.set('no');
+         simParamContainerComponent.hide();
+      } else {
+         selComp.set('simla');
+         simParamContainerComponent.show();
+      }
       var container = createElement('div', undefined, [
          createFormInlineGroup('选择分数分布计算模式：', [selComp.element, detailLink]),
          detailContainer,
@@ -7206,7 +7250,7 @@ var LLScoreDistributionParameter = (function () {
             'over_heal_pattern': parseInt(simParamOverHealComponent.get()),
             'perfect_accuracy_pattern': parseInt(simParamPerfectAccuracyComponent.get()),
             'trigger_limit_pattern': parseInt(simParamTriggerLimitComponent.get())
-         }
+         };
       };
       controller.setParameters = function (data) {
          if (!data) return;
@@ -7226,12 +7270,15 @@ var LLScoreDistributionParameter = (function () {
    /**
     * @constructor
     * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter_Options} options
     */
-   function LLScoreDistributionParameter_cls(id) {
+   function LLScoreDistributionParameter_cls(id, options) {
       var element = LLUnit.getElement(id);
       /** @type {LLH.Layout.ScoreDistParam.ScoreDistParamController} */
       var controller = {};
-      element.appendChild(createDistributionTypeSelector(controller));
+      if (!options) options = {};
+      var mode = options.mode || 'normal';
+      element.appendChild(createDistributionTypeSelector(controller, mode));
       this.saveData = controller.getParameters;
       this.loadData = controller.setParameters;
    }
@@ -8219,10 +8266,19 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('饰品cool', textCreator, controllers.accessory_cool));
       rows.push(createRowFor9('换位', makeSwapCreator(controller), {}));
       rows.push(createRowFor9('属性强度', textCreator, controllers.str_attr));
-      rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
-      rows.push(createRowFor9('卡强度（理论）', textWithColorCreator, controllers.str_card_theory));
+      if (!isLAGem) {
+         rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
+         rows.push(createRowFor9('卡强度（理论）', textWithColorCreator, controllers.str_card_theory));
+      } else {
+         createDummyRowFor9(controllers.str_skill_theory);
+         createDummyRowFor9(controllers.str_card_theory);
+      }
       rows.push(createRowFor9('异色异团惩罚', textCreator, controllers.str_debuff));
-      rows.push(createRowFor9('实际强度（理论）', textWithColorCreator, controllers.str_total_theory));
+      if (!isLAGem) {
+         rows.push(createRowFor9('实际强度（理论）', textWithColorCreator, controllers.str_total_theory));
+      } else {
+         createDummyRowFor9(controllers.str_total_theory);
+      }
       rows.push(createRowFor9('技能发动次数（模拟）', textCreator, controllers.skill_active_count_sim));
       rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
       rows.push(createRowFor9('技能哑火次数（模拟）', textCreator, controllers.skill_active_no_effect_sim));

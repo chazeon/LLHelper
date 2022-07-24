@@ -31,9 +31,9 @@ function clearall() {
     LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLanguageKey);
     LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageCardSelectKey);
     LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageSongSelectKey);
-    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey);
+    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLLNewUnitLATeamKey);
     LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageAccessorySelectKey);
-    window.location.href = "/llnewunit"
+    window.location.href = "/llnewunitla"
 }
 
 function makeSaveData() {
@@ -90,8 +90,8 @@ function check() {
     comp_cardselector.saveLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
     LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageSongSelectKey, comp_songselector.saveJson());
     LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageAccessorySelectKey, comp_accessory_selector.saveJson());
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamKey, comp_distribution_param.saveJson());
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey, comp_team.saveJson());
+    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamLAKey, comp_distribution_param.saveJson());
+    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitLATeamKey, comp_team.saveJson());
     var distParam = comp_distribution_param.saveData();
     if (distParam.type == 'sim') {
         LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
@@ -108,7 +108,7 @@ function docalculate(cards, accessoryDetails, extraData) {
         test_case.songId = comp_songselector.getSelectedSongId();
         test_case.songSettingId = comp_songselector.getSelectedSongSettingId();
         test_case.version = LLCardData.getVersion();
-        test_case.page = 'llnewunit';
+        test_case.page = 'llnewunitla';
     }
     var member = comp_team.getMembers();
     var llmembers = [];
@@ -203,14 +203,18 @@ function renderPage(loadDeferred) {
         // init components
         LLConst.initMetadata(metaData);
         comp_cskill_team = new LLCSkillComponent('cskill_team');
-        comp_songselector = new LLSongSelectorComponent('song_filter', { 'songs': songData, 'includeMapInfo': true });
+        comp_songselector = new LLSongSelectorComponent('song_filter', {
+            'songs': songData,
+            'includeMapInfo': true,
+            'mode': 'la'
+        });
         data_mapnote = new LLMapNoteData();
         comp_skill = new LLSkillContainer();
         comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData });
         comp_cardselector.onCardChange = LLUnit.applycarddata;
         comp_cardavatar = new LLImageComponent('imageselect');
-        comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
-        comp_distribution_param.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageDistParamKey));
+        comp_distribution_param = new LLScoreDistributionParameter('distribution_param', {'mode': 'la'});
+        comp_distribution_param.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageDistParamLAKey));
         comp_accessory_selector = new LLAccessorySelectorComponent('accessory_selector', {
             'accessoryData': accessoryData,
             'cardData': cardData,
@@ -270,7 +274,7 @@ function renderPage(loadDeferred) {
             },
             'mode': 'la'
         });
-        comp_team.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey));
+        comp_team.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLLNewUnitLATeamKey));
 
 
         mezame = getCookie("mezameunit")

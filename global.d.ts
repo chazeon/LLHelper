@@ -571,6 +571,7 @@ declare namespace LLH {
             excludeDefaultSong?: boolean;
             includeMapInfo?: boolean;
             friendCSkill?: TODO.LLCSkillComponent;
+            mode?: Layout.LayoutMode;
         }
         class LLSongSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLSongSelectorComponent_Options)
@@ -578,6 +579,7 @@ declare namespace LLH {
             songs: API.SongDictDataType;
             songSettings: Internal.ProcessedSongSettingDictDataType;
             includeMapInfo: boolean;
+            mode: Layout.LayoutMode;
             friendCSkill?: TODO.LLCSkillComponent;
 
             setSongData(songs: API.SongDictDataType, includeDefaultSong?: boolean): void;
@@ -807,6 +809,13 @@ declare namespace LLH {
             over_heal_pattern: 0 | 1;
             perfect_accuracy_pattern: 0 | 1;
             trigger_limit_pattern: 0 | 1;
+
+            /** LA only, percentage */
+            debuff_skill_rate_down: number;
+            /** LA only */
+            debuff_hp_down_value: number;
+            /** LA only, seconds */
+            debuff_hp_down_interval: number;
         }
         class LLMap implements Mixin.SaveLoadJson {
             constructor(options?: LLMap_Options);
@@ -815,6 +824,7 @@ declare namespace LLH {
             setFriendCSkill(addToAttribute: Core.AttributeType, addFromAttribute: Core.AttributeType, percentage: number, groupLimit: number, groupPercentage: number): void;
             setSongDifficultyData(combo: number, star: number, time: number, perfect: number, starPerfect: number): void;
             setMapBuff(tapup: number, skillup: number): void;
+            setLADebuff(skillRateDown: number, hpDownValue: number, hpDownInterval: number): void;
             setDistParam(distParam: Layout.ScoreDistParam.ScoreDistParamSaveData): void;
 
             data: LLMap_SaveData;
@@ -1083,6 +1093,9 @@ declare namespace LLH {
     }
 
     namespace Layout {
+        /** default 'normal' */
+        type LayoutMode = 'normal' | 'la';
+
         namespace Team {
             type IndexType = number; // 0~8
             interface TeamMemberKeyGetSet<T> {
@@ -1161,15 +1174,13 @@ declare namespace LLH {
 
                 add(gemId: Core.SisIdType): void;
             }
-            type LLTeamComponent_Mode = 'normal' | 'la';
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
                 onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
                 onCenterChanged?: () => void;
 
-                /** default 'normal' */
-                mode?: LLTeamComponent_Mode;
+                mode?: LayoutMode;
             }
             class LLTeamComponent implements Mixin.SaveLoadJson {
                 constructor(id: Component.HTMLElementOrId, options: LLTeamComponent_Options);
@@ -1252,7 +1263,7 @@ declare namespace LLH {
             }
         }
         namespace ScoreDistParam {
-            type ScoreDistType = 'no'|'v1'|'sim';
+            type ScoreDistType = 'no'|'v1'|'sim'|'simla';
             interface ScoreDistParamSaveData {
                 type: ScoreDistType;
                 /** int, simulate count */
@@ -1275,8 +1286,11 @@ declare namespace LLH {
                 getParameters(): ScoreDistParamSaveData;
                 setParameters(params: ScoreDistParamSaveData): void;
             }
+            interface LLScoreDistributionParameter_Options {
+                mode?: LayoutMode;
+            }
             class LLScoreDistributionParameter implements Mixin.SaveLoadJson {
-                constructor(id: Component.HTMLElementOrId);
+                constructor(id: Component.HTMLElementOrId, options?: LLScoreDistributionParameter_Options);
 
                 saveData(): ScoreDistParamSaveData;
                 loadData(data: ScoreDistParamSaveData): void;
