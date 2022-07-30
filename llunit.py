@@ -1,5 +1,5 @@
 from app import *
-from flask import make_response
+from flask import make_response, Request
 import json
 
 def unescapeJsonStr(json_str):
@@ -262,9 +262,8 @@ def llunit():
 
     return render_template("llunit.html", data=result, cardsjson=cardsjson, songsjson=songsjson)
 
-@app.route("/llnewunit", methods=['GET', 'POST'])
-def llnewunit():
-    # passed by llunitimport
+def handleLoadUnit(request):
+    # type: (Request) -> str
     argv = request.args.get("unit")
     addon = ""
     if argv:
@@ -273,24 +272,25 @@ def llnewunit():
             addon = "handleLoadUnit(" + unescapeJsonStr(argv) + ");"
         except BaseException:
             pass
-    return render_template("llnewunit.html", additional_script=addon)
+    return addon
+
+@app.route("/llnewunit", methods=['GET', 'POST'])
+def llnewunit():
+    # 'unit' passed by llunitimport or test
+    return render_template("llnewunit.html", additional_script=handleLoadUnit(request))
 
 @app.route("/llnewunitsis", methods=['GET', 'POST'])
 def llnewunitsis():
-    # passed by pll (LLProxy)
-    argv = request.args.get("unit")
-    addon = ""
-    if argv:
-        try:
-            # TODO: decouple with page
-            addon = "handleLoadUnit(" + unescapeJsonStr(argv) + ");"
-        except BaseException:
-            pass
-    return render_template("llnewunitsis.html", additional_script=addon)
+    # 'unit' passed by pll (LLProxy)
+    return render_template("llnewunitsis.html", additional_script=handleLoadUnit(request))
 
 @app.route("/llnewautounit", methods=['GET', 'POST'])
 def llnewautounit():
     return render_template("llnewautounit.html")
+
+@app.route("/llnewunitla", methods=['GET', 'POST'])
+def llnewunitla():
+    return render_template("llnewunitla.html", additional_script=handleLoadUnit(request))
 
 @app.route("/llnewunit40", methods=['GET', 'POST'])
 def llnewunit40():

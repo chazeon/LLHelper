@@ -154,17 +154,19 @@ span.lltooltip {
 .team-table .gem-list {
    font-size: small;
 }
-.team-table .gem-list .gem-dot {
+.team-table .gem-list .gem-dot, .team-table .gem-list .gem-square {
    line-height: 8px;
    display: block;
 }
-.team-table .gem-list .gem-dot div {
+.team-table .gem-list .gem-dot div, .team-table .gem-list .gem-square div {
    width: 6px;
    height: 6px;
-   border-radius: 3px;
    background-color: black;
    display: inline-block;
    margin-right: 1px;
+}
+.team-table .gem-list .gem-dot div {
+   border-radius: 3px;
 }
 .team-table .gem-list .btn {
    padding: 2px 4px;
@@ -172,6 +174,7 @@ span.lltooltip {
    text-align: center;
    overflow: clip;
    border-radius: 12px;
+   white-space: normal;
 }
 .no-padding {
    padding: 0;
@@ -184,13 +187,13 @@ span.lltooltip {
 input.num-size-4, input.form-control.num-size-4 {
    width: 70px;
 }
-input.num-size-3 {
+input.num-size-3, input.form-control.num-size-3 {
    width: 60px;
 }
-input.num-size-2 {
+input.num-size-2, input.form-control.num-size-2 {
    width: 50px;
 }
-input.num-size-1 {
+input.num-size-1, input.form-control.num-size-1 {
    width: 40px;
 }
 img.avatar {
@@ -205,6 +208,9 @@ img.avatar {
 }
 .filter-form.label-size-9 label {
    width: 120px;
+}
+.filter-form.label-size-12 label {
+   width: 150px;
 }
 .filter-form.label-size-3 label {
    width: 60px;

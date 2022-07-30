@@ -35,6 +35,8 @@ if 'version' in g_site_config:
     app.config['SITE_VERSION'] = g_site_config['version']
 else:
     app.config['SITE_VERSION'] = '0'
+if 'page_version' in g_site_config:
+    app.config['PAGE_VERSION'] = g_site_config['page_version']
 print('Site version: %s' % app.config['SITE_VERSION'])
 
 ### activity ###

@@ -327,7 +327,7 @@ function renderPage(loadDeferred) {
                     table_data[curRow].push('');
                 }
                 table_data[curRow].push(i);
-                table_data[curRow].push((LLConst.getHealBonus(i, i * 2) * 100 - 100).toFixed(2) + '%');
+                table_data[curRow].push((LLConst.Common.getOverHealLevelBonus(i, 1) * 100 - 100).toFixed(2) + '%');
             }
             return LLUnit.createSimpleTable(table_data);
         },

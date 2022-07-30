@@ -491,7 +491,14 @@ function renderPage(loadDeferred) {
             }
         }
     }
-  
+
+    /**
+     * 
+     * @param {*} item 
+     * @param {*} cards 
+     * @param {*} noteData 
+     * @param {function(LLH.Model.LLTeam): number[]} verifyCallback 
+     */
     function calcSim(item, cards, noteData, verifyCallback) {
         var cardConfigs = item.cardConfigs;
         var songId = item.songId;
@@ -582,11 +589,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 37910, 59698, 32990);
-                assertAttributeP(llteam.bonusAttr, 0, 7337, 0);
-                assertEqual(llteam.totalStrength, 67734);
-                assertEqual(llteam.totalAttrStrength, 57788);
-                assertEqual(llteam.totalSkillStrength, 9946);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 37910, 59698, 32990);
+                assertAttributeP(calResult.bonusAttr, 0, 7337, 0);
+                assertEqual(calResult.totalStrength, 67734);
+                assertEqual(calResult.totalAttrStrength, 57788);
+                assertEqual(calResult.totalSkillStrength, 9946);
                 return 0;
             }
         });
@@ -601,11 +609,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 78546, 37230, 36880);
-                assertAttributeP(llteam.bonusAttr, 16200, 0, 0);
-                assertEqual(llteam.totalStrength, 89738);
-                assertEqual(llteam.totalAttrStrength, 72088);
-                assertEqual(llteam.totalSkillStrength, 17650);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 78546, 37230, 36880);
+                assertAttributeP(calResult.bonusAttr, 16200, 0, 0);
+                assertEqual(calResult.totalStrength, 89738);
+                assertEqual(calResult.totalAttrStrength, 72088);
+                assertEqual(calResult.totalSkillStrength, 17650);
                 return 0;
             }
         });
@@ -620,11 +629,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 81501, 37230, 36880);
-                assertAttributeP(llteam.bonusAttr, 16778, 0, 0);
-                assertEqual(llteam.totalStrength, 90936);
-                assertEqual(llteam.totalAttrStrength, 74798);
-                assertEqual(llteam.totalSkillStrength, 16138);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 81501, 37230, 36880);
+                assertAttributeP(calResult.bonusAttr, 16778, 0, 0);
+                assertEqual(calResult.totalStrength, 90936);
+                assertEqual(calResult.totalAttrStrength, 74798);
+                assertEqual(calResult.totalSkillStrength, 16138);
                 return 0;
             }
         });
@@ -639,11 +649,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 85016, 37230, 36880);
-                assertAttributeP(llteam.bonusAttr, 17542, 0, 0);
-                assertEqual(llteam.totalStrength, 92305);
-                assertEqual(llteam.totalAttrStrength, 78025);
-                assertEqual(llteam.totalSkillStrength, 14280);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 85016, 37230, 36880);
+                assertAttributeP(calResult.bonusAttr, 17542, 0, 0);
+                assertEqual(calResult.totalStrength, 92305);
+                assertEqual(calResult.totalAttrStrength, 78025);
+                assertEqual(calResult.totalSkillStrength, 14280);
                 return 0;
             }
         });
@@ -658,11 +669,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 67743, 37230, 36880);
-                assertAttributeP(llteam.bonusAttr, 13963, 0, 0);
-                assertEqual(llteam.totalStrength, 69914);
-                assertEqual(llteam.totalAttrStrength, 62172);
-                assertEqual(llteam.totalSkillStrength, 7742);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 67743, 37230, 36880);
+                assertAttributeP(calResult.bonusAttr, 13963, 0, 0);
+                assertEqual(calResult.totalStrength, 69914);
+                assertEqual(calResult.totalAttrStrength, 62172);
+                assertEqual(calResult.totalSkillStrength, 7742);
                 return 0;
             }
         });
@@ -681,11 +693,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 76696, 39960, 36810);
-                assertAttributeP(llteam.bonusAttr, 17038, 0, 0);
-                assertEqual(llteam.totalStrength, 91930);
-                assertEqual(llteam.totalAttrStrength, 70182);
-                assertEqual(llteam.totalSkillStrength, 21748);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 76696, 39960, 36810);
+                assertAttributeP(calResult.bonusAttr, 17038, 0, 0);
+                assertEqual(calResult.totalStrength, 91930);
+                assertEqual(calResult.totalAttrStrength, 70182);
+                assertEqual(calResult.totalSkillStrength, 21748);
                 return 0;
             }
         });
@@ -706,11 +719,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 34090, 70181, 35790);
-                assertAttributeP(llteam.bonusAttr, 0, 8514, 0);
-                assertEqual(llteam.totalStrength, 66155);
-                assertEqual(llteam.totalAttrStrength, 64823);
-                assertEqual(llteam.totalSkillStrength, 1332);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 34090, 70181, 35790);
+                assertAttributeP(calResult.bonusAttr, 0, 8514, 0);
+                assertEqual(calResult.totalStrength, 66155);
+                assertEqual(calResult.totalAttrStrength, 64823);
+                assertEqual(calResult.totalSkillStrength, 1332);
                 return 0;
             }
         });
@@ -731,11 +745,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 33010, 72833, 35830);
-                assertAttributeP(llteam.bonusAttr, 0, 8923, 0);
-                assertEqual(llteam.totalStrength, 68605);
-                assertEqual(llteam.totalAttrStrength, 67273);
-                assertEqual(llteam.totalSkillStrength, 1332);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 33010, 72833, 35830);
+                assertAttributeP(calResult.bonusAttr, 0, 8923, 0);
+                assertEqual(calResult.totalStrength, 68605);
+                assertEqual(calResult.totalAttrStrength, 67273);
+                assertEqual(calResult.totalSkillStrength, 1332);
                 return 0;
             }
         });
@@ -759,12 +774,13 @@ function renderPage(loadDeferred) {
             'run': function (cards, noteData) {
                 return calcSim(this, cards, noteData, function (team) {
                     var diffs = [];
-                    diffs.push(assertFloatArrayEqual(team.averageSkillsActiveChanceCount,
+                    var calResult = team.getResults();
+                    diffs.push(assertFloatArrayEqual(calResult.averageSkillsActiveChanceCount,
                     [13, 8, 5, 17, 17, 17, 17, 17, 13], 0.01));
-                    diffs.push(assertFloatArrayEqual(team.averageSkillsActiveCount,
+                    diffs.push(assertFloatArrayEqual(calResult.averageSkillsActiveCount,
                     [3.1235, 3.063, 2.562, 5.914, 5.8885, 5.9145, 5.9905, 5.9475, 7.6535], 0.4));
-                    diffs.push(assertFloatEqual(team.averageSkillsActiveCount[8] * 0.59, team.averageSkillsActiveNoEffectCount[0], 0.1));
-                    diffs.push(assertFloatArrayEqual(team.averageSkillsActiveNoEffectCount.slice(1),
+                    diffs.push(assertFloatEqual(calResult.averageSkillsActiveCount[8] * 0.59, calResult.averageSkillsActiveNoEffectCount[0], 0.1));
+                    diffs.push(assertFloatArrayEqual(calResult.averageSkillsActiveNoEffectCount.slice(1),
                     [0, 0, 0, 0, 0, 0, 0, 0], 0));
                     return diffs;
                 });
@@ -791,11 +807,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 90012, 37310, 37560);
-                assertAttributeP(llteam.bonusAttr, 8927, 0, 0);
-                assertEqual(llteam.totalStrength, 95696);
-                assertEqual(llteam.totalAttrStrength, 90012);
-                assertEqual(llteam.totalSkillStrength, 5684);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 90012, 37310, 37560);
+                assertAttributeP(calResult.bonusAttr, 8927, 0, 0);
+                assertEqual(calResult.totalStrength, 95696);
+                assertEqual(calResult.totalAttrStrength, 90012);
+                assertEqual(calResult.totalSkillStrength, 5684);
                 return 0;
             }
         });
@@ -820,11 +837,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 34860, 36880, 94263);
-                assertAttributeP(llteam.bonusAttr, 0, 0, 9385);
-                assertEqual(llteam.totalStrength, 94263);
-                assertEqual(llteam.totalAttrStrength, 94263);
-                assertEqual(llteam.totalSkillStrength, 0);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 34860, 36880, 94263);
+                assertAttributeP(calResult.bonusAttr, 0, 0, 9385);
+                assertEqual(calResult.totalStrength, 94263);
+                assertEqual(calResult.totalAttrStrength, 94263);
+                assertEqual(calResult.totalSkillStrength, 0);
                 return 0;
             }
         });
@@ -849,11 +867,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 35630, 95573, 38330);
-                assertAttributeP(llteam.bonusAttr, 0, 12470, 0);
-                assertEqual(llteam.totalStrength, 98895);
-                assertEqual(llteam.totalAttrStrength, 94867);
-                assertEqual(llteam.totalSkillStrength, 4028);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 35630, 95573, 38330);
+                assertAttributeP(calResult.bonusAttr, 0, 12470, 0);
+                assertEqual(calResult.totalStrength, 98895);
+                assertEqual(calResult.totalAttrStrength, 94867);
+                assertEqual(calResult.totalSkillStrength, 4028);
                 return 0;
             }
         });
@@ -878,11 +897,12 @@ function renderPage(loadDeferred) {
                 llteam.calculateAttributeStrength(mapdata.saveData());
                 llteam.calculateSkillStrength(mapdata.saveData());
                 console.log(llteam);
-                assertAttributeP(llteam.finalAttr, 61288, 44880, 50962);
-                assertAttributeP(llteam.bonusAttr, 0, 0, 6652);
-                assertEqual(llteam.totalStrength, 58810);
-                assertEqual(llteam.totalAttrStrength, 57755);
-                assertEqual(llteam.totalSkillStrength, 1055);
+                var calResult = llteam.getResults();
+                assertAttributeP(calResult.finalAttr, 61288, 44880, 50962);
+                assertAttributeP(calResult.bonusAttr, 0, 0, 6652);
+                assertEqual(calResult.totalStrength, 58810);
+                assertEqual(calResult.totalAttrStrength, 57755);
+                assertEqual(calResult.totalSkillStrength, 1055);
                 return 0;
             }
         });
@@ -909,21 +929,23 @@ function renderPage(loadDeferred) {
             caseData.logData = {'result': llteam, 'expected': caseData.result};
 
             var expectedResult = caseData.result;
-            assertAttributesValue(llteam.finalAttr, expectedResult.finalAttr, 'finalAttr mismatch');
-            assertAttributesValue(llteam.bonusAttr, expectedResult.bonusAttr, 'bonusAttr mismatch');
-            assertEqual(llteam.totalAttrStrength, expectedResult.totalAttrStrength, 'totalAttrStrength mismatch');
-            assertEqual(llteam.totalSkillStrength, expectedResult.totalSkillStrength, 'totalSkillStrength mismatch');
-            assertEqual(llteam.totalStrength, expectedResult.totalStrength, 'totalStrength mismatch');
+            var calResult = llteam.getResults();
+            assertAttributesValue(calResult.finalAttr, expectedResult.finalAttr, 'finalAttr mismatch');
+            assertAttributesValue(calResult.bonusAttr, expectedResult.bonusAttr, 'bonusAttr mismatch');
+            assertEqual(calResult.totalAttrStrength, expectedResult.totalAttrStrength, 'totalAttrStrength mismatch');
+            assertEqual(calResult.totalSkillStrength, expectedResult.totalSkillStrength, 'totalSkillStrength mismatch');
+            assertEqual(calResult.totalStrength, expectedResult.totalStrength, 'totalStrength mismatch');
 
             var diffs = [];
             if (caseData.type == 'v1') {
                 llteam.calculateScoreDistribution();
+                llteam.calculatePercentileNaive();
             } else if (caseData.type == 'sim') {
                 llteam.simulateScoreDistribution(caseData.map, noteData, 1000);
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05, 'averageSkillsActiveChanceCount'));
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05, 'averageSkillsActiveCount'));
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05, 'averageSkillsActiveNoEffectCount'));
-                diffs.push(assertFloatArrayEqualDynamic(llteam.averageSkillsActiveHalfEffectCount, expectedResult.averageSkillsActiveHalfEffectCount, 0.05, 'averageSkillsActiveHalfEffectCount'));
+                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05, 'averageSkillsActiveChanceCount'));
+                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05, 'averageSkillsActiveCount'));
+                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05, 'averageSkillsActiveNoEffectCount'));
+                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveHalfEffectCount, expectedResult.averageSkillsActiveHalfEffectCount, 0.05, 'averageSkillsActiveHalfEffectCount'));
             } else {
                 return 0;
             }
@@ -932,13 +954,12 @@ function renderPage(loadDeferred) {
             var testOptions = caseData;
             testOptions.maxDiff = arrayMaxValue(diffs);
 
-            llteam.calculatePercentileNaive();
             var distInfo = [];
             var distPercentage = [5, 10, 25, 50, 75, 90, 95];
             for (var i = 0; i < distPercentage.length; i++) {
                 var p = distPercentage[i];
-                var a = caseData.result.naivePercentile[p];
-                var b = llteam.naivePercentile[p];
+                var a = expectedResult.naivePercentile[p];
+                var b = calResult.naivePercentile[p];
                 var maxAB = (a > b ? a : b);
                 assertFloatEqual(a, b, maxAB * 0.05, 0, 'percentile-' + p);
                 distInfo.push(p + '%: ' + b + ' (' + ((b-a) / a * 100).toFixed(2) + '%)');

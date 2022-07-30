@@ -149,8 +149,10 @@ var LLClassUtil = {
 var LLHelperLocalStorage = {
    'localStorageDataVersionKey': 'llhelper_data_version__',
    'localStorageDistParamKey': 'llhelper_dist_param__',
+   'localStorageDistParamLAKey': 'llhelper_dist_param_la__',
    'localStorageLLNewUnitTeamKey': 'llhelper_llnewunit_team__',
    'localStorageLLNewUnitSisTeamKey': 'llhelper_llnewunitsis_team__',
+   'localStorageLLNewUnitLATeamKey': 'llhelper_llnewunitla_team__',
    'localStorageLLNewAutoUnitTeamKey': 'llhelper_llnewautounit_team__',
    'localStorageSongSelectKey': 'llhelper_song_select__',
    'localStorageCardSelectKey': 'llhelper_card_select__',
@@ -1519,6 +1521,19 @@ var LLConst = (function () {
       return memberData.background_color;
    };
 
+   var HEAL_BONUS = [0.26,  // 9
+      0.29, 0.31, 0.34, 0.37, 0.4,  // 10~14
+      0.43, 0.46, 0.49, 0.51, 0.59, // 15~19
+      0.63, 0.66, 0.7,  0.73, 0.77, // 20~24
+      0.8,  0.84, 0.88, 0.91, 0.95, // 25~29
+      0.99, 1.02, 1.06, 1.1,  1.14, // 30~34
+      1.18, 1.21, 1.76, 1.83, 1.9,  // 35~39
+      1.97, 2.04, 2.11, 2.18, 2.25, // 40~44
+      2.33, 2.64, 2.73, 2.82, 2.91, // 45~49
+      3,    3.09, 3.19, 3.28, 3.38, // 50~54
+      3.47, 3.57, 3.67, 3.77, 3.87, // 55~59
+      3.98, 4.08, 4.19, 4.29]; // 60~63
+
    /** @type {LLH.ConstUtil.Common} */
    var CommonUtils = {
       getRarityString: (function () {
@@ -1529,6 +1544,16 @@ var LLConst = (function () {
       })(),
       getAttributeColor: function (attribute) {
          return COLOR_NAME_TO_COLOR[attribute] || 'black';
+      },
+      getOverHealLevelBonus: function (maxHP, overHealLevel) {
+         if (maxHP < 9 || maxHP > 63) {
+            console.error('max HP out of range: ' + maxHP);
+            return 1;
+         }
+         if (!overHealLevel) return 1;
+         var bonus = overHealLevel * HEAL_BONUS[maxHP-9];
+         if (bonus > KEYS.SKILL_LIMIT_HEAL_BONUS) bonus = KEYS.SKILL_LIMIT_HEAL_BONUS;
+         return 1 + bonus/100;
       }
    };
    ret.Common = CommonUtils;
@@ -1611,6 +1636,17 @@ var LLConst = (function () {
          } else {
             return (distinctMemberCount == 9 ? bigGroup : undefined);
          }
+      },
+      isSameColorTeam: function (members) {
+         if ((!members) || (members.length != 9)) {
+            console.error('isSameColorTeam: invalid members', members);
+            return undefined;
+         }
+         var curMemberColor = members[0].card.attribute;
+         for (var i = 1; i < members.length; i++) {
+            if (members[i].card.attribute != curMemberColor) return undefined;
+         }
+         return curMemberColor;
       },
       getMemberGrade: function (member) {
          mCheckInited('unit_type');
@@ -1735,16 +1771,8 @@ var LLConst = (function () {
          if (meta.heal_mul || meta.skill_mul || meta.ease_attr_mul) return true;
          return false;
       },
-      getGemDescription: function (gemData, iscn) {
-         var desc = gemData.id;
-         while (desc.length < 3) desc = '0' + desc;
-         desc += ' ';
-         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
-            desc += '●';
-         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
-            desc += '■';
-         }
-         desc += gemData.size + ' ';
+      getGemBriefDescription: function (gemData, iscn) {
+         var desc = '';
          var effect_type = gemData.effect_type;
          var effect_value = gemData.effect_value;
          if (effect_type == KEYS.SIS_EFFECT_TYPE_SMILE
@@ -1790,6 +1818,18 @@ var LLConst = (function () {
          } else {
             desc += gemData.jpname;
          }
+         return desc;
+      },
+      getGemDescription: function (gemData, iscn) {
+         var desc = gemData.id;
+         while (desc.length < 3) desc = '0' + desc;
+         desc += ' ';
+         if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
+            desc += '●';
+         } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
+            desc += '■';
+         }
+         desc += gemData.size + ' ' + GemUtils.getGemBriefDescription(gemData, iscn);
          if (gemData.member) {
             desc += '[' + ret.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP) + ']';
          }
@@ -1957,28 +1997,6 @@ var LLConst = (function () {
    ret.getComboFeverBonus = function(combo, pattern) {
       if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
       return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
-   };
-   var HEAL_BONUS = [0.26,  // 9
-      0.29, 0.31, 0.34, 0.37, 0.4,  // 10~14
-      0.43, 0.46, 0.49, 0.51, 0.59, // 15~19
-      0.63, 0.66, 0.7,  0.73, 0.77, // 20~24
-      0.8,  0.84, 0.88, 0.91, 0.95, // 25~29
-      0.99, 1.02, 1.06, 1.1,  1.14, // 30~34
-      1.18, 1.21, 1.76, 1.83, 1.9,  // 35~39
-      1.97, 2.04, 2.11, 2.18, 2.25, // 40~44
-      2.33, 2.64, 2.73, 2.82, 2.91, // 45~49
-      3,    3.09, 3.19, 3.28, 3.38, // 50~54
-      3.47, 3.57, 3.67, 3.77, 3.87, // 55~59
-      3.98, 4.08, 4.19, 4.29]; // 60~63
-   ret.getHealBonus = function(maxHp, curHp) {
-      if (maxHp < 9 || maxHp > 63) {
-         console.error('max HP out of range: ' + maxHp);
-         return 1;
-      }
-      if (curHp < maxHp*2) return 1;
-      var bonus = (Math.floor(curHp/maxHp + 1e-8)-1) * HEAL_BONUS[maxHp-9];
-      if (bonus > KEYS.SKILL_LIMIT_HEAL_BONUS) bonus = KEYS.SKILL_LIMIT_HEAL_BONUS;
-      return 1 + bonus/100;
    };
 
    var SKILL_TRIGGER_TEXT = {};
@@ -2488,9 +2506,10 @@ var LLUnit = {
       return LLUnit.numberToString(n, 2);
    },
 
-   numberToPercentString: function (n) {
+   numberToPercentString: function (n, precision) {
       if (n === undefined) return '';
-      return LLUnit.numberToString(n*100, 2) + '%';
+      if (precision === undefined) precision = 2;
+      return LLUnit.numberToString(n*100, precision) + '%';
    },
 
    // kizuna from twintailos.js, skilllevel from each page
@@ -2637,7 +2656,7 @@ var LLUnit = {
 
    /**
     * @param {HTMLElement} element 
-    * @param {string | HTMLElement} subElement 
+    * @param {LLH.Component.HTMLElementOrString} subElement 
     */
    appendSubElement: function (element, subElement) {
       if (typeof (subElement) == 'string') {
@@ -2648,11 +2667,8 @@ var LLUnit = {
    },
 
    /**
-    * @typedef {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} SubElements
-    */
-   /**
     * @param {HTMLElement} ele 
-    * @param {SubElements} subElements 
+    * @param {LLH.Component.SubElements} subElements 
     * @param {boolean} [isReplace]
     * @returns {HTMLElement} ele
     */
@@ -2682,7 +2698,7 @@ var LLUnit = {
    /**
     * @param {string} tag 
     * @param {*} [options]
-    * @param {SubElements} [subElements]
+    * @param {LLH.Component.SubElements} [subElements]
     * @param {{[x: string] : Function}} [eventHandlers]
     * @returns {HTMLElement}
     */
@@ -2724,7 +2740,7 @@ var LLUnit = {
 
    /**
     * @param {string} label 
-    * @param {SubElements} subElements 
+    * @param {LLH.Component.SubElements} subElements 
     * @returns {HTMLElement}
     */
    createFormInlineGroup: function (label, subElements) {
@@ -3309,13 +3325,17 @@ var LLSongSelectorComponent = (function() {
     * @param {HTMLElement} container 
     */
    function initMapInfo(me, container) {
+      var isLAMode = (me.mode == 'la');
       var selMapAtt = createFormSelect();
       var numMapCombo = createFormNumber(300);
       var numMapPerfect = createFormNumber(285);
       var numMapTime = createFormNumber(100);
       var numMapStarPerfect = createFormNumber(47);
-      var numBuffTapUp = createFormNumber(0);
-      var numBuffSkillUp = createFormNumber(0);
+      var numBuffTapUp = (!isLAMode ? createFormNumber(0) : undefined);
+      var numBuffSkillUp = (!isLAMode ? createFormNumber(0) : undefined);
+      var numDebuffSkillRateDown = (isLAMode ? createFormNumber(0) : undefined);
+      var numDebuffHpDownValue = (isLAMode ? createFormNumber(0): undefined);
+      var numDebuffHpDownInterval = (isLAMode ? createFormNumber(0): undefined);
       me.addFilterable(SEL_ID_MAP_ATT, new LLSelectComponent(selMapAtt));
       me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
          if (v == '') return true;
@@ -3336,10 +3356,19 @@ var LLSongSelectorComponent = (function() {
          createFormInlineGroup('总combo数', numMapCombo),
          createFormInlineGroup('perfect数', numMapPerfect),
          createFormInlineGroup('时间', [numMapTime, '秒（从人物出现到最后一个note被击打的时间，不是歌曲长度。部分谱面无长度数据，默认值为110秒）']),
-         createFormInlineGroup('星星perfect数', numMapStarPerfect),
-         createFormInlineGroup('点击得分增加', [numBuffTapUp, '%']),
-         createFormInlineGroup('技能发动率增加', [numBuffSkillUp, '%'])
+         createFormInlineGroup('星星perfect数', numMapStarPerfect)
       ]);
+      if (isLAMode) {
+         updateSubElements(container, [
+            createFormInlineGroup('技能发动率下降：', [numDebuffSkillRateDown, '%']),
+            createFormInlineGroup('体力伤害：', ['每', numDebuffHpDownInterval, '秒造成', numDebuffHpDownValue, '点伤害'])
+         ]);
+      } else {
+         updateSubElements(container, [
+            createFormInlineGroup('点击得分增加', [numBuffTapUp, '%']),
+            createFormInlineGroup('技能发动率增加', [numBuffSkillUp, '%'])
+         ]);
+      }
 
       me.updateMapInfo = function (songSetting) {
          if (songSetting) {
@@ -3360,7 +3389,11 @@ var LLSongSelectorComponent = (function() {
          });
          llmap.attribute = me.getSongAttribute();
          llmap.setSongDifficultyData(parseInt(numMapCombo.value), parseInt(numMapStarPerfect.value), parseInt(numMapTime.value), parseInt(numMapPerfect.value), parseInt(numMapStarPerfect.value));
-         llmap.setMapBuff(parseFloat(numBuffTapUp.value), parseFloat(numBuffSkillUp.value));
+         if (isLAMode) {
+            llmap.setLADebuff(parseFloat(numDebuffSkillRateDown.value), parseInt(numDebuffHpDownValue.value), parseFloat(numDebuffHpDownInterval.value));
+         } else {
+            llmap.setMapBuff(parseFloat(numBuffTapUp.value), parseFloat(numBuffSkillUp.value));
+         }
          llmap.setWeights(customWeights || songSetting.positionweight);
          return llmap;
       };
@@ -3378,6 +3411,7 @@ var LLSongSelectorComponent = (function() {
       var me = this;
       me.includeMapInfo = options.includeMapInfo || false;
       me.friendCSkill = options.friendCSkill || undefined;
+      me.mode = options.mode || 'normal';
 
       var container = LLUnit.getElement(id);
 
@@ -3708,6 +3742,7 @@ var LLMap = (function () {
          me.setFriendCSkill('smile', 'smile', 0, LLConst.GROUP_MUSE, 0);
       }
       me.setMapBuff();
+      me.setLADebuff();
    };
    /** @type {typeof LLH.Model.LLMap} */
    var cls = LLMap_cls;
@@ -3763,6 +3798,11 @@ var LLMap = (function () {
       this.data.tapup = parseFloat(tapup || 0);
       this.data.skillup = parseFloat(skillup || 0);
    };
+   proto.setLADebuff = function (skillRateDown, hpDownValue, hpDownInterval) {
+      this.data.debuff_skill_rate_down = parseFloat(skillRateDown || 0);
+      this.data.debuff_hp_down_value = parseInt(hpDownValue || 0);
+      this.data.debuff_hp_down_interval = parseInt(hpDownInterval || 0);
+   };
    proto.setDistParam = function (distParam) {
       this.data.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.data.combo);
       this.data.speed = distParam.speed;
@@ -3771,6 +3811,9 @@ var LLMap = (function () {
       this.data.over_heal_pattern = distParam.over_heal_pattern;
       this.data.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
       this.data.trigger_limit_pattern = distParam.trigger_limit_pattern;
+      if (distParam.type == 'sim' || distParam.type == 'simla') {
+         this.data.simMode = distParam.type;
+      }
    };
    proto.saveData = function () {
       return this.data;
@@ -3873,6 +3916,19 @@ var LLSisGem = (function () {
    };
    proto.getAttributeType = function () { return this.color; };
    proto.setAttributeType = function (newColor) { this.color = newColor; };
+   return cls;
+})();
+
+var LLCommonSisGem = (function () {
+   /**
+    * @constructor
+    * @param {LLH.API.SisDataType} gemData 
+    */
+   function LLCommonSisGem_cls(gemData) {
+      this.gemData = gemData;
+   }
+   /** @type {typeof LLH.Model.LLCommonSisGem} */
+   var cls = LLCommonSisGem_cls;
    return cls;
 })();
 
@@ -4067,23 +4123,41 @@ var LLMember = (function() {
          this.card = v.card;
       }
       this.gems = [];
-      if (v.gemlist === undefined) {
-         console.error('missing gem info');
-      } else if (v.card) {
-         for (i = 0; i < v.gemlist.length; i++) {
-            var gemMetaId = LLConst.GemType[v.gemlist[i]];
-            var memberId = v.card.typeid;
-            var sisOptions = {
-               'grade': LLConst.Member.getMemberGrade(memberId),
-               'member': memberId,
-               'unit': LLConst.Member.getBigGroupId(memberId)
-            };
-            if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
-               sisOptions.color = v.card.attribute;
-            } else {
-               sisOptions.color = mapAttribute;
+      if (!v.enableLAGem) {
+         if (v.gemlist === undefined) {
+            console.error('missing gem info');
+         } else if (v.card) {
+            for (i = 0; i < v.gemlist.length; i++) {
+               var gemMetaId = LLConst.GemType[v.gemlist[i]];
+               var memberId = v.card.typeid;
+               var sisOptions = {
+                  'grade': LLConst.Member.getMemberGrade(memberId),
+                  'member': memberId,
+                  'unit': LLConst.Member.getBigGroupId(memberId)
+               };
+               if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
+                  sisOptions.color = v.card.attribute;
+               } else {
+                  sisOptions.color = mapAttribute;
+               }
+               this.gems.push(new LLSisGem(gemMetaId, sisOptions));
             }
-            this.gems.push(new LLSisGem(gemMetaId, sisOptions));
+         }
+      }
+      this.laGems = [];
+      if (v.enableLAGem && v.laGemList && v.laGemList.length > 0) {
+         if (v.gemDataDict) {
+            for (i = 0; i < v.laGemList.length; i++) {
+               var gemId = v.laGemList[i];
+               var sisBrief = v.gemDataDict[gemId];
+               if (!sisBrief) {
+                  console.error('Missing sis gem data for id = ' + gemId);
+               } else {
+                  this.laGems.push(new LLCommonSisGem(sisBrief));
+               }
+            }
+         } else {
+            console.error('No sis gem data, skipping initialize laGems');
          }
       }
       if (v.accessory && v.accessoryData) {
@@ -4270,21 +4344,28 @@ var LLSimulateContextStatic = (function () {
     * @param {number} maxTime 
     */
    function LLSimulateContextStatic_cls(mapdata, team, maxTime){
+      this.simMode = mapdata.simMode || 'sim';
+
       var members = team.members;
+      var isLA = (this.simMode == 'simla');
       this.members = members;
       this.totalNote = mapdata.combo;
       this.totalTime = maxTime;
       this.totalPerfect = mapdata.perfect;
-      this.totalHP = team.totalHP;
-      this.mapSkillPossibilityUp = (1 + parseInt(mapdata.skillup || 0)/100);
-      this.mapTapScoreUp = (1 + parseInt(mapdata.tapup || 0)/100);
+      this.totalHP = team.getResults().totalHP;
+      this.mapSkillPossibilityUp = (isLA ? 1 : (1 + parseInt(mapdata.skillup || 0)/100));
+      this.mapTapScoreUp = (isLA ? 1 : (1 + parseInt(mapdata.tapup || 0)/100));
       this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
       this.comboFeverLimit = parseInt(mapdata.combo_fever_limit || LLConst.SKILL_LIMIT_COMBO_FEVER);
       this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
       this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
       this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
-      this.skillPosibilityDownFixed = 0;
+      this.skillPosibilityDownFixed = (isLA ? (mapdata.debuff_skill_rate_down || 0) : 0);
+      this.debuffHpDownValue = (isLA ? (mapdata.debuff_hp_down_value || 0) : 0);
+      this.debuffHpDownInterval = (isLA ? (mapdata.debuff_hp_down_interval || 0) : 0);
       this.hasRepeatSkill = false;
+      this.nonetTeam = LLConst.Member.isNonetTeam(members);
+      this.sameColorTeam = LLConst.Member.isSameColorTeam(members);
 
       for (var i = 0; i < 9; i++) {
          if ((members[i].card.skilleffect == LLConst.SKILL_EFFECT_REPEAT)
@@ -4298,6 +4379,12 @@ var LLSimulateContextStatic = (function () {
       for (var i = 0; i < 9; i++) {
          this.skillsStatic.push(this.makeSkillStaticInfo(i));
       }
+
+      var memberBonusFactor = [];
+      for (i = 0; i < 9; i++) {
+         memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
+      }
+      this.memberBonusFactor = memberBonusFactor;
    }
 
    /**
@@ -4432,6 +4519,22 @@ var LLSimulateContext = (function() {
    var SIM_NOTE_RELEASE = 4;
 
    /**
+    * @param {number} maxHP 
+    * @return {LLH.Model.LLSimulateContext_HP}
+    */
+   function initHPData(maxHP) {
+      return {
+         'currentHP': maxHP,
+         'overHealHP': 0,
+         'overHealLevel': 0,
+         'overHealBonus': 1,
+         'totalDamageValue': 0,
+         'totalHealValue': 0,
+         'frameHeal': 0
+      };
+   }
+
+   /**
     * @constructor
     * @param {LLH.Model.LLSimulateContextStatic} staticData
     */
@@ -4445,8 +4548,7 @@ var LLSimulateContext = (function() {
       this.currentScore = 0;
       this.currentPerfect = 0;
       this.currentStarPerfect = 0;
-      this.currentHeal = 0;
-      this.currentHealBonus = 1;
+      this.currentHPData = initHPData(staticData.totalHP);
       this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -4520,6 +4622,7 @@ var LLSimulateContext = (function() {
       eff[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] = 0; // total attribute +x, including sync and attribute up
       eff[LLConst.SKILL_EFFECT_LEVEL_UP] = 0; // level boost
       this.effects = eff;
+      this.isAccuracyState = false;
    };
    /** @type {typeof LLH.Model.LLSimulateContext} */
    var cls = LLSimulateContext_cls;
@@ -4536,9 +4639,15 @@ var LLSimulateContext = (function() {
       this.currentFrame = minFrame;
       this.currentTime = this.currentFrame * SEC_PER_FRAME;
    };
+   proto.setFailTime = function (t) {
+      if (this.failTime === undefined) {
+         this.failTime = t;
+      }
+   };
    proto.processDeactiveSkills = function() {
       if (this.activeSkills.length == 0) return;
       var activeIndex = 0;
+      var checkAccuracy = false;
       for (; activeIndex < this.activeSkills.length; activeIndex++) {
          var curActiveSkill = this.activeSkills[activeIndex];
          if (curActiveSkill.t <= this.currentTime) {
@@ -4561,6 +4670,7 @@ var LLSimulateContext = (function() {
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL
                || deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
                this.effects[deactivedSkillEffect] -= 1;
+               checkAccuracy = true;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
                this.effects[deactivedSkillEffect] = 1.0;
             } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP
@@ -4570,6 +4680,12 @@ var LLSimulateContext = (function() {
             activeIndex--;
          }
       }
+      if (checkAccuracy) {
+         this.updateAccuracyState();
+      }
+   };
+   proto.updateAccuracyState = function () {
+      this.isAccuracyState = (this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] > 0) || (this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] > 0);
    };
    proto.getMinDeactiveTime = function() {
       var minNextTime = undefined;
@@ -4748,10 +4864,11 @@ var LLSimulateContext = (function() {
          this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] += 1;
          if (effectTime === undefined) effectTime = effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
+         this.updateAccuracyState();
       } else if (effectType == LLConst.SKILL_EFFECT_HEAL) {
-         this.updateHeal(effectValue);
+         this.updateHP(effectValue);
          // 奶转分
-         if (this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
+         if (this.isFullHP() && this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
       } else if (effectType == LLConst.SKILL_EFFECT_SCORE) {
          if (this.members[realMemberId].hasSkillGem()) this.currentScore += Math.ceil(effectValue * 2.5);
          else this.currentScore += effectValue;
@@ -4802,11 +4919,49 @@ var LLSimulateContext = (function() {
       }
       return true;
    };
-   proto.updateHeal = function (delta) {
-      this.currentHeal += delta;
-      if (this.staticData.overHealPattern) {
-         this.currentHealBonus = LLConst.getHealBonus(this.staticData.totalHP, this.currentHeal + this.staticData.totalHP);
+   proto.updateHP = function (delta) {
+      var hpData = this.currentHPData;
+      hpData.frameHeal += delta;
+      if (delta > 0) {
+         hpData.totalHealValue += delta;
+      } else if (delta < 0) {
+         hpData.overHealHP = 0;
+         hpData.totalDamageValue -= delta;
       }
+   };
+   proto.commitHP = function () {
+      var hpData = this.currentHPData;
+      if (hpData.frameHeal !== 0) {
+         var totalHP = this.staticData.totalHP;
+         var delta = hpData.frameHeal;
+         if (delta > 0) {
+            if (hpData.currentHP + delta > totalHP)  {
+               hpData.overHealHP += hpData.currentHP + delta - totalHP;
+               hpData.currentHP = totalHP;
+            } else {
+               hpData.currentHP += delta;
+            }
+            if (hpData.overHealHP >= totalHP) {
+               while (hpData.overHealHP >= totalHP) {
+                  hpData.overHealLevel += 1;
+                  hpData.overHealHP -= totalHP;
+               }
+               hpData.overHealBonus = LLConst.Common.getOverHealLevelBonus(totalHP, hpData.overHealLevel);
+            }
+         } else if (delta < 0) {
+            hpData.currentHP += delta;
+            if (hpData.currentHP < 0) {
+               hpData.currentHP = 0;
+            }
+         }
+         hpData.frameHeal = 0;
+      }
+   };
+   proto.isFullHP = function () {
+      return this.currentHPData.currentHP == this.staticData.totalHP;
+   };
+   proto.isZeroHP = function () {
+      return this.currentHPData.currentHP == 0;
    };
    var makeDeltaTriggerCheck = function(key) {
       /**
@@ -4895,6 +5050,55 @@ var LLSimulateContext = (function() {
       ret.st = skillStatic;
       return ret;
    };
+   proto.updateLAGemTotalBonus = function () {
+      this.laGemTotalBonus = this.calculateLAGemTotalBonus();
+      this.currentScore = Math.ceil(this.currentScore * this.laGemTotalBonus);
+   };
+   proto.calculateLAGemTotalBonus = function () {
+      var i, j;
+      var totalBonus = 1;
+      for (i = 0; i < this.members.length; i++) {
+         var member = this.members[i];
+         for (j = 0; j < member.laGems.length; j++) {
+            var gemData = member.laGems[j].gemData;
+            while (gemData) {
+               if (this.isLAGemTakeEffect(gemData)) {
+                  if (gemData.effect_type == LLConst.SIS_EFFECT_TYPE_LA_SCORE) {
+                     totalBonus = totalBonus * (1 + gemData.effect_value / 100);
+                  }
+               }
+               gemData = gemData.sub_skill_data;
+            }
+         }
+      }
+      return totalBonus;
+   };
+   proto.isLAGemTakeEffect = function (laGem) {
+      if (laGem.type != LLConst.SIS_TYPE_LIVE_ARENA) return false;
+      if (laGem.group) {
+         return (laGem.group == this.staticData.nonetTeam);
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_HP_PERCENT) {
+         return ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_FULL_COMBO) {
+         return this.isFullCombo;
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_OVERHEAL) {
+         return (this.currentHPData.overHealLevel >= laGem.trigger_value);
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_SMILE) {
+         return (this.staticData.sameColorTeam == 'smile');
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_PURE) {
+         return (this.staticData.sameColorTeam == 'pure');
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_COOL) {
+         return (this.staticData.sameColorTeam == 'cool');
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_PERFECT_COUNT) {
+         return (this.currentPerfect >= laGem.trigger_value);
+      } else if (!laGem.trigger_ref) {
+         return true;
+      }
+      return false;
+   };
+   proto.setFullCombo = function () {
+      this.isFullCombo = true;
+   };
    proto.simulate = function (noteTriggerData, teamData) {
       // 1. 1速下如果有note时间点<1.8秒的情况下,歌曲会开头留白吗? 不留白的话瞬间出现的note会触发note系技能吗? 数量超过触发条件2倍的能触发多次吗?
       //   A1. 似乎不留白, note一帧出一个, 不会瞬间全出
@@ -4912,6 +5116,9 @@ var LLSimulateContext = (function() {
 
       var noteTriggerIndex = 0;
       var totalTime = this.staticData.totalTime;
+      var curNote = (0 < noteTriggerData.length ? noteTriggerData[0] : undefined);
+      var hasDamageSis = this.staticData.debuffHpDownInterval && this.staticData.debuffHpDownValue;
+      var nextDamageSisTime = this.staticData.debuffHpDownInterval;
       while (noteTriggerIndex < noteTriggerData.length || this.currentTime < totalTime) {
          // 1, check if any active skill need deactive
          this.processDeactiveSkills();
@@ -4955,8 +5162,10 @@ var LLSimulateContext = (function() {
                }
             }
          }
-         // 3. move to min next time
-         var minNoteTime = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex].time : undefined);
+         // 3. commit effects
+         this.commitHP();
+         // 4. move to min next time
+         var minNoteTime = (curNote !== undefined ? curNote.time : undefined);
          var minNextTime = this.currentTime;
          if (quickSkip) {
             minNextTime = totalTime;
@@ -4973,18 +5182,30 @@ var LLSimulateContext = (function() {
             }
          }
          this.updateNextFrameByMinTime(minNextTime);
-         // TODO: damage sis
+         // 5. damage sis
+         if (hasDamageSis) {
+            while (this.currentTime >= nextDamageSisTime) {
+               this.updateHP(-this.staticData.debuffHpDownValue);
+               this.commitHP();
+               if (this.isZeroHP()) {
+                  this.setFailTime(nextDamageSisTime);
+                  this.updateLAGemTotalBonus();
+                  return;
+               }
+               nextDamageSisTime += this.staticData.debuffHpDownInterval;
+            }
+         }
+         // 6. handle note
          var handleNote = (minNoteTime !== undefined && minNoteTime <= this.currentTime);
          // process at most one note per frame
          // need update time before process note so that the time-related skills uses correct current time
          if (handleNote) {
-            var curNote = noteTriggerData[noteTriggerIndex];
             if (curNote.type == SIM_NOTE_ENTER) {
                this.currentNote++;
             } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
                var isPerfect = (Math.random() * (this.staticData.totalNote - this.currentCombo) < this.remainingPerfect);
                var accuracyBonus = LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
-               var isAccuracyState = this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] || this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL];
+               var isAccuracyState = this.isAccuracyState;
                var comboFeverScore = 0;
                var perfectScoreUp = 0;
                this.currentCombo++;
@@ -5022,15 +5243,18 @@ var LLSimulateContext = (function() {
                //}
                var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
                // note position 数值1~9, 从右往左数
-               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHealBonus * teamData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
+               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHPData.overHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
                // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
                this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
                this.totalPerfectScoreUp += perfectScoreUp;
             }
             noteTriggerIndex++;
+            curNote = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex] : undefined);
          }
       }
+      this.setFullCombo();
+      this.updateLAGemTotalBonus();
    };
    return cls;
 })();
@@ -5040,6 +5264,7 @@ var LLTeam = (function() {
       if (members === undefined) throw("Missing members");
       if (members.length != 9) throw("Expect 9 members");
       this.members = members;
+      this.calculateResult = {};
    };
    /** @type {typeof LLH.Model.LLTeam} */
    var cls = LLTeam_cls;
@@ -5153,16 +5378,16 @@ var LLTeam = (function() {
          totalAttrStrength += attrStrength[i] - attrDebuff[i];
          totalHP += (curMember.hp || 0);
       }
-      this.attrStrength = attrStrength;
+      this.calculateResult.attrStrength = attrStrength;
       this.attrDebuff = attrDebuff;
-      this.finalAttr = finalAttr;
-      this.bonusAttr = bonusAttr;
+      this.calculateResult.finalAttr = finalAttr;
+      this.calculateResult.bonusAttr = bonusAttr;
       this.totalAttrNoAccuracy = finalAttr[mapcolor];
       this.totalAttrWithAccuracy = totalAttrWithAccuracy;
       // total
       this.totalWeight = mapdata.totalWeight;
-      this.totalAttrStrength = totalAttrStrength;
-      this.totalHP = totalHP;
+      this.calculateResult.totalAttrStrength = totalAttrStrength;
+      this.calculateResult.totalHP = totalHP;
       // TODO:判定宝石
    };
    var calcTeamSkills = function (llskills, env, isAvg) {
@@ -5196,7 +5421,7 @@ var LLTeam = (function() {
       // perfect+accurate: 1.35, perfect: 1.25, great: 1.1, good: 1
       var accuracyMulti = 1.1+0.15*(mapdata.perfect/mapdata.combo);
       var scorePerStrength = 1.21/100*this.totalWeight*comboMulti*accuracyMulti;
-      var minScore = Math.round(this.totalAttrStrength * scorePerStrength * (1+mapdata.tapup/100));
+      var minScore = Math.round(this.calculateResult.totalAttrStrength * scorePerStrength * (1+mapdata.tapup/100));
 
       var avgSkills = [];
       var maxSkills = [];
@@ -5224,19 +5449,19 @@ var LLTeam = (function() {
       }
       this.avgSkills = avgSkills;
       this.maxSkills = maxSkills;
-      this.minScore = minScore;
+      this.calculateResult.minScore = minScore;
       this.averageScoreNumber = env.averageScore;
       this.averageScore = (env.averageScore == MAX_SCORE ? MAX_SCORE_TEXT : env.averageScore);
       this.maxScoreNumber = env.maxScore;
-      this.maxScore = (env.maxScore == MAX_SCORE ? MAX_SCORE_TEXT : env.maxScore);
-      this.averageHeal = env.averageHeal;
+      this.calculateResult.maxScore = (env.maxScore == MAX_SCORE ? MAX_SCORE_TEXT : env.maxScore);
+      this.calculateResult.averageHeal = env.averageHeal;
       this.maxHeal = env.maxHeal;
       // total
-      this.totalSkillStrength = totalSkillStrength;
-      this.totalStrength = this.totalAttrStrength + this.totalSkillStrength;
+      this.calculateResult.totalSkillStrength = totalSkillStrength;
+      this.calculateResult.totalStrength = this.calculateResult.totalAttrStrength + totalSkillStrength;
    };
    proto.calculateScoreDistribution = function () {
-      if (this.maxScore == MAX_SCORE) {
+      if (this.calculateResult.maxScore == MAX_SCORE) {
          console.error('Cannot calculate distribution for infinite max score');
          return '分数太高，无法计算分布';
       }
@@ -5255,7 +5480,7 @@ var LLTeam = (function() {
          }
       }
       // non-score trigger skills
-      var scoreRange = this.maxScore - this.minScore + 1;
+      var scoreRange = this.calculateResult.maxScore - this.calculateResult.minScore + 1;
       var scorePossibility = [new Array(scoreRange), new Array(scoreRange)];
       var pCur = 0, pNext = 1;
       var curMax = 0;
@@ -5287,11 +5512,11 @@ var LLTeam = (function() {
                minIndex = i;
             }
          }
-         if (minNextScore > this.maxScore) break;
+         if (minNextScore > this.calculateResult.maxScore) break;
          var curSkill = scoreTriggerSkills[minIndex];
          var curScore = curSkill.actualScore;
          var curPossibility = curSkill.actualPossibility / 100;
-         var minNextScoreIndex = minNextScore - this.minScore;
+         var minNextScoreIndex = minNextScore - this.calculateResult.minScore;
          if (minNextScoreIndex < 0) minNextScoreIndex = 0;
          var nextMax = curMax + curScore;
          for (var i = 0; i < minNextScoreIndex; i++) {
@@ -5311,9 +5536,9 @@ var LLTeam = (function() {
       }
       //console.debug(scorePossibility[pCur]);
       this.scoreDistribution = scorePossibility[pCur];
-      this.scoreDistributionMinScore = this.minScore;
-      this.probabilityForMinScore = this.scoreDistribution[0];
-      this.probabilityForMaxScore = this.scoreDistribution[this.scoreDistribution.length - 1];
+      this.scoreDistributionMinScore = this.calculateResult.minScore;
+      this.calculateResult.probabilityForMinScore = this.scoreDistribution[0];
+      this.calculateResult.probabilityForMaxScore = this.scoreDistribution[this.scoreDistribution.length - 1];
       return undefined;
    };
    proto.simulateScoreDistribution = function (mapdata, noteData, simCount) {
@@ -5367,11 +5592,6 @@ var LLTeam = (function() {
          // 在缺少歌曲长度数据的情况下, 留1秒空白
          maxTime = maxTime + 1;
       }
-      var memberBonusFactor = [];
-      for (i = 0; i < 9; i++) {
-         memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
-      }
-      this.memberBonusFactor = memberBonusFactor;
 
       var scores = {};
       var skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -5383,7 +5603,11 @@ var LLTeam = (function() {
       var accessoryActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var accessoryActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var totalHeal = 0;
+      var totalDamage = 0;
+      var totalOverHealLevel = 0;
       var totalAccuracyCoverNote = 0;
+      var totalFail = 0;
+      var totalLABonus = 0;
       var staticData = new LLSimulateContextStatic(mapdata, this, maxTime);
       for (i = 0; i < simCount; i++) {
          var env = new LLSimulateContext(staticData);
@@ -5394,8 +5618,14 @@ var LLTeam = (function() {
          } else {
             scores[env.currentScore] = 1;
          }
-         totalHeal += env.currentHeal;
+         totalHeal += env.currentHPData.totalHealValue;
+         totalDamage += env.currentHPData.totalDamageValue;
+         totalOverHealLevel += env.currentHPData.overHealLevel;
          totalAccuracyCoverNote += env.currentAccuracyCoverNote;
+         totalLABonus += env.laGemTotalBonus;
+         if (env.failTime !== undefined) {
+            totalFail += 1;
+         }
          for (var j = 0; j < 9; j++) {
             skillsActiveCount[j] += env.skillsActiveCount[j];
             skillsActiveChanceCount[j] += env.skillsActiveChanceCount[j];
@@ -5417,28 +5647,51 @@ var LLTeam = (function() {
          accessoryActiveNoEffectCount[i] /= simCount;
          accessoryActiveHalfEffectCount[i] /= simCount;
       }
-      var scoreValues = Object.keys(scores).sort(function(a,b){return parseInt(a) - parseInt(b);});
-      var minScore = parseInt(scoreValues[0]);
-      var scoreDistribution = new Array(scoreValues[scoreValues.length-1]-minScore+1);
-      for (i = 0; i < scoreValues.length; i++) {
-         scoreDistribution[scoreValues[i]-minScore] = scores[scoreValues[i]]/simCount;
+      /** @type {LLH.Internal.SimulateScoreResult[]} */
+      var simResults = [];
+      for (i in scores) {
+         simResults.push({
+            'score': parseInt(i),
+            'count': scores[i]
+         });
       }
-      this.scoreDistributionMinScore = minScore;
-      this.scoreDistribution = scoreDistribution;
-      this.probabilityForMinScore = this.scoreDistribution[0];
-      this.probabilityForMaxScore = this.scoreDistribution[this.scoreDistribution.length - 1];
-      this.minScore = minScore;
-      this.maxScore = scoreValues[scoreValues.length -1];
-      this.averageSkillsActiveCount = skillsActiveCount;
-      this.averageSkillsActiveChanceCount = skillsActiveChanceCount;
-      this.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
-      this.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
-      this.averageAccessoryActiveCount = accessoryActiveCount;
-      this.averageAccessoryActiveChanceCount = accessoryActiveChanceCount;
-      this.averageAccessoryActiveNoEffectCount = accessoryActiveNoEffectCount;
-      this.averageAccessoryActiveHalfEffectCount = accessoryActiveHalfEffectCount;
-      this.averageHeal = totalHeal / simCount;
-      this.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
+      simResults.sort(function(a, b) {return a.score - b.score;});
+      var minResult = simResults[0];
+      var maxResult = simResults[simResults.length - 1];
+      var expection = 0;
+      var percentile = [minResult.score];
+      var sumResultCount = 0;
+      var nextResultCount = parseInt(percentile.length * simCount / 100);
+      for (i = 0; i < simResults.length; i++) {
+         var curResult = simResults[i];
+         sumResultCount += curResult.count;
+         expection += curResult.count * curResult.score;
+         while (sumResultCount >= nextResultCount) {
+            percentile.push(curResult.score);
+            nextResultCount = parseInt(percentile.length * simCount / 100);
+         }
+      }
+      this.calculateResult.simulateScoreResults = simResults;
+      this.calculateResult.naivePercentile = percentile;
+      this.calculateResult.naiveExpection = Math.round(expection / simCount);
+      this.calculateResult.probabilityForMinScore = minResult.count / simCount;
+      this.calculateResult.probabilityForMaxScore = maxResult.count / simCount;
+      this.calculateResult.minScore = minResult.score;
+      this.calculateResult.maxScore = maxResult.score;
+      this.calculateResult.averageSkillsActiveCount = skillsActiveCount;
+      this.calculateResult.averageSkillsActiveChanceCount = skillsActiveChanceCount;
+      this.calculateResult.averageSkillsActiveNoEffectCount = skillsActiveNoEffectCount;
+      this.calculateResult.averageSkillsActiveHalfEffectCount = skillsActiveHalfEffectCount;
+      this.calculateResult.averageAccessoryActiveCount = accessoryActiveCount;
+      this.calculateResult.averageAccessoryActiveChanceCount = accessoryActiveChanceCount;
+      this.calculateResult.averageAccessoryActiveNoEffectCount = accessoryActiveNoEffectCount;
+      this.calculateResult.averageAccessoryActiveHalfEffectCount = accessoryActiveHalfEffectCount;
+      this.calculateResult.averageHeal = totalHeal / simCount;
+      this.calculateResult.averageDamage = totalDamage / simCount;
+      this.calculateResult.averageOverHealLevel = totalOverHealLevel / simCount;
+      this.calculateResult.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
+      this.calculateResult.averageLABonus = totalLABonus / simCount;
+      this.calculateResult.failRate = totalFail / simCount;
    };
    proto.calculatePercentileNaive = function () {
       if (this.scoreDistribution === undefined || this.scoreDistributionMinScore === undefined) {
@@ -5472,8 +5725,8 @@ var LLTeam = (function() {
          percentile[100] = i+minScore-1;
       }
       console.debug('calculatePercentileNaive: expection = ' + expection + ', percent = 1 ' + (percent >= 1 ? '+ ' : '- ') + Math.abs(percent-1));
-      this.naivePercentile = percentile;
-      this.naiveExpection = Math.round(expection);
+      this.calculateResult.naivePercentile = percentile;
+      this.calculateResult.naiveExpection = Math.round(expection);
    };
    proto.calculateMic = function () {
       var micPoint = 0;
@@ -5483,12 +5736,12 @@ var LLTeam = (function() {
       }
       for (i = 9; i >= 0; i--) {
          if (micPoint >= MIC_BOUNDARIES[i]) {
-            this.micNumber = i+1;
+            this.calculateResult.micNumber = i+1;
             break;
          }
       }
-      if (i < 0) this.micNumber = 0;
-      this.equivalentURLevel = micPoint/40;
+      if (i < 0) this.calculateResult.micNumber = 0;
+      this.calculateResult.equivalentURLevel = micPoint/40;
    };
    proto.autoArmGem = function (mapdata, gemStock) {
       var mapcolor = mapdata.attribute;
@@ -5838,18 +6091,7 @@ var LLTeam = (function() {
       return resultSubMembers;
    };
    proto.getResults = function () {
-      /** @type {LLH.Internal.CalculateResultType} */
-      var ret = {};
-      var keys = ['attrStrength', 'finalAttr', 'bonusAttr', 'totalStrength', 'totalAttrStrength', 'totalSkillStrength', 'totalHP',
-         'averageSkillsActiveCount', 'averageSkillsActiveChanceCount', 'averageSkillsActiveNoEffectCount', 'averageSkillsActiveHalfEffectCount',
-         'averageHeal', 'averageAccuracyNCoverage', 'naivePercentile', 'equivalentURLevel',
-         'averageAccessoryActiveCount', 'averageAccessoryActiveChanceCount', 'averageAccessoryActiveNoEffectCount', 'averageAccessoryActiveHalfEffectCount'
-      ];
-      for (var i = 0; i < keys.length; i++) {
-         var k = keys[i];
-         if (this[k] !== undefined) ret[k] = this[k];
-      }
-      return ret;
+      return this.calculateResult;
    };
    return cls;
 })();
@@ -7059,11 +7301,15 @@ var LLDataVersionSelectorComponent = (function () {
 var LLScoreDistributionParameter = (function () {
    var createElement = LLUnit.createElement;
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
+   var updateSubElements = LLUnit.updateSubElements;
 
    var distTypeSelectOptions = [
       {'value': 'no', 'text': '不计算分布'},
       {'value': 'v1', 'text': '计算理论分布'},
       {'value': 'sim', 'text': '计算模拟分布'}
+   ];
+   var distTypeLASelectOptions = [
+      {'value': 'simla', 'text': '计算模拟分布（演唱会竞技场）'}
    ];
    var speedSelectOptions = [
       {'value': '1', 'text': '1速'},
@@ -7090,16 +7336,18 @@ var LLScoreDistributionParameter = (function () {
       {'value': '1', 'text': '启用'}
    ];
    var distTypeDetail = [
-      ['#要素', '#计算理论分布/计算技能强度', '#计算模拟分布'],
-      ['触发条件: 时间, 图标, 连击, perfect, star perfect, 分数', '支持', '支持'],
-      ['触发条件: 连锁', '不支持', '支持'],
-      ['技能效果: 回血, 加分', '支持', '支持'],
-      ['技能效果: 小判定, 大判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持'],
-      ['宝石: 诡计', '不支持', '支持'],
-      ['溢出奶, 完美判', '不支持', '支持'],
-      ['爆分发动次数限制', '不支持', '支持'],
-      ['饰品: 判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持'],
-      ['饰品: 火花', '不支持', '不支持']
+      ['#要素', '#计算理论分布/计算技能强度', '#计算模拟分布', '#计算模拟分布（演唱会竞技场）'],
+      ['触发条件: 时间, 图标, 连击, perfect, star perfect, 分数', '支持', '支持', '支持'],
+      ['触发条件: 连锁', '不支持', '支持', '支持'],
+      ['技能效果: 回血, 加分', '支持', '支持', '支持'],
+      ['技能效果: 小判定, 大判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持', '支持'],
+      ['圆宝石: 属性提升类，魅力，治愈', '支持', '支持', '不支持'],
+      ['圆宝石: 诡计', '不支持', '支持', '不支持'],
+      ['方宝石', '不支持', '不支持', '支持'],
+      ['溢出奶, 完美判', '不支持', '支持', '支持'],
+      ['爆分发动次数限制', '不支持', '支持', '支持'],
+      ['饰品: 判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持', '支持'],
+      ['饰品: 火花', '不支持', '不支持', '不支持']
    ];
 
    /**
@@ -7122,8 +7370,12 @@ var LLScoreDistributionParameter = (function () {
       return createSelectComponent(enableDisableSelectOptions, (defaultEnable ? '1' : '0'));
    }
 
-   /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller */
-   function createDistributionTypeSelector(controller) {
+   /**
+    * @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller
+    * @param {LLH.Layout.LayoutMode} mode
+    */
+   function createDistributionTypeSelector(controller, mode) {
+      var isLAMode = (mode == 'la');
       var detailContainer = createElement('div');
       var detailContainerComponent = 0;
       var detailLink = createElement('a', {'innerHTML': '查看支持计算的技能/宝石', 'href': 'javascript:;'}, undefined, {'click': function () {
@@ -7143,28 +7395,39 @@ var LLScoreDistributionParameter = (function () {
       var simParamOverHealComponent = createEnableDisableComponent(true);
       var simParamPerfectAccuracyComponent = createEnableDisableComponent(true);
       var simParamTriggerLimitComponent = createEnableDisableComponent(true);
-      var simParamContainer = createElement('div', {'className': 'filter-form'}, [
+      var simParamContainer = createElement('div', {'className': 'filter-form label-size-12'}, [
          createFormInlineGroup('模拟次数：', [simParamCount, '（模拟次数越多越接近实际分布，但是也越慢）']),
          createFormInlineGroup('无判perfect率：', [simParamPerfectPercent, '%']),
          createFormInlineGroup('速度：', [simParamSpeedComponent.element, '（图标下落速度，1速最慢，10速最快）']),
          createFormInlineGroup('Combo Fever技能：', [simParamComboFeverPatternComponent.element, simParamComboFeverLimitComponent.element]),
          createFormInlineGroup('溢出奶：', simParamOverHealComponent.element),
          createFormInlineGroup('完美判：', simParamPerfectAccuracyComponent.element),
-         createFormInlineGroup('爆分发动次数限制：', simParamTriggerLimitComponent.element),
-         createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'})
+         createFormInlineGroup('爆分发动次数限制：', simParamTriggerLimitComponent.element)
       ]);
+      if (!isLAMode) {
+         updateSubElements(simParamContainer, createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'}));
+      }
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
       var selComp = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
-      selComp.setOptions(distTypeSelectOptions);
+      if (!isLAMode) {
+         selComp.setOptions(distTypeSelectOptions);
+      } else {
+         selComp.setOptions(distTypeLASelectOptions);
+      }
       selComp.onValueChange = function (v) {
-         if (v == 'sim') {
+         if (v == 'sim' || v == 'simla') {
             simParamContainerComponent.show();
          } else {
             simParamContainerComponent.hide();
          }
       };
-      selComp.set('no');
-      simParamContainerComponent.hide();
+      if (!isLAMode) {
+         selComp.set('no');
+         simParamContainerComponent.hide();
+      } else {
+         selComp.set('simla');
+         simParamContainerComponent.show();
+      }
       var container = createElement('div', undefined, [
          createFormInlineGroup('选择分数分布计算模式：', [selComp.element, detailLink]),
          detailContainer,
@@ -7181,7 +7444,7 @@ var LLScoreDistributionParameter = (function () {
             'over_heal_pattern': parseInt(simParamOverHealComponent.get()),
             'perfect_accuracy_pattern': parseInt(simParamPerfectAccuracyComponent.get()),
             'trigger_limit_pattern': parseInt(simParamTriggerLimitComponent.get())
-         }
+         };
       };
       controller.setParameters = function (data) {
          if (!data) return;
@@ -7201,12 +7464,15 @@ var LLScoreDistributionParameter = (function () {
    /**
     * @constructor
     * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter_Options} options
     */
-   function LLScoreDistributionParameter_cls(id) {
+   function LLScoreDistributionParameter_cls(id, options) {
       var element = LLUnit.getElement(id);
       /** @type {LLH.Layout.ScoreDistParam.ScoreDistParamController} */
       var controller = {};
-      element.appendChild(createDistributionTypeSelector(controller));
+      if (!options) options = {};
+      var mode = options.mode || 'normal';
+      element.appendChild(createDistributionTypeSelector(controller, mode));
       this.saveData = controller.getParameters;
       this.loadData = controller.setParameters;
    }
@@ -7597,22 +7863,12 @@ var LLTeamComponent = (function () {
    }
 
    /**
-    * @typedef LLTeam_NormalGemListItemController
-    * @property {(attribute?: AttributeType) => void} resetAttribute (out)
-    * @property {(metaId: number) => void} resetMetaId (out)
-    * @property {() => number} getMetaId (out)
-    * @property {() => void} [onDelete] (in)
-    */
-   /**
-    * @param {LLTeam_NormalGemListItemController} controller 
-    * @param {number} metaId
-    * @param {AttributeType} [attribute]
+    * @param {LLH.Layout.Team.TeamGemListItemController} controller 
+    * @param {string} dotClass
     * @param {boolean} [popLeft]
     * @returns {HTMLElement} 
     */
-   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
-      var myMetaId = metaId;
-      var myAttr = attribute;
+   function renderGemListItem(controller, dotClass, popLeft) {
       var callbackOnDelete = function () {
          controller.onDelete && controller.onDelete();
       };
@@ -7621,62 +7877,166 @@ var LLTeamComponent = (function () {
       for (var i = 0; i < 8; i++) {
          dots.push(createElement('div', {'style': {'display': 'none'}}));
       }
-      var btnDots = createElement('span', {'className': 'gem-dot'}, dots);
+      var btnDots = createElement('span', {'className': dotClass}, dots);
       var btnTooltip = createElement('span', {'className': 'tooltiptext' + (popLeft ? ' pop-left' : '')});
       var btnContainer = createElement('div', {'className': 'lltooltip'}, [btnName, btnTooltip]);
-      var updateMeta = function () {
-         var meta = LLConst.Gem.getNormalGemMeta(myMetaId);
-         var slot = meta.slot;
-         for (var i = 0; i < 8; i++) {
-            dots[i].style.display = (i < slot ? '' : 'none');
-         }
-         btnTooltip.innerHTML = LLConst.Gem.getNormalGemNameAndDescription(meta) + '<br/>点击移除该宝石';
-         updateSubElements(btnName, [LLConst.Gem.getNormalGemName(meta), btnDots], true);
+      var curSlot = 0;
+      var curId = undefined;
+      controller.setName = function (newName) {
+         updateSubElements(btnName, [newName, btnDots], true);
       };
-      var updateColor = function () {
+      controller.setGemColor = function (newColor) {
          for (var i = 0; i < 8; i++) {
-            dots[i].style['background-color'] = LLConst.Common.getAttributeColor(myAttr);
+            dots[i].style['background-color'] = newColor;
          }
       };
-      controller.resetMetaId = function (id) {
-         myMetaId = id;
-         updateMeta();
+      controller.setSlot = function (newSlot) {
+         for (var i = 0; i < 8; i++) {
+            dots[i].style.display = (i < newSlot ? '' : 'none');
+         }
+         curSlot = newSlot;
       };
-      controller.resetAttribute = function (attr) {
-         myAttr = attr;
-         updateColor();
+      controller.getSlot = function () {
+         return curSlot;
       };
-      controller.getMetaId = function () {
-         return myMetaId;
+      controller.setTooltip = function (newTooltip) {
+         btnTooltip.innerHTML = newTooltip + '<br/>点击移除该宝石';
       };
-      updateMeta();
-      updateColor();
+      controller.setId = function (id) {
+         curId = id;
+      };
+      controller.getId = function () {
+         return curId;
+      };
       return btnContainer;
    }
 
    /**
-    * @typedef LLTeam_NormalGemListController
-    * @property {() => string[]} get (out) normal gem meta key list
-    * @property {(normalGemMetaKeyList: string[]) => void} set (out)
-    * @property {(memberAttribute?: AttributeType, mapAttribute?: AttributeType) => void} setAttributes (out)
-    * @property {(normalGemMetaKey: string) => void} add (out)
-    * @property {(index: number, slots: number) => void} [onListChange] (in)
+    * @param {LLH.Layout.Team.TeamNormalGemListItemController} controller 
+    * @param {number} metaId
+    * @param {LLH.Core.AttributeType} [attribute]
+    * @param {boolean} [popLeft]
+    * @returns {HTMLElement} 
     */
+   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
+      var myAttr = attribute;
+      var ret = renderGemListItem(controller, 'gem-dot', popLeft);
+      controller.resetMetaId = function (id) {
+         controller.setId(id);
+         var meta = LLConst.Gem.getNormalGemMeta(id);
+         controller.setName(LLConst.Gem.getNormalGemName(meta));
+         controller.setSlot(meta.slot);
+         controller.setTooltip(LLConst.Gem.getNormalGemNameAndDescription(meta));
+      };
+      controller.resetAttribute = function (attr) {
+         myAttr = attr;
+         controller.setGemColor(LLConst.Common.getAttributeColor(myAttr));
+      };
+      controller.resetMetaId(metaId);
+      controller.resetAttribute(attribute);
+      return ret;
+   }
+
    /**
-    * @param {LLTeam_NormalGemListController} controller 
-    * @param {number} index
+    * @param {LLH.Layout.Team.TeamLAGemListItemController} controller 
+    * @param {number} gemId
+    * @param {boolean} [popLeft]
+    * @returns {HTMLElement} 
+    */
+   function renderLAGemListItem(controller, gemId, popLeft) {
+      var ret = renderGemListItem(controller, 'gem-square', popLeft);
+      controller.resetGemId = function (id) {
+         controller.setId(id);
+         /** @type {LLH.API.SisDataType} */
+         var gemData = LLSisData.getAllCachedBriefData()[id];
+         controller.setName(LLConst.Gem.getGemBriefDescription(gemData, true));
+         controller.setSlot(gemData.size);
+         controller.setTooltip(LLConst.Gem.getGemDescription(gemData, true));
+         controller.setGemColor(LLConst.Gem.getGemColor(gemData));
+      };
+      controller.resetGemId(gemId);
+      return ret;
+   }
+
+   /**
+    * @param {LLH.Layout.Team.TeamGemListController} controller 
+    * @returns {HTMLElement}
+    */
+   function renderGemList(controller) {
+      var listContainer = createElement('div', {'className': 'gem-list'});
+      /** @type {HTMLElement[]} */
+      var listItems = [];
+      /** @type {LLH.Layout.Team.TeamGemListItemController[]} */
+      var listItemControllers = [];
+      controller.getCount = function () {
+         return listItems.length;
+      };
+      controller.getItemController = function (itemIndex) {
+         return listItemControllers[itemIndex];
+      };
+      controller.getTotalSlot = function () {
+         var totalSlot = 0;
+         for (var i = 0; i < listItemControllers.length; i++) {
+            totalSlot += listItemControllers[i].getSlot();
+         }
+         return totalSlot;
+      };
+      controller.forEachItemController = function (callback) {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (callback(listItemControllers[i], i)) break;
+         }
+      };
+      controller.mapItemController = function (callback) {
+         return listItemControllers.map(callback);
+      };
+      controller.addListItem = function (element, itemController) {
+         listItems.push(element);
+         listItemControllers.push(itemController);
+         updateSubElements(listContainer, element);
+      };
+      controller.removeListItemByIndex = function (itemIndex) {
+         if (itemIndex === undefined || itemIndex < 0 || itemIndex >= listItems.length) {
+            console.error('Invalid index to delete: ' + itemIndex);
+            return false;
+         }
+         listContainer.removeChild(listItems[itemIndex]);
+         listItems.splice(itemIndex, 1);
+         listItemControllers.splice(itemIndex, 1);
+         return true;
+      };
+      controller.removeListItemByController = function (itemController) {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (itemController === listItemControllers[i]) {
+               return controller.removeListItemByIndex(i);
+            }
+         }
+         console.error('Invalid controller to delete');
+         console.info(itemController);
+         return false;
+      };
+      controller.hasListItemId = function (itemId) {
+         for (var i = 0; i < listItemControllers.length; i++) {
+            if (listItemControllers[i].getId() == itemId) {
+               return true;
+            }
+         }
+         return false;
+      };
+      return listContainer;
+   }
+
+   /**
+    * @param {LLH.Layout.Team.TeamNormalGemListController} controller 
+    * @param {number} position
     * @returns {HTMLElement[]}
     */
-   function normalGemListCreator(controller, index) {
+   function normalGemListCreator(controller, position) {
       /** @type {AttributeType} */
       var memberAttribute = undefined;
       /** @type {AttributeType} */
       var mapAttribute = undefined;
-      var listContainer = createElement('div', {'className': 'gem-list'});
-      /** @type {HTMLElement[]} */
-      var listItems = [];
-      /** @type {LLTeam_NormalGemListItemController[]} */
-      var listItemControllers = [];
+      var listContainer = renderGemList(controller);
+
       /** @param {number} normalGemMetaId */
       var getAttributeForGem = function (normalGemMetaId) {
          if (LLConst.Gem.isGemFollowMemberAttribute(normalGemMetaId)) {
@@ -7687,48 +8047,13 @@ var LLTeamComponent = (function () {
             return mapAttribute;
          }
       };
-      var updateColor = function () {
-         for (var i = 0; i < listItemControllers.length; i++) {
-            var curController = listItemControllers[i];
-            curController.resetAttribute(getAttributeForGem(curController.getMetaId()));
-         }
+      /** @param {LLH.Layout.Team.TeamNormalGemListItemController} curController */
+      var updateOneColor = function (curController) {
+         curController.resetAttribute(getAttributeForGem(curController.getId()));
       };
       var callbackListChange = function () {
          if (controller.onListChange) {
-            var totalSlot = 0;
-            for (var i = 0; i < listItemControllers.length; i++) {
-               var meta = LLConst.Gem.getNormalGemMeta(listItemControllers[i].getMetaId());
-               if (meta) {
-                  totalSlot += meta.slot;
-               }
-            }
-            controller.onListChange(index, totalSlot);
-         }
-      };
-      /**
-       * @param {LLTeam_NormalGemListItemController} [controller] delete by controller ref
-       * @param {number} [index] delete by index
-       * @param {boolean} doCallback
-       */
-      var deleteListItem = function (controller, index, doCallback) {
-         if (index === undefined) {
-            for (var i = 0; i < listItemControllers.length; i++) {
-               if (controller === listItemControllers[i]) {
-                  index = i;
-                  break;
-               }
-            }
-         }
-         if (index === undefined) {
-            console.error('Not found index to delete');
-            console.info(controller);
-            return;
-         }
-         listContainer.removeChild(listItems[index]);
-         listItems.splice(index, 1);
-         listItemControllers.splice(index, 1);
-         if (doCallback) {
-            callbackListChange();
+            controller.onListChange(position, controller.getTotalSlot());
          }
       };
       /**
@@ -7736,28 +8061,33 @@ var LLTeamComponent = (function () {
        * @param {boolean} doCallback 
        */
       var addListItem = function (normalGemMetaId, doCallback) {
-         /** @type {LLTeam_NormalGemListItemController} */
+         /** @type {LLH.Layout.Team.TeamNormalGemListItemController} */
          var itemController = {
-            'onDelete': () => deleteListItem(itemController, undefined, true)
+            'onDelete': function () {
+               controller.removeListItemByController(itemController);
+               callbackListChange();
+            }
          };
-         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), index >= 7);
-         listItems.push(item);
-         listItemControllers.push(itemController);
-         updateSubElements(listContainer, item);
+         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), position >= 7);
+         controller.addListItem(item, itemController);
          if (doCallback) {
             callbackListChange();
          }
       };
       controller.get = function () {
-         return listItemControllers.map((c) => LLConst.Gem.getNormalGemMeta(c.getMetaId()).key);
+         return controller.mapItemController((itemController) => LLConst.Gem.getNormalGemMeta(itemController.getId()).key);
       };
       controller.set = function (normalGemMetaKeyList) {
+         if (normalGemMetaKeyList === undefined) {
+            normalGemMetaKeyList = [];
+         }
          var i = 0;
          for (; i < normalGemMetaKeyList.length; i++) {
             var curId = LLConst.GemType[normalGemMetaKeyList[i]];
-            if (i < listItemControllers.length) {
-               var curController = listItemControllers[i];
-               if (curController.getMetaId() != curId) {
+            if (i < controller.getCount()) {
+               /** @type {LLH.Layout.Team.TeamNormalGemListItemController} */
+               var curController = controller.getItemController(i);
+               if (curController.getId() != curId) {
                   curController.resetMetaId(curId);
                   curController.resetAttribute(getAttributeForGem(curId))
                }
@@ -7765,8 +8095,8 @@ var LLTeamComponent = (function () {
                addListItem(curId, false);
             }
          }
-         for (; i < listItemControllers.length;) {
-            deleteListItem(undefined, i, false);
+         for (; i < controller.getCount();) {
+            controller.removeListItemByIndex(i);
          }
          callbackListChange();
       };
@@ -7777,16 +8107,80 @@ var LLTeamComponent = (function () {
          if (mapAttr !== undefined) {
             mapAttribute = mapAttr;
          }
-         updateColor();
+         controller.forEachItemController(updateOneColor);
       };
       controller.add = function (normalGemMetaKey) {
          var gemId = LLConst.GemType[normalGemMetaKey];
          if (gemId === undefined) return;
-         for (var i = 0; i < listItemControllers.length; i++) {
-            if (listItemControllers[i].getMetaId() == gemId) {
-               console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
-               return;
+         if (controller.hasListItemId(gemId)) {
+            console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
+            return;
+         }
+         addListItem(gemId, true);
+      };
+      return [listContainer];
+   }
+
+   /**
+    * @param {LLH.Layout.Team.TeamLAGemListController} controller 
+    * @param {number} position
+    * @returns {HTMLElement[]}
+    */
+   function laGemListCreator(controller, position) {
+      var listContainer = renderGemList(controller);
+      var callbackListChange = function () {
+         if (controller.onListChange) {
+            controller.onListChange(position, controller.getTotalSlot());
+         }
+      };
+      /**
+       * @param {number} gemId 
+       * @param {boolean} doCallback 
+       */
+       var addListItem = function (gemId, doCallback) {
+         /** @type {LLH.Layout.Team.TeamLAGemListItemController} */
+         var itemController = {
+            'onDelete': function () {
+               controller.removeListItemByController(itemController);
+               callbackListChange();
             }
+         };
+         var item = renderLAGemListItem(itemController, gemId, position >= 7);
+         controller.addListItem(item, itemController);
+         if (doCallback) {
+            callbackListChange();
+         }
+      };
+      controller.get = function () {
+         return controller.mapItemController((itemController) => itemController.getId());
+      };
+      controller.set = function (gemIdList) {
+         if (gemIdList === undefined) {
+            gemIdList = [];
+         }
+         var i = 0;
+         for (; i < gemIdList.length; i++) {
+            var curId = gemIdList[i];
+            if (i < controller.getCount()) {
+               /** @type {LLH.Layout.Team.TeamLAGemListItemController} */
+               var curController = controller.getItemController(i);
+               if (curController.getId() != curId) {
+                  curController.resetGemId(curId);
+               }
+            } else {
+               addListItem(curId, false);
+            }
+         }
+         for (; i < controller.getCount();) {
+            controller.removeListItemByIndex(i);
+         }
+         callbackListChange();
+      };
+      controller.add = function (gemId) {
+         if (gemId === undefined) return;
+         if (controller.hasListItemId(gemId)) {
+            console.info('Cannot add gem ' + gemId + ', it is already added');
+            return;
          }
          addListItem(gemId, true);
       };
@@ -7850,6 +8244,39 @@ var LLTeamComponent = (function () {
       controller.hide = function(){ rowComponent.hide(); }
       return rowElement;
    }
+   /**
+    * @param {LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller
+    * @param {string[]} [dummyCellMethods]
+    */
+   function dummyCellCreator(controller, dummyCellMethods) {
+      var val = undefined;
+      controller.get = function () {
+         return val;
+      };
+      controller.set = function (v) {
+         val = v;
+      };
+      if (dummyCellMethods) {
+         for (var i = 0; i < dummyCellMethods.length; i++) {
+            controller[dummyCellMethods[i]] = function () {};
+         }
+      }
+      return controller;
+   }
+   /**
+    * @param {LLH.Layout.Team.TeamRowController<LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller
+    * @param {string[]} [dummyCellMethods]
+    */
+   function createDummyRowFor9(controller, dummyCellMethods) {
+      var cellControllers = [];
+      var emptyFunction = function () {};
+      for (var i = 0; i < 9; i++) {
+         cellControllers.push(dummyCellCreator({}, dummyCellMethods));
+      }
+      controller.cells = cellControllers;
+      controller.show = emptyFunction;
+      controller.hide = emptyFunction;
+   }
    // make getXXXs() and setXXXs(val) functions
    function makeGet9Function(method) {
       return function() {
@@ -7881,8 +8308,11 @@ var LLTeamComponent = (function () {
       };
    }
 
-   /** @param {LLH.Layout.Team.LLTeamComponent} controller */
-   function createTeamTable(controller) {
+   /**
+    * @param {LLH.Layout.Team.LLTeamComponent} controller
+    * @param {LLH.Layout.Team.LLTeamComponent_Mode} mode
+    */
+   function createTeamTable(controller, mode) {
       var rows = [];
       var controllers = {
          'weight': {},
@@ -7896,9 +8326,10 @@ var LLTeamComponent = (function () {
          'pure': {'headColor': 'green', 'cellColor': 'green', 'memberKey': 'pure', 'memberDefault': 0},
          'cool': {'headColor': 'blue', 'cellColor': 'blue', 'memberKey': 'cool', 'memberDefault': 0},
          'skill_level': {'memberKey': 'skilllevel'},
-         'slot': {'owning': ['put_gem', 'gem_list']},
+         'slot': {'owning': ['put_gem', 'gem_list', 'la_gem_list']},
          'put_gem': {},
          'gem_list': {'memberKey': 'gemlist'},
+         'la_gem_list': {'memberKey': 'laGemList'},
          'put_accessory': {},
          'accessory_icon': {},
          'accessory_level': {'owning': ['accessory_smile', 'accessory_pure', 'accessory_cool']},
@@ -7923,6 +8354,7 @@ var LLTeamComponent = (function () {
          'accessory_active_half_effect_sim': {},
          'heal': {},
       };
+      var isLAGem = (mode == 'la');
       var cardsBrief = new Array(9);
       var doFold = function() {
          for (var i = 0; i < this.owning.length; i++) {
@@ -8011,12 +8443,22 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('放宝石', makeButtonCreator('放宝石', function (i) {
          if (controller.onPutGemClicked) {
             var gemKey = controller.onPutGemClicked(i);
-            if (LLConst.GemType[gemKey] !== undefined) {
-               controllers.gem_list.cells[i].add(gemKey);
+            if (isLAGem) {
+               controllers.la_gem_list.cells[i].add(gemKey)
+            } else {
+               if (LLConst.GemType[gemKey] !== undefined) {
+                  controllers.gem_list.cells[i].add(gemKey);
+               }
             }
          }
       }), controllers.put_gem));
-      rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
+      if (!isLAGem) {
+         rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
+         createDummyRowFor9(controllers.la_gem_list);
+      } else {
+         createDummyRowFor9(controllers.gem_list);
+         rows.push(createRowFor9('方宝石', laGemListCreator, controllers.la_gem_list, (c) => c.onListChange = updateSlot));
+      }
       rows.push(createRowFor9('放饰品', makeButtonCreator('放饰品', function (i) {
          if (controller.onPutAccessoryClicked) {
             controller.setAccessory(i, controller.onPutAccessoryClicked(i));
@@ -8029,10 +8471,19 @@ var LLTeamComponent = (function () {
       rows.push(createRowFor9('饰品cool', textCreator, controllers.accessory_cool));
       rows.push(createRowFor9('换位', makeSwapCreator(controller), {}));
       rows.push(createRowFor9('属性强度', textCreator, controllers.str_attr));
-      rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
-      rows.push(createRowFor9('卡强度（理论）', textWithColorCreator, controllers.str_card_theory));
+      if (!isLAGem) {
+         rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
+         rows.push(createRowFor9('卡强度（理论）', textWithColorCreator, controllers.str_card_theory));
+      } else {
+         createDummyRowFor9(controllers.str_skill_theory, ['setTooltip']);
+         createDummyRowFor9(controllers.str_card_theory, ['setColor']);
+      }
       rows.push(createRowFor9('异色异团惩罚', textCreator, controllers.str_debuff));
-      rows.push(createRowFor9('实际强度（理论）', textWithColorCreator, controllers.str_total_theory));
+      if (!isLAGem) {
+         rows.push(createRowFor9('实际强度（理论）', textWithColorCreator, controllers.str_total_theory));
+      } else {
+         createDummyRowFor9(controllers.str_total_theory, ['setColor']);
+      }
       rows.push(createRowFor9('技能发动次数（模拟）', textCreator, controllers.skill_active_count_sim));
       rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
       rows.push(createRowFor9('技能哑火次数（模拟）', textCreator, controllers.skill_active_no_effect_sim));
@@ -8069,13 +8520,17 @@ var LLTeamComponent = (function () {
             if (member.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
-            controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
+            if (!isLAGem) {
+               controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
+            }
          } else {
             controllers.info.cells[i].reset();
             controllers.info_name.cells[i].reset();
             controllers.skill_trigger.cells[i].reset();
             controllers.skill_effect.cells[i].reset();
-            controllers.gem_list.cells[i].setAttributes('');
+            if (!isLAGem) {
+               controllers.gem_list.cells[i].setAttributes('');
+            }
          }
          if (member.maxcost !== undefined) {
             controllers.slot.cells[i].setMaxSlot(parseInt(member.maxcost));
@@ -8166,7 +8621,11 @@ var LLTeamComponent = (function () {
       var swapper = new LLSwapper();
       controller.setSwapper = function(sw) { swapper = sw; };
       controller.getSwapper = function() { return swapper; };
-      controller.setMapAttribute = function (mapAttr) { controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr)); };
+      controller.setMapAttribute = function (mapAttr) {
+         if (!isLAGem) {
+            controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr));
+         }
+      };
       controller.isAllMembersPresent = function () {
          var cardIds = controller.getCardIds();
          for (var i = 0; i < cardIds.length; i++) {
@@ -8188,16 +8647,16 @@ var LLTeamComponent = (function () {
    /**
     * @constructor
     * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Layout.Team.LLTeamComponent_Options} callbacks 
+    * @param {LLH.Layout.Team.LLTeamComponent_Options} options 
     * @this {LLH.Layout.Team.LLTeamComponent}
     */
-   function LLTeamComponent_cls(id, callbacks) {
+   function LLTeamComponent_cls(id, options) {
       var element = LLUnit.getElement(id);
-      element.appendChild(createTeamTable(this));
-      this.onPutCardClicked = callbacks && callbacks.onPutCardClicked;
-      this.onPutGemClicked = callbacks && callbacks.onPutGemClicked;
-      this.onCenterChanged = callbacks && callbacks.onCenterChanged;
-      this.onPutAccessoryClicked = callbacks && callbacks.onPutAccessoryClicked;
+      element.appendChild(createTeamTable(this, (options && options.mode) || 'normal'));
+      this.onPutCardClicked = options && options.onPutCardClicked;
+      this.onPutGemClicked = options && options.onPutGemClicked;
+      this.onCenterChanged = options && options.onCenterChanged;
+      this.onPutAccessoryClicked = options && options.onPutAccessoryClicked;
    }
    /** @type {typeof LLH.Layout.Team.LLTeamComponent} */
    var cls = LLTeamComponent_cls;
@@ -8206,8 +8665,9 @@ var LLTeamComponent = (function () {
 
    proto.setResult = function (result) {
       var cardStrengthList = [], totalStrengthList = [];
+      var calResult = result.getResults();
       for (var i=0;i<9;i++){
-         var curCardStrength = result.attrStrength[i]+result.avgSkills[i].strength;
+         var curCardStrength = calResult.attrStrength[i]+result.avgSkills[i].strength;
          var curStrength = curCardStrength - result.attrDebuff[i];
          cardStrengthList.push(curCardStrength);
          totalStrengthList.push(curStrength);
@@ -8215,16 +8675,17 @@ var LLTeamComponent = (function () {
          this.setHeal(i, LLUnit.healNumberToString(result.avgSkills[i].averageHeal));
       }
 
+      this.setStrengthAttributes(calResult.attrStrength);
       this.setStrengthCardTheories(cardStrengthList);
       this.setStrengthTotalTheories(totalStrengthList);
-      this.setSkillActiveCountSims(result.averageSkillsActiveCount);
-      this.setSkillActiveChanceSims(result.averageSkillsActiveChanceCount);
-      this.setSkillActiveNoEffectSims(result.averageSkillsActiveNoEffectCount);
-      this.setSkillActiveHalfEffectSims(result.averageSkillsActiveHalfEffectCount);
-      this.setAccessoryActiveCountSims(result.averageAccessoryActiveCount);
-      this.setAccessoryActiveChanceSims(result.averageAccessoryActiveChanceCount);
-      this.setAccessoryActiveNoEffectSims(result.averageAccessoryActiveNoEffectCount);
-      this.setAccessoryActiveHalfEffectSims(result.averageAccessoryActiveHalfEffectCount);
+      this.setSkillActiveCountSims(calResult.averageSkillsActiveCount);
+      this.setSkillActiveChanceSims(calResult.averageSkillsActiveChanceCount);
+      this.setSkillActiveNoEffectSims(calResult.averageSkillsActiveNoEffectCount);
+      this.setSkillActiveHalfEffectSims(calResult.averageSkillsActiveHalfEffectCount);
+      this.setAccessoryActiveCountSims(calResult.averageAccessoryActiveCount);
+      this.setAccessoryActiveChanceSims(calResult.averageAccessoryActiveChanceCount);
+      this.setAccessoryActiveNoEffectSims(calResult.averageAccessoryActiveNoEffectCount);
+      this.setAccessoryActiveHalfEffectSims(calResult.averageAccessoryActiveHalfEffectCount);
    };
    return cls;
 })();
@@ -8390,13 +8851,7 @@ var LLUnitResultComponent = (function () {
    var updateSubElements = LLUnit.updateSubElements;
 
    /**
-    * @typedef {Object} LLUnitResultComponent_ResultController
-    * @property {function(LLTeam): void} update
-    * @property {function(any): void} updateError
-    */
-
-   /**
-    * @param {LLUnitResultComponent_ResultController} controller
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller
     * @returns {HTMLElement}
     */
    function createAttributeResult(controller) {
@@ -8405,9 +8860,10 @@ var LLUnitResultComponent = (function () {
       var resultCool = createElement('td');
 
       controller.update = function (team) {
-         resultSmile.innerHTML = team.finalAttr.smile + ' (+' + team.bonusAttr.smile + ')';
-         resultPure.innerHTML = team.finalAttr.pure + ' (+' + team.bonusAttr.pure + ')';
-         resultCool.innerHTML = team.finalAttr.cool + ' (+' + team.bonusAttr.cool + ')';
+         var calResult = team.getResults();
+         resultSmile.innerHTML = calResult.finalAttr.smile + ' (+' + calResult.bonusAttr.smile + ')';
+         resultPure.innerHTML = calResult.finalAttr.pure + ' (+' + calResult.bonusAttr.pure + ')';
+         resultCool.innerHTML = calResult.finalAttr.cool + ' (+' + calResult.bonusAttr.cool + ')';
       };
 
       controller.updateError = function (e) {
@@ -8434,9 +8890,9 @@ var LLUnitResultComponent = (function () {
 
    /**
     * 
-    * @param {LLUnitResultComponent_ResultController} controller 
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller 
     * @param {string} label 
-    * @param {function(LLTeam): (string|HTMLElement)} callback Callback to fetch result from team
+    * @param {function(LLH.Model.LLTeam): (LLH.Component.HTMLElementOrString)} callback Callback to fetch result from team
     * @returns {HTMLElement}
     */
    function createScalarResult(controller, label, callback) {
@@ -8455,7 +8911,7 @@ var LLUnitResultComponent = (function () {
    }
 
    /**
-    * @param {LLUnitResultComponent_ResultController} controller 
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller 
     * @returns {HTMLElement}
     */
    function createMicResult(controller) {
@@ -8463,7 +8919,8 @@ var LLUnitResultComponent = (function () {
       var comp = new LLMicDisplayComponent(resultElement);
       controller.update = function (team) {
          team.calculateMic();
-         comp.set(team.micNumber, team.equivalentURLevel);
+         var calResult = team.getResults();
+         comp.set(calResult.micNumber, calResult.equivalentURLevel);
       };
       controller.updateError = function (e) {
          comp.set(0, 0);
@@ -8473,42 +8930,41 @@ var LLUnitResultComponent = (function () {
    }
 
    /**
-    * @constructor
-    * @param {string | HTMLElement} id 
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent} controller 
+    * @returns {LLH.Component.SubElements}
     */
-   function LLUnitResultComponent_cls(id) {
-      /** @type {LLUnitResultComponent_ResultController[]} */
-      var resultsController = [];
+   function renderResults(controller) {
+      /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController[]} */
+      var resultControllers = [];
       /** @type {HTMLElement[]} */
-      var resultsElement = [];
-      var container = LLUnit.getElement(id);
+      var resultElements = [];
       var resultContainer = createElement('div', {'style': {'display': 'none'}});
       var errorContainer = createElement('div', {'style': {'display': 'none', 'color': 'red'}});
 
-      /** @returns {LLUnitResultComponent_ResultController} */
       function addResultController() {
-         /** @type {LLUnitResultComponent_ResultController} */
+         /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} */
          var controller = {};
-         resultsController.push(controller);
+         resultControllers.push(controller);
          return controller;
       }
-      resultsElement.push(createAttributeResult(addResultController()));
-      resultsElement.push(createScalarResult(addResultController(), '卡组HP', (team) => team.totalHP.toFixed()));
-      resultsElement.push(createScalarResult(addResultController(), '卡组强度', (team) => team.totalStrength + ' (属性 ' + team.totalAttrStrength + ' + 技能 ' + team.totalSkillStrength + ')'));
-      resultsElement.push(createMicResult(addResultController()));
-      resultsElement.push(createScalarResult(addResultController(), '期望得分', (team) => team.naiveExpection !== undefined ? team.naiveExpection.toFixed() : team.averageScore.toFixed()));
-      resultsElement.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.averageHeal)));
-      resultsElement.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.averageAccuracyNCoverage)));
+      resultElements.push(createAttributeResult(addResultController()));
+      resultElements.push(createScalarResult(addResultController(), '卡组HP', (team) => team.getResults().totalHP.toFixed()));
+      resultElements.push(createScalarResult(addResultController(), '卡组强度', (team) => team.getResults().totalStrength + ' (属性 ' + team.getResults().totalAttrStrength + ' + 技能 ' + team.getResults().totalSkillStrength + ')'));
+      resultElements.push(createMicResult(addResultController()));
+      resultElements.push(createScalarResult(addResultController(), '期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore.toFixed()));
+      resultElements.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
+      resultElements.push(createScalarResult(addResultController(), '平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage || 0)));
+      resultElements.push(createScalarResult(addResultController(), '平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel || 0)));
+      resultElements.push(createScalarResult(addResultController(), '平均方宝石加成', (team) => LLUnit.numberToPercentString((team.getResults().averageLABonus || 1)-1, 4)));
+      resultElements.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
+      resultElements.push(createScalarResult(addResultController(), '失败率', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
 
-      /**
-       * @param {function(LLTeam): void} team 
-       */
-      this.showResult = function (team) {
-         for (var i = 0; i < resultsController.length; i++) {
+      controller.showResult = function (team) {
+         for (var i = 0; i < resultControllers.length; i++) {
             try {
-               resultsController[i].update(team);
+               resultControllers[i].update(team);
             } catch (e) {
-               resultsController[i].updateError(e);
+               resultControllers[i].updateError(e);
                console.error(e);
             }
          }
@@ -8516,24 +8972,32 @@ var LLUnitResultComponent = (function () {
          resultContainer.scrollIntoView();
       };
 
-      /**
-       * @param {string} errorMessage
-       */
-      this.showError = function (errorMessage) {
+      controller.showError = function (errorMessage) {
          updateSubElements(errorContainer, errorMessage, true);
          errorContainer.style.display = '';
          errorContainer.scrollIntoView();
       };
 
-      this.hideError = function () {
+      controller.hideError = function () {
          errorContainer.style.display = 'none';
       };
 
-      updateSubElements(resultContainer, resultsElement);
-      updateSubElements(container, [errorContainer, resultContainer]);
+      updateSubElements(resultContainer, resultElements);
+      return [errorContainer, resultContainer];
+   }
+
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    */
+   function LLUnitResultComponent_cls(id) {
+      var container = LLUnit.getElement(id);
+      updateSubElements(container, renderResults(this));
    }
    
-   return LLUnitResultComponent_cls;
+   /** @type {typeof LLH.Layout.UnitResult.LLUnitResultComponent} */
+   var cls = LLUnitResultComponent_cls;
+   return cls;
 })();
 
 var LLGemSelectorComponent = (function () {
@@ -8550,8 +9014,11 @@ var LLGemSelectorComponent = (function () {
    var GEM_GROUP_NORMAL = 1;
    var GEM_GROUP_LA = 2;
 
-   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
-   function renderGemDetail(controller) {
+   /**
+    * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
+    * @param {boolean} showLvup
+    */
+   function renderGemDetail(controller, showLvup) {
       var container = createElement('div');
       controller.set = function (data, language) {
          if (!data) {
@@ -8560,7 +9027,7 @@ var LLGemSelectorComponent = (function () {
             container.innerHTML = '';
          } else {
             var elements = [LLConst.Gem.getGemFullDescription(data, language == 0)];
-            if (data.level_up_skill_data) {
+            if (showLvup && data.level_up_skill_data) {
                var nextData = data.level_up_skill_data;
                elements.push(
                   createElement('br'),
@@ -8708,13 +9175,17 @@ var LLGemSelectorComponent = (function () {
       var seriesController = undefined;
       if (options.includeLAGem || options.includeNormalGem) {
          detailController = {};
-         seriesController = {};
-         updateSubElements(container, [
-            createElement('h3', undefined, '详细信息'),
-            renderGemDetail(detailController),
-            createElement('h3', undefined, '升级序列'),
-            renderGemSeries(seriesController)
-         ], false);
+         if (options.showBrief) {
+            updateSubElements(container, renderGemDetail(detailController, false), false);
+         } else {
+            seriesController = {};
+            updateSubElements(container, [
+               createElement('h3', undefined, '详细信息'),
+               renderGemDetail(detailController, true),
+               createElement('h3', undefined, '升级序列'),
+               renderGemSeries(seriesController)
+            ], false);
+         }
       }
 
       /**

@@ -3,7 +3,7 @@
 {% set category="文档" %}
 {% set category_link="/#docs" %}
 {% set title=doc_title %}
-{% set jsPage=url_for('static', filename='pages/docs.js', v='1') %}
+{% set jsPage=url_for('static', filename='pages/docs.js', v=config.PAGE_VERSION.docs) %}
 
 {% block additional_header %}
    <style>
