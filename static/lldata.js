@@ -1637,6 +1637,17 @@ var LLConst = (function () {
             return (distinctMemberCount == 9 ? bigGroup : undefined);
          }
       },
+      isSameColorTeam: function (members) {
+         if ((!members) || (members.length != 9)) {
+            console.error('isSameColorTeam: invalid members', members);
+            return undefined;
+         }
+         var curMemberColor = members[0].card.attribute;
+         for (var i = 1; i < members.length; i++) {
+            if (members[i].card.attribute != curMemberColor) return undefined;
+         }
+         return curMemberColor;
+      },
       getMemberGrade: function (member) {
          mCheckInited('unit_type');
          var memberData = mGetMemberData(member);
@@ -2495,9 +2506,10 @@ var LLUnit = {
       return LLUnit.numberToString(n, 2);
    },
 
-   numberToPercentString: function (n) {
+   numberToPercentString: function (n, precision) {
       if (n === undefined) return '';
-      return LLUnit.numberToString(n*100, 2) + '%';
+      if (precision === undefined) precision = 2;
+      return LLUnit.numberToString(n*100, precision) + '%';
    },
 
    // kizuna from twintailos.js, skilllevel from each page
@@ -4352,6 +4364,8 @@ var LLSimulateContextStatic = (function () {
       this.debuffHpDownValue = (isLA ? (mapdata.debuff_hp_down_value || 0) : 0);
       this.debuffHpDownInterval = (isLA ? (mapdata.debuff_hp_down_interval || 0) : 0);
       this.hasRepeatSkill = false;
+      this.nonetTeam = LLConst.Member.isNonetTeam(members);
+      this.sameColorTeam = LLConst.Member.isSameColorTeam(members);
 
       for (var i = 0; i < 9; i++) {
          if ((members[i].card.skilleffect == LLConst.SKILL_EFFECT_REPEAT)
@@ -5036,6 +5050,55 @@ var LLSimulateContext = (function() {
       ret.st = skillStatic;
       return ret;
    };
+   proto.updateLAGemTotalBonus = function () {
+      this.laGemTotalBonus = this.calculateLAGemTotalBonus();
+      this.currentScore = Math.ceil(this.currentScore * this.laGemTotalBonus);
+   };
+   proto.calculateLAGemTotalBonus = function () {
+      var i, j;
+      var totalBonus = 1;
+      for (i = 0; i < this.members.length; i++) {
+         var member = this.members[i];
+         for (j = 0; j < member.laGems.length; j++) {
+            var gemData = member.laGems[j].gemData;
+            while (gemData) {
+               if (this.isLAGemTakeEffect(gemData)) {
+                  if (gemData.effect_type == LLConst.SIS_EFFECT_TYPE_LA_SCORE) {
+                     totalBonus = totalBonus * (1 + gemData.effect_value / 100);
+                  }
+               }
+               gemData = gemData.sub_skill_data;
+            }
+         }
+      }
+      return totalBonus;
+   };
+   proto.isLAGemTakeEffect = function (laGem) {
+      if (laGem.type != LLConst.SIS_TYPE_LIVE_ARENA) return false;
+      if (laGem.group) {
+         return (laGem.group == this.staticData.nonetTeam);
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_HP_PERCENT) {
+         return ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_FULL_COMBO) {
+         return this.isFullCombo;
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_OVERHEAL) {
+         return (this.currentHPData.overHealLevel >= laGem.trigger_value);
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_SMILE) {
+         return (this.staticData.sameColorTeam == 'smile');
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_PURE) {
+         return (this.staticData.sameColorTeam == 'pure');
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_COOL) {
+         return (this.staticData.sameColorTeam == 'cool');
+      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_PERFECT_COUNT) {
+         return (this.currentPerfect >= laGem.trigger_value);
+      } else if (!laGem.trigger_ref) {
+         return true;
+      }
+      return false;
+   };
+   proto.setFullCombo = function () {
+      this.isFullCombo = true;
+   };
    proto.simulate = function (noteTriggerData, teamData) {
       // 1. 1速下如果有note时间点<1.8秒的情况下,歌曲会开头留白吗? 不留白的话瞬间出现的note会触发note系技能吗? 数量超过触发条件2倍的能触发多次吗?
       //   A1. 似乎不留白, note一帧出一个, 不会瞬间全出
@@ -5126,6 +5189,7 @@ var LLSimulateContext = (function() {
                this.commitHP();
                if (this.isZeroHP()) {
                   this.setFailTime(nextDamageSisTime);
+                  this.updateLAGemTotalBonus();
                   return;
                }
                nextDamageSisTime += this.staticData.debuffHpDownInterval;
@@ -5189,6 +5253,8 @@ var LLSimulateContext = (function() {
             curNote = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex] : undefined);
          }
       }
+      this.setFullCombo();
+      this.updateLAGemTotalBonus();
    };
    return cls;
 })();
@@ -5541,6 +5607,7 @@ var LLTeam = (function() {
       var totalOverHealLevel = 0;
       var totalAccuracyCoverNote = 0;
       var totalFail = 0;
+      var totalLABonus = 0;
       var staticData = new LLSimulateContextStatic(mapdata, this, maxTime);
       for (i = 0; i < simCount; i++) {
          var env = new LLSimulateContext(staticData);
@@ -5555,6 +5622,7 @@ var LLTeam = (function() {
          totalDamage += env.currentHPData.totalDamageValue;
          totalOverHealLevel += env.currentHPData.overHealLevel;
          totalAccuracyCoverNote += env.currentAccuracyCoverNote;
+         totalLABonus += env.laGemTotalBonus;
          if (env.failTime !== undefined) {
             totalFail += 1;
          }
@@ -5622,6 +5690,7 @@ var LLTeam = (function() {
       this.calculateResult.averageDamage = totalDamage / simCount;
       this.calculateResult.averageOverHealLevel = totalOverHealLevel / simCount;
       this.calculateResult.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
+      this.calculateResult.averageLABonus = totalLABonus / simCount;
       this.calculateResult.failRate = totalFail / simCount;
    };
    proto.calculatePercentileNaive = function () {
@@ -8886,8 +8955,9 @@ var LLUnitResultComponent = (function () {
       resultElements.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
       resultElements.push(createScalarResult(addResultController(), '平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage)));
       resultElements.push(createScalarResult(addResultController(), '平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel)));
+      resultElements.push(createScalarResult(addResultController(), '平均方宝石加成', (team) => LLUnit.numberToPercentString(team.getResults().averageLABonus-1, 4)));
       resultElements.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
-      resultElements.push(createScalarResult(addResultController(), '失败率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
+      resultElements.push(createScalarResult(addResultController(), '失败率', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
 
       controller.showResult = function (team) {
          for (var i = 0; i < resultControllers.length; i++) {

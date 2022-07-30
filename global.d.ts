@@ -354,6 +354,7 @@ declare namespace LLH {
             averageAccessoryActiveChanceCount: number[];
             averageAccessoryActiveNoEffectCount: number[];
             averageAccessoryActiveHalfEffectCount: number[];
+            averageLABonus: number;
             naivePercentile: number[];
             naiveExpection: number;
             probabilityForMinScore: number;
@@ -671,7 +672,10 @@ declare namespace LLH {
             isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
             getMemberName(memberId: Core.MemberIdType, language?: Core.LanguageType): string;
             getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
+            /** return undefined if not nonet team, or big group id of the nonet team */
             isNonetTeam(members: Model.LLMember[]): Core.BigGroupIdType;
+            /** return undefined if not same color team, or color of the team */
+            isSameColorTeam(members: Model.LLMember[]): Core.AttributeType;
             getMemberGrade(memberId: Core.MemberIdType): Core.GradeType;
             getMemberTypeIdsInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
             getMemberNamesInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): string[];
@@ -792,7 +796,7 @@ declare namespace LLH {
         class LLCommonSisGem {
             constructor(gemData: API.SisDataType);
 
-            private gemData: API.SisDataType;
+            gemData: API.SisDataType;
         }
 
         interface LLMap_Options {
@@ -1049,6 +1053,8 @@ declare namespace LLH {
             debuffHpDownInterval: number;
             hasRepeatSkill: boolean;
             memberBonusFactor: number[];
+            nonetTeam?: Core.BigGroupIdType;
+            sameColorTeam?: Core.AttributeType;
 
             skillsStatic: LLSimulateContext_SkillStaticInfo[];
 
@@ -1091,8 +1097,11 @@ declare namespace LLH {
             lastActiveSkill: LLSimulateContext_LastActiveSkill;
             effects: {[type: number]: number};
             isAccuracyState: boolean;
+            isFullCombo: boolean;
             /** seconds, time when hp dropped to 0 */
             failTime?: number;
+            /** 1.0~ */
+            laGemTotalBonus: number;
 
             timeToFrame(t: number): number;
             updateNextFrameByMinTime(minTime: number): void;
@@ -1117,6 +1126,12 @@ declare namespace LLH {
             commitHP(): void;
             isFullHP(): boolean;
             isZeroHP(): boolean;
+
+            updateLAGemTotalBonus(): void;
+            calculateLAGemTotalBonus(): number;
+            isLAGemTakeEffect(laGem: API.SisDataType): boolean;
+
+            setFullCombo(): void;
 
             simulate(NoteTriggerDataType: Internal.NoteTriggerDataType[], teamData: LLTeam): void;
         }
