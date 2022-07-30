@@ -1521,6 +1521,19 @@ var LLConst = (function () {
       return memberData.background_color;
    };
 
+   var HEAL_BONUS = [0.26,  // 9
+      0.29, 0.31, 0.34, 0.37, 0.4,  // 10~14
+      0.43, 0.46, 0.49, 0.51, 0.59, // 15~19
+      0.63, 0.66, 0.7,  0.73, 0.77, // 20~24
+      0.8,  0.84, 0.88, 0.91, 0.95, // 25~29
+      0.99, 1.02, 1.06, 1.1,  1.14, // 30~34
+      1.18, 1.21, 1.76, 1.83, 1.9,  // 35~39
+      1.97, 2.04, 2.11, 2.18, 2.25, // 40~44
+      2.33, 2.64, 2.73, 2.82, 2.91, // 45~49
+      3,    3.09, 3.19, 3.28, 3.38, // 50~54
+      3.47, 3.57, 3.67, 3.77, 3.87, // 55~59
+      3.98, 4.08, 4.19, 4.29]; // 60~63
+
    /** @type {LLH.ConstUtil.Common} */
    var CommonUtils = {
       getRarityString: (function () {
@@ -1531,6 +1544,16 @@ var LLConst = (function () {
       })(),
       getAttributeColor: function (attribute) {
          return COLOR_NAME_TO_COLOR[attribute] || 'black';
+      },
+      getOverHealLevelBonus: function (maxHP, overHealLevel) {
+         if (maxHP < 9 || maxHP > 63) {
+            console.error('max HP out of range: ' + maxHP);
+            return 1;
+         }
+         if (!overHealLevel) return 1;
+         var bonus = overHealLevel * HEAL_BONUS[maxHP-9];
+         if (bonus > KEYS.SKILL_LIMIT_HEAL_BONUS) bonus = KEYS.SKILL_LIMIT_HEAL_BONUS;
+         return 1 + bonus/100;
       }
    };
    ret.Common = CommonUtils;
@@ -1963,28 +1986,6 @@ var LLConst = (function () {
    ret.getComboFeverBonus = function(combo, pattern) {
       if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
       return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
-   };
-   var HEAL_BONUS = [0.26,  // 9
-      0.29, 0.31, 0.34, 0.37, 0.4,  // 10~14
-      0.43, 0.46, 0.49, 0.51, 0.59, // 15~19
-      0.63, 0.66, 0.7,  0.73, 0.77, // 20~24
-      0.8,  0.84, 0.88, 0.91, 0.95, // 25~29
-      0.99, 1.02, 1.06, 1.1,  1.14, // 30~34
-      1.18, 1.21, 1.76, 1.83, 1.9,  // 35~39
-      1.97, 2.04, 2.11, 2.18, 2.25, // 40~44
-      2.33, 2.64, 2.73, 2.82, 2.91, // 45~49
-      3,    3.09, 3.19, 3.28, 3.38, // 50~54
-      3.47, 3.57, 3.67, 3.77, 3.87, // 55~59
-      3.98, 4.08, 4.19, 4.29]; // 60~63
-   ret.getHealBonus = function(maxHp, curHp) {
-      if (maxHp < 9 || maxHp > 63) {
-         console.error('max HP out of range: ' + maxHp);
-         return 1;
-      }
-      if (curHp < maxHp*2) return 1;
-      var bonus = (Math.floor(curHp/maxHp + 1e-8)-1) * HEAL_BONUS[maxHp-9];
-      if (bonus > KEYS.SKILL_LIMIT_HEAL_BONUS) bonus = KEYS.SKILL_LIMIT_HEAL_BONUS;
-      return 1 + bonus/100;
    };
 
    var SKILL_TRIGGER_TEXT = {};
@@ -2643,7 +2644,7 @@ var LLUnit = {
 
    /**
     * @param {HTMLElement} element 
-    * @param {string | HTMLElement} subElement 
+    * @param {LLH.Component.HTMLElementOrString} subElement 
     */
    appendSubElement: function (element, subElement) {
       if (typeof (subElement) == 'string') {
@@ -2654,11 +2655,8 @@ var LLUnit = {
    },
 
    /**
-    * @typedef {string | HTMLElement | (string | HTMLElement | (string | HTMLElement)[])[]} SubElements
-    */
-   /**
     * @param {HTMLElement} ele 
-    * @param {SubElements} subElements 
+    * @param {LLH.Component.SubElements} subElements 
     * @param {boolean} [isReplace]
     * @returns {HTMLElement} ele
     */
@@ -2688,7 +2686,7 @@ var LLUnit = {
    /**
     * @param {string} tag 
     * @param {*} [options]
-    * @param {SubElements} [subElements]
+    * @param {LLH.Component.SubElements} [subElements]
     * @param {{[x: string] : Function}} [eventHandlers]
     * @returns {HTMLElement}
     */
@@ -2730,7 +2728,7 @@ var LLUnit = {
 
    /**
     * @param {string} label 
-    * @param {SubElements} subElements 
+    * @param {LLH.Component.SubElements} subElements 
     * @returns {HTMLElement}
     */
    createFormInlineGroup: function (label, subElements) {
@@ -3801,6 +3799,9 @@ var LLMap = (function () {
       this.data.over_heal_pattern = distParam.over_heal_pattern;
       this.data.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
       this.data.trigger_limit_pattern = distParam.trigger_limit_pattern;
+      if (distParam.type == 'sim' || distParam.type == 'simla') {
+         this.data.simMode = distParam.type;
+      }
    };
    proto.saveData = function () {
       return this.data;
@@ -3903,6 +3904,19 @@ var LLSisGem = (function () {
    };
    proto.getAttributeType = function () { return this.color; };
    proto.setAttributeType = function (newColor) { this.color = newColor; };
+   return cls;
+})();
+
+var LLCommonSisGem = (function () {
+   /**
+    * @constructor
+    * @param {LLH.API.SisDataType} gemData 
+    */
+   function LLCommonSisGem_cls(gemData) {
+      this.gemData = gemData;
+   }
+   /** @type {typeof LLH.Model.LLCommonSisGem} */
+   var cls = LLCommonSisGem_cls;
    return cls;
 })();
 
@@ -4097,23 +4111,41 @@ var LLMember = (function() {
          this.card = v.card;
       }
       this.gems = [];
-      if (v.gemlist === undefined) {
-         console.error('missing gem info');
-      } else if (v.card) {
-         for (i = 0; i < v.gemlist.length; i++) {
-            var gemMetaId = LLConst.GemType[v.gemlist[i]];
-            var memberId = v.card.typeid;
-            var sisOptions = {
-               'grade': LLConst.Member.getMemberGrade(memberId),
-               'member': memberId,
-               'unit': LLConst.Member.getBigGroupId(memberId)
-            };
-            if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
-               sisOptions.color = v.card.attribute;
-            } else {
-               sisOptions.color = mapAttribute;
+      if (!v.enableLAGem) {
+         if (v.gemlist === undefined) {
+            console.error('missing gem info');
+         } else if (v.card) {
+            for (i = 0; i < v.gemlist.length; i++) {
+               var gemMetaId = LLConst.GemType[v.gemlist[i]];
+               var memberId = v.card.typeid;
+               var sisOptions = {
+                  'grade': LLConst.Member.getMemberGrade(memberId),
+                  'member': memberId,
+                  'unit': LLConst.Member.getBigGroupId(memberId)
+               };
+               if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
+                  sisOptions.color = v.card.attribute;
+               } else {
+                  sisOptions.color = mapAttribute;
+               }
+               this.gems.push(new LLSisGem(gemMetaId, sisOptions));
             }
-            this.gems.push(new LLSisGem(gemMetaId, sisOptions));
+         }
+      }
+      this.laGems = [];
+      if (v.enableLAGem && v.laGemList && v.laGemList.length > 0) {
+         if (v.gemDataDict) {
+            for (i = 0; i < v.laGemList.length; i++) {
+               var gemId = v.laGemList[i];
+               var sisBrief = v.gemDataDict[gemId];
+               if (!sisBrief) {
+                  console.error('Missing sis gem data for id = ' + gemId);
+               } else {
+                  this.laGems.push(new LLCommonSisGem(sisBrief));
+               }
+            }
+         } else {
+            console.error('No sis gem data, skipping initialize laGems');
          }
       }
       if (v.accessory && v.accessoryData) {
@@ -4300,20 +4332,25 @@ var LLSimulateContextStatic = (function () {
     * @param {number} maxTime 
     */
    function LLSimulateContextStatic_cls(mapdata, team, maxTime){
+      this.simMode = mapdata.simMode || 'sim';
+
       var members = team.members;
+      var isLA = (this.simMode == 'simla');
       this.members = members;
       this.totalNote = mapdata.combo;
       this.totalTime = maxTime;
       this.totalPerfect = mapdata.perfect;
       this.totalHP = team.getResults().totalHP;
-      this.mapSkillPossibilityUp = (1 + parseInt(mapdata.skillup || 0)/100);
-      this.mapTapScoreUp = (1 + parseInt(mapdata.tapup || 0)/100);
+      this.mapSkillPossibilityUp = (isLA ? 1 : (1 + parseInt(mapdata.skillup || 0)/100));
+      this.mapTapScoreUp = (isLA ? 1 : (1 + parseInt(mapdata.tapup || 0)/100));
       this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
       this.comboFeverLimit = parseInt(mapdata.combo_fever_limit || LLConst.SKILL_LIMIT_COMBO_FEVER);
       this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
       this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
       this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
-      this.skillPosibilityDownFixed = 0;
+      this.skillPosibilityDownFixed = (isLA ? (mapdata.debuff_skill_rate_down || 0) : 0);
+      this.debuffHpDownValue = (isLA ? (mapdata.debuff_hp_down_value || 0) : 0);
+      this.debuffHpDownInterval = (isLA ? (mapdata.debuff_hp_down_interval || 0) : 0);
       this.hasRepeatSkill = false;
 
       for (var i = 0; i < 9; i++) {
@@ -4468,6 +4505,22 @@ var LLSimulateContext = (function() {
    var SIM_NOTE_RELEASE = 4;
 
    /**
+    * @param {number} maxHP 
+    * @return {LLH.Model.LLSimulateContext_HP}
+    */
+   function initHPData(maxHP) {
+      return {
+         'currentHP': maxHP,
+         'overHealHP': 0,
+         'overHealLevel': 0,
+         'overHealBonus': 1,
+         'totalDamageValue': 0,
+         'totalHealValue': 0,
+         'frameHeal': 0
+      };
+   }
+
+   /**
     * @constructor
     * @param {LLH.Model.LLSimulateContextStatic} staticData
     */
@@ -4481,8 +4534,7 @@ var LLSimulateContext = (function() {
       this.currentScore = 0;
       this.currentPerfect = 0;
       this.currentStarPerfect = 0;
-      this.currentHeal = 0;
-      this.currentHealBonus = 1;
+      this.currentHPData = initHPData(staticData.totalHP);
       this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       this.skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -4572,6 +4624,11 @@ var LLSimulateContext = (function() {
       if (minFrame <= this.currentFrame) minFrame = this.currentFrame + 1;
       this.currentFrame = minFrame;
       this.currentTime = this.currentFrame * SEC_PER_FRAME;
+   };
+   proto.setFailTime = function (t) {
+      if (this.failTime === undefined) {
+         this.failTime = t;
+      }
    };
    proto.processDeactiveSkills = function() {
       if (this.activeSkills.length == 0) return;
@@ -4795,9 +4852,9 @@ var LLSimulateContext = (function() {
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
          this.updateAccuracyState();
       } else if (effectType == LLConst.SKILL_EFFECT_HEAL) {
-         this.updateHeal(effectValue);
+         this.updateHP(effectValue);
          // 奶转分
-         if (this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
+         if (this.isFullHP() && this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
       } else if (effectType == LLConst.SKILL_EFFECT_SCORE) {
          if (this.members[realMemberId].hasSkillGem()) this.currentScore += Math.ceil(effectValue * 2.5);
          else this.currentScore += effectValue;
@@ -4848,11 +4905,49 @@ var LLSimulateContext = (function() {
       }
       return true;
    };
-   proto.updateHeal = function (delta) {
-      this.currentHeal += delta;
-      if (this.staticData.overHealPattern) {
-         this.currentHealBonus = LLConst.getHealBonus(this.staticData.totalHP, this.currentHeal + this.staticData.totalHP);
+   proto.updateHP = function (delta) {
+      var hpData = this.currentHPData;
+      hpData.frameHeal += delta;
+      if (delta > 0) {
+         hpData.totalHealValue += delta;
+      } else if (delta < 0) {
+         hpData.overHealHP = 0;
+         hpData.totalDamageValue -= delta;
       }
+   };
+   proto.commitHP = function () {
+      var hpData = this.currentHPData;
+      if (hpData.frameHeal !== 0) {
+         var totalHP = this.staticData.totalHP;
+         var delta = hpData.frameHeal;
+         if (delta > 0) {
+            if (hpData.currentHP + delta > totalHP)  {
+               hpData.overHealHP += hpData.currentHP + delta - totalHP;
+               hpData.currentHP = totalHP;
+            } else {
+               hpData.currentHP += delta;
+            }
+            if (hpData.overHealHP >= totalHP) {
+               while (hpData.overHealHP >= totalHP) {
+                  hpData.overHealLevel += 1;
+                  hpData.overHealHP -= totalHP;
+               }
+               hpData.overHealBonus = LLConst.Common.getOverHealLevelBonus(totalHP, hpData.overHealLevel);
+            }
+         } else if (delta < 0) {
+            hpData.currentHP += delta;
+            if (hpData.currentHP < 0) {
+               hpData.currentHP = 0;
+            }
+         }
+         hpData.frameHeal = 0;
+      }
+   };
+   proto.isFullHP = function () {
+      return this.currentHPData.currentHP == this.staticData.totalHP;
+   };
+   proto.isZeroHP = function () {
+      return this.currentHPData.currentHP == 0;
    };
    var makeDeltaTriggerCheck = function(key) {
       /**
@@ -4959,6 +5054,8 @@ var LLSimulateContext = (function() {
       var noteTriggerIndex = 0;
       var totalTime = this.staticData.totalTime;
       var curNote = (0 < noteTriggerData.length ? noteTriggerData[0] : undefined);
+      var hasDamageSis = this.staticData.debuffHpDownInterval && this.staticData.debuffHpDownValue;
+      var nextDamageSisTime = this.staticData.debuffHpDownInterval;
       while (noteTriggerIndex < noteTriggerData.length || this.currentTime < totalTime) {
          // 1, check if any active skill need deactive
          this.processDeactiveSkills();
@@ -5002,7 +5099,9 @@ var LLSimulateContext = (function() {
                }
             }
          }
-         // 3. move to min next time
+         // 3. commit effects
+         this.commitHP();
+         // 4. move to min next time
          var minNoteTime = (curNote !== undefined ? curNote.time : undefined);
          var minNextTime = this.currentTime;
          if (quickSkip) {
@@ -5020,7 +5119,19 @@ var LLSimulateContext = (function() {
             }
          }
          this.updateNextFrameByMinTime(minNextTime);
-         // TODO: damage sis
+         // 5. damage sis
+         if (hasDamageSis) {
+            while (this.currentTime >= nextDamageSisTime) {
+               this.updateHP(-this.staticData.debuffHpDownValue);
+               this.commitHP();
+               if (this.isZeroHP()) {
+                  this.setFailTime(nextDamageSisTime);
+                  return;
+               }
+               nextDamageSisTime += this.staticData.debuffHpDownInterval;
+            }
+         }
+         // 6. handle note
          var handleNote = (minNoteTime !== undefined && minNoteTime <= this.currentTime);
          // process at most one note per frame
          // need update time before process note so that the time-related skills uses correct current time
@@ -5068,7 +5179,7 @@ var LLSimulateContext = (function() {
                //}
                var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
                // note position 数值1~9, 从右往左数
-               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
+               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHPData.overHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
                // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
                this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
@@ -5426,7 +5537,10 @@ var LLTeam = (function() {
       var accessoryActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var accessoryActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
       var totalHeal = 0;
+      var totalDamage = 0;
+      var totalOverHealLevel = 0;
       var totalAccuracyCoverNote = 0;
+      var totalFail = 0;
       var staticData = new LLSimulateContextStatic(mapdata, this, maxTime);
       for (i = 0; i < simCount; i++) {
          var env = new LLSimulateContext(staticData);
@@ -5437,8 +5551,13 @@ var LLTeam = (function() {
          } else {
             scores[env.currentScore] = 1;
          }
-         totalHeal += env.currentHeal;
+         totalHeal += env.currentHPData.totalHealValue;
+         totalDamage += env.currentHPData.totalDamageValue;
+         totalOverHealLevel += env.currentHPData.overHealLevel;
          totalAccuracyCoverNote += env.currentAccuracyCoverNote;
+         if (env.failTime !== undefined) {
+            totalFail += 1;
+         }
          for (var j = 0; j < 9; j++) {
             skillsActiveCount[j] += env.skillsActiveCount[j];
             skillsActiveChanceCount[j] += env.skillsActiveChanceCount[j];
@@ -5500,7 +5619,10 @@ var LLTeam = (function() {
       this.calculateResult.averageAccessoryActiveNoEffectCount = accessoryActiveNoEffectCount;
       this.calculateResult.averageAccessoryActiveHalfEffectCount = accessoryActiveHalfEffectCount;
       this.calculateResult.averageHeal = totalHeal / simCount;
+      this.calculateResult.averageDamage = totalDamage / simCount;
+      this.calculateResult.averageOverHealLevel = totalOverHealLevel / simCount;
       this.calculateResult.averageAccuracyNCoverage = (totalAccuracyCoverNote / simCount) / noteData.length;
+      this.calculateResult.failRate = totalFail / simCount;
    };
    proto.calculatePercentileNaive = function () {
       if (this.scoreDistribution === undefined || this.scoreDistributionMinScore === undefined) {
@@ -7110,6 +7232,7 @@ var LLDataVersionSelectorComponent = (function () {
 var LLScoreDistributionParameter = (function () {
    var createElement = LLUnit.createElement;
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
+   var updateSubElements = LLUnit.updateSubElements;
 
    var distTypeSelectOptions = [
       {'value': 'no', 'text': '不计算分布'},
@@ -7210,9 +7333,11 @@ var LLScoreDistributionParameter = (function () {
          createFormInlineGroup('Combo Fever技能：', [simParamComboFeverPatternComponent.element, simParamComboFeverLimitComponent.element]),
          createFormInlineGroup('溢出奶：', simParamOverHealComponent.element),
          createFormInlineGroup('完美判：', simParamPerfectAccuracyComponent.element),
-         createFormInlineGroup('爆分发动次数限制：', simParamTriggerLimitComponent.element),
-         createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'})
+         createFormInlineGroup('爆分发动次数限制：', simParamTriggerLimitComponent.element)
       ]);
+      if (!isLAMode) {
+         updateSubElements(simParamContainer, createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'}));
+      }
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
       var selComp = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
       if (!isLAMode) {
@@ -8050,8 +8175,11 @@ var LLTeamComponent = (function () {
       controller.hide = function(){ rowComponent.hide(); }
       return rowElement;
    }
-   /** @param {LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller */
-   function dummyCellCreator(controller) {
+   /**
+    * @param {LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller
+    * @param {string[]} [dummyCellMethods]
+    */
+   function dummyCellCreator(controller, dummyCellMethods) {
       var val = undefined;
       controller.get = function () {
          return val;
@@ -8059,14 +8187,22 @@ var LLTeamComponent = (function () {
       controller.set = function (v) {
          val = v;
       };
+      if (dummyCellMethods) {
+         for (var i = 0; i < dummyCellMethods.length; i++) {
+            controller[dummyCellMethods[i]] = function () {};
+         }
+      }
       return controller;
    }
-   /** @param {LLH.Layout.Team.TeamRowController<LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller  */
-   function createDummyRowFor9(controller) {
+   /**
+    * @param {LLH.Layout.Team.TeamRowController<LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller
+    * @param {string[]} [dummyCellMethods]
+    */
+   function createDummyRowFor9(controller, dummyCellMethods) {
       var cellControllers = [];
       var emptyFunction = function () {};
       for (var i = 0; i < 9; i++) {
-         cellControllers.push(dummyCellCreator({}));
+         cellControllers.push(dummyCellCreator({}, dummyCellMethods));
       }
       controller.cells = cellControllers;
       controller.show = emptyFunction;
@@ -8270,14 +8406,14 @@ var LLTeamComponent = (function () {
          rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
          rows.push(createRowFor9('卡强度（理论）', textWithColorCreator, controllers.str_card_theory));
       } else {
-         createDummyRowFor9(controllers.str_skill_theory);
-         createDummyRowFor9(controllers.str_card_theory);
+         createDummyRowFor9(controllers.str_skill_theory, ['setTooltip']);
+         createDummyRowFor9(controllers.str_card_theory, ['setColor']);
       }
       rows.push(createRowFor9('异色异团惩罚', textCreator, controllers.str_debuff));
       if (!isLAGem) {
          rows.push(createRowFor9('实际强度（理论）', textWithColorCreator, controllers.str_total_theory));
       } else {
-         createDummyRowFor9(controllers.str_total_theory);
+         createDummyRowFor9(controllers.str_total_theory, ['setColor']);
       }
       rows.push(createRowFor9('技能发动次数（模拟）', textCreator, controllers.skill_active_count_sim));
       rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
@@ -8646,13 +8782,7 @@ var LLUnitResultComponent = (function () {
    var updateSubElements = LLUnit.updateSubElements;
 
    /**
-    * @typedef {Object} LLUnitResultComponent_ResultController
-    * @property {function(LLH.Model.LLTeam): void} update
-    * @property {function(any): void} updateError
-    */
-
-   /**
-    * @param {LLUnitResultComponent_ResultController} controller
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller
     * @returns {HTMLElement}
     */
    function createAttributeResult(controller) {
@@ -8691,9 +8821,9 @@ var LLUnitResultComponent = (function () {
 
    /**
     * 
-    * @param {LLUnitResultComponent_ResultController} controller 
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller 
     * @param {string} label 
-    * @param {function(LLH.Model.LLTeam): (string|HTMLElement)} callback Callback to fetch result from team
+    * @param {function(LLH.Model.LLTeam): (LLH.Component.HTMLElementOrString)} callback Callback to fetch result from team
     * @returns {HTMLElement}
     */
    function createScalarResult(controller, label, callback) {
@@ -8712,7 +8842,7 @@ var LLUnitResultComponent = (function () {
    }
 
    /**
-    * @param {LLUnitResultComponent_ResultController} controller 
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller 
     * @returns {HTMLElement}
     */
    function createMicResult(controller) {
@@ -8731,42 +8861,40 @@ var LLUnitResultComponent = (function () {
    }
 
    /**
-    * @constructor
-    * @param {string | HTMLElement} id 
+    * @param {LLH.Layout.UnitResult.LLUnitResultComponent} controller 
+    * @returns {LLH.Component.SubElements}
     */
-   function LLUnitResultComponent_cls(id) {
-      /** @type {LLUnitResultComponent_ResultController[]} */
-      var resultsController = [];
+   function renderResults(controller) {
+      /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController[]} */
+      var resultControllers = [];
       /** @type {HTMLElement[]} */
-      var resultsElement = [];
-      var container = LLUnit.getElement(id);
+      var resultElements = [];
       var resultContainer = createElement('div', {'style': {'display': 'none'}});
       var errorContainer = createElement('div', {'style': {'display': 'none', 'color': 'red'}});
 
-      /** @returns {LLUnitResultComponent_ResultController} */
       function addResultController() {
-         /** @type {LLUnitResultComponent_ResultController} */
+         /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} */
          var controller = {};
-         resultsController.push(controller);
+         resultControllers.push(controller);
          return controller;
       }
-      resultsElement.push(createAttributeResult(addResultController()));
-      resultsElement.push(createScalarResult(addResultController(), '卡组HP', (team) => team.getResults().totalHP.toFixed()));
-      resultsElement.push(createScalarResult(addResultController(), '卡组强度', (team) => team.getResults().totalStrength + ' (属性 ' + team.getResults().totalAttrStrength + ' + 技能 ' + team.getResults().totalSkillStrength + ')'));
-      resultsElement.push(createMicResult(addResultController()));
-      resultsElement.push(createScalarResult(addResultController(), '期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore.toFixed()));
-      resultsElement.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
-      resultsElement.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
+      resultElements.push(createAttributeResult(addResultController()));
+      resultElements.push(createScalarResult(addResultController(), '卡组HP', (team) => team.getResults().totalHP.toFixed()));
+      resultElements.push(createScalarResult(addResultController(), '卡组强度', (team) => team.getResults().totalStrength + ' (属性 ' + team.getResults().totalAttrStrength + ' + 技能 ' + team.getResults().totalSkillStrength + ')'));
+      resultElements.push(createMicResult(addResultController()));
+      resultElements.push(createScalarResult(addResultController(), '期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore.toFixed()));
+      resultElements.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
+      resultElements.push(createScalarResult(addResultController(), '平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage)));
+      resultElements.push(createScalarResult(addResultController(), '平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel)));
+      resultElements.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
+      resultElements.push(createScalarResult(addResultController(), '失败率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
 
-      /**
-       * @param {function(LLH.Model.LLTeam): void} team 
-       */
-      this.showResult = function (team) {
-         for (var i = 0; i < resultsController.length; i++) {
+      controller.showResult = function (team) {
+         for (var i = 0; i < resultControllers.length; i++) {
             try {
-               resultsController[i].update(team);
+               resultControllers[i].update(team);
             } catch (e) {
-               resultsController[i].updateError(e);
+               resultControllers[i].updateError(e);
                console.error(e);
             }
          }
@@ -8774,24 +8902,32 @@ var LLUnitResultComponent = (function () {
          resultContainer.scrollIntoView();
       };
 
-      /**
-       * @param {string} errorMessage
-       */
-      this.showError = function (errorMessage) {
+      controller.showError = function (errorMessage) {
          updateSubElements(errorContainer, errorMessage, true);
          errorContainer.style.display = '';
          errorContainer.scrollIntoView();
       };
 
-      this.hideError = function () {
+      controller.hideError = function () {
          errorContainer.style.display = 'none';
       };
 
-      updateSubElements(resultContainer, resultsElement);
-      updateSubElements(container, [errorContainer, resultContainer]);
+      updateSubElements(resultContainer, resultElements);
+      return [errorContainer, resultContainer];
+   }
+
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    */
+   function LLUnitResultComponent_cls(id) {
+      var container = LLUnit.getElement(id);
+      updateSubElements(container, renderResults(this));
    }
    
-   return LLUnitResultComponent_cls;
+   /** @type {typeof LLH.Layout.UnitResult.LLUnitResultComponent} */
+   var cls = LLUnitResultComponent_cls;
+   return cls;
 })();
 
 var LLGemSelectorComponent = (function () {

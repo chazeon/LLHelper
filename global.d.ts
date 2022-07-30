@@ -343,6 +343,8 @@ declare namespace LLH {
             totalSkillStrength: number;
             totalHP: number;
             averageHeal: number;
+            averageDamage: number;
+            averageOverHealLevel: number;
             averageAccuracyNCoverage: number;
             averageSkillsActiveCount: number[];
             averageSkillsActiveChanceCount: number[];
@@ -361,6 +363,7 @@ declare namespace LLH {
             simulateScoreResults: SimulateScoreResult[];
             equivalentURLevel: number;
             micNumber: number;
+            failRate: number;
         }
 
         interface NoteTriggerDataType {
@@ -377,6 +380,8 @@ declare namespace LLH {
             score: number;
             count: number;
         }
+
+        type SimulateMode = 'sim' | 'simla';
     }
 
     namespace Depends {
@@ -418,6 +423,8 @@ declare namespace LLH {
      */
     namespace Component {
         type HTMLElementOrId = string | HTMLElement;
+        type HTMLElementOrString = string | HTMLElement;
+        type SubElements = HTMLElementOrString | (HTMLElementOrString | HTMLElementOrString[])[];
         interface LLComponentBase_Options {
             listen: {[e: string]: (event: Event) => void};
         }
@@ -711,6 +718,8 @@ declare namespace LLH {
         interface Common {
             getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType;
             getAttributeColor(attribute: Core.AttributeType): string;
+            /** return 1.0~3.0 */
+            getOverHealLevelBonus(maxHP: number, overHealLevel: number): number;
         }
         interface Attributes {
             makeAttributes(smile: number, pure: number, cool: number): Internal.AttributesValue;
@@ -780,6 +789,12 @@ declare namespace LLH {
             private gemStockKeys: string[];
         }
 
+        class LLCommonSisGem {
+            constructor(gemData: API.SisDataType);
+
+            private gemData: API.SisDataType;
+        }
+
         interface LLMap_Options {
             song?: LLH.API.SongDataType;
             songSetting?: LLH.API.SongSettingDataType;
@@ -816,6 +831,8 @@ declare namespace LLH {
             debuff_hp_down_value: number;
             /** LA only, seconds */
             debuff_hp_down_interval: number;
+
+            simMode?: Internal.SimulateMode;
         }
         class LLMap implements Mixin.SaveLoadJson {
             constructor(options?: LLMap_Options);
@@ -839,6 +856,8 @@ declare namespace LLH {
         interface LLMember_Options extends Internal.MemberSaveDataType {
             card: API.CardDataType;
             accessoryData: API.AccessoryDataType;
+            gemDataDict?: API.SisDictDataType;
+            enableLAGem?: boolean;
         }
         class LLMember {
             constructor(options: LLMember_Options, mapAttribute: Core.AttributeType);
@@ -852,6 +871,7 @@ declare namespace LLH {
             hp: number;
             card: API.CardDataType;
             gems: LLSisGem[];
+            laGems: LLCommonSisGem[];
             accessory?: API.AccessoryDataType;
             accessoryLevel: number;
             raw: LLMember_Options;
@@ -995,8 +1015,21 @@ declare namespace LLH {
             attributeUp?: number;
             attributeSync?: number;
         }
+        interface LLSimulateContext_HP {
+            /** 0~totalHP */
+            currentHP: number;
+            /** 0~totalHP */
+            overHealHP: number;
+            overHealLevel: number;
+            overHealBonus: number;
+            totalHealValue: number;
+            totalDamageValue: number;
+            frameHeal: number;
+        }
         class LLSimulateContextStatic {
             constructor(mapdata: LLMap_SaveData, team: LLTeam, maxTime: number);
+
+            simMode: Internal.SimulateMode;
             
             members: LLMember[];
             totalHP: number;
@@ -1012,6 +1045,8 @@ declare namespace LLH {
             triggerLimitPattern: number;
             /** percentage 0~100 */
             skillPosibilityDownFixed: number;
+            debuffHpDownValue: number;
+            debuffHpDownInterval: number;
             hasRepeatSkill: boolean;
             memberBonusFactor: number[];
 
@@ -1029,6 +1064,7 @@ declare namespace LLH {
             skillsDynamic: LLSimulateContext_SkillDynamicInfo[];
 
             members: LLMember[];
+            /** seconds */
             currentTime: number;
             currentFrame: number;
             currentNote: number;
@@ -1036,8 +1072,7 @@ declare namespace LLH {
             currentScore: number;
             currentPerfect: number;
             currentStarPerfect: number;
-            currentHeal: number;
-            currentHealBonus: number;
+            currentHPData: LLSimulateContext_HP;
             skillsActiveCount: number[];
             skillsActiveChanceCount: number[];
             skillsActiveNoEffectCount: number[];
@@ -1056,9 +1091,13 @@ declare namespace LLH {
             lastActiveSkill: LLSimulateContext_LastActiveSkill;
             effects: {[type: number]: number};
             isAccuracyState: boolean;
+            /** seconds, time when hp dropped to 0 */
+            failTime?: number;
 
             timeToFrame(t: number): number;
             updateNextFrameByMinTime(minTime: number): void;
+            setFailTime(t: number): number;
+
             processDeactiveSkills(): void;
             getMinDeactiveTime(): void;
             markTriggerActive(memberId: number, bActive: boolean, effectInfo?: LLSimulateContext_EffectStaticInfo): void;
@@ -1072,8 +1111,12 @@ declare namespace LLH {
             setLastActiveSkill(memberId: number, levelBoost: number, activateFrame: number, isAccessory: boolean): void;
             clearLastActiveSkill(): void;
             setLastFrameForLevelUp(): void;
-            updateHeal(delta: number): void;
             updateAccuracyState(): void;
+
+            updateHP(delta: number): void;
+            commitHP(): void;
+            isFullHP(): boolean;
+            isZeroHP(): boolean;
 
             simulate(NoteTriggerDataType: Internal.NoteTriggerDataType[], teamData: LLTeam): void;
         }
@@ -1263,7 +1306,7 @@ declare namespace LLH {
             }
         }
         namespace ScoreDistParam {
-            type ScoreDistType = 'no'|'v1'|'sim'|'simla';
+            type ScoreDistType = 'no' | 'v1' | Internal.SimulateMode;
             interface ScoreDistParamSaveData {
                 type: ScoreDistType;
                 /** int, simulate count */
@@ -1298,6 +1341,19 @@ declare namespace LLH {
                 // implements
                 saveJson(): string;
                 loadJson(jsonData: string): void;
+            }
+        }
+        namespace UnitResult {
+            interface LLUnitResultComponent_ResultController {
+                update(team: Model.LLTeam): void;
+                updateError(err: any): void;
+            }
+            class LLUnitResultComponent {
+                constructor(id: Component.HTMLElementOrId);
+
+                showResult(team: Model.LLTeam): void;
+                showError(errorMessage: string): void;
+                hideError(): void;
             }
         }
     }

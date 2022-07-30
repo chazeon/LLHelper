@@ -17,7 +17,8 @@ var comp_distribution_chart = 0;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
 var comp_team = undefined;
 var comp_cskill_team = 0;
-var comp_result = 0;
+/** @type {LLH.Layout.UnitResult.LLUnitResultComponent} */
+var comp_result = undefined;
 var comp_language = 0;
 var enable_make_test_case = 0;
 
@@ -92,12 +93,8 @@ function check() {
     LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageAccessorySelectKey, comp_accessory_selector.saveJson());
     LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamLAKey, comp_distribution_param.saveJson());
     LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitLATeamKey, comp_team.saveJson());
-    var distParam = comp_distribution_param.saveData();
-    if (distParam.type == 'sim') {
-        LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
-    } else {
-        LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds());
-    }
+
+    LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
     return true;
 }
 
@@ -116,67 +113,58 @@ function docalculate(cards, accessoryDetails, extraData) {
     var mainatt = comp_songselector.getSongAttribute();
 
     for (var i = 0; i < 9; i++) {
-        member[i].card = cards[member[i].cardid];
-        if (member[i].accessory) {
-            member[i].accessoryData = accessoryDetails[member[i].accessory.id];
+        /** @type {LLH.Model.LLMember_Options} */
+        var memberOpt = member[i];
+        memberOpt.card = cards[memberOpt.cardid];
+        if (memberOpt.accessory) {
+            memberOpt.accessoryData = accessoryDetails[memberOpt.accessory.id];
         }
-        llmembers.push(new LLMember(member[i], mainatt));
+        memberOpt.enableLAGem = true;
+        memberOpt.gemDataDict = comp_gemselector.gemData;
+        llmembers.push(new LLMember(memberOpt, mainatt));
     }
 
     var distParam = comp_distribution_param.saveData();
     var llmap = comp_songselector.getMap(comp_team.getWeights());
+    llmap.setDistParam(distParam);
 
     var llteam = new LLTeam(llmembers);
-    if (distParam.type == 'sim') {
-        llmap.setDistParam(distParam);
-    }
     var llmapSaveData = llmap.saveData();
     llteam.calculateAttributeStrength(llmapSaveData);
     llteam.calculateSkillStrength(llmapSaveData);
 
     comp_team.setStrengthDebuffs(llteam.attrDebuff);
 
-    if (distParam.type != 'no') {
-        var t0 = window.performance.now();
+    var t0 = window.performance.now();
 
-        var percentiles = [1, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 99];
-        var err;
-        if (distParam.type == 'v1') {
-            err = llteam.calculateScoreDistribution();
-            if (!err) {
-                llteam.calculatePercentileNaive();
-            }
-        } else if (distParam.type == 'sim') {
-            err = llteam.simulateScoreDistribution(llmapSaveData, extraData[0], parseInt(distParam.count));
-        } else {
-            err = '未知的得分分布';
-        }
-        if (err) {
-            comp_result.showError(err);
-        } else {
-            comp_result.hideError();
-        }
-        var t1 = window.performance.now();
-        console.debug(llteam);
-
-        console.debug('Elapesd time (ms): ' + (t1 - t0).toFixed(3));
-        var calResult = llteam.getResults();
-        for (var i in percentiles) {
-            document.getElementById('simresult' + (100 - percentiles[i]).toString()).innerHTML = calResult.naivePercentile[percentiles[i]];
-        }
-        document.getElementById('maxscoreprobability').innerHTML = '(' + (calResult.probabilityForMaxScore * 100) + ')%';
-        document.getElementById('minscoreprobability').innerHTML = '(' + (calResult.probabilityForMinScore * 100) + ')%';
-        document.getElementById('simresult0').innerHTML = calResult.maxScore;
-        document.getElementById('simresult100').innerHTML = calResult.minScore;
-        document.getElementById('distributionresult').style.display = '';
-        if (!comp_distribution_chart) {
-            comp_distribution_chart = new LLScoreDistributionChart('score_chart', { 'series': [calResult.naivePercentile], 'width': '100%', 'height': '400px' });
-        } else {
-            comp_distribution_chart.addSeries(calResult.naivePercentile);
-        }
+    var percentiles = [1, 2, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 99];
+    var err;
+    if (distParam.type == 'simla') {
+        err = llteam.simulateScoreDistribution(llmapSaveData, extraData[0], parseInt(distParam.count));
     } else {
-        document.getElementById('distributionresult').style.display = 'none';
+        err = '未知的得分分布';
+    }
+    var t1 = window.performance.now();
+    if (err) {
+        comp_result.showError(err);
+    } else {
         comp_result.hideError();
+    }
+    console.debug(llteam);
+    console.debug('Elapesd time (ms): ' + (t1 - t0).toFixed(3));
+    var calResult = llteam.getResults();
+    for (var i in percentiles) {
+        document.getElementById('simresult' + (100 - percentiles[i]).toString()).innerHTML = calResult.naivePercentile[percentiles[i]];
+    }
+    document.getElementById('maxscoreprobability').innerHTML = '(' + (calResult.probabilityForMaxScore * 100) + ')%';
+    document.getElementById('minscoreprobability').innerHTML = '(' + (calResult.probabilityForMinScore * 100) + ')%';
+    document.getElementById('simresult0').innerHTML = calResult.maxScore;
+    document.getElementById('simresult100').innerHTML = calResult.minScore;
+    document.getElementById('distributionresult').style.display = '';
+    if (!comp_distribution_chart) {
+        comp_distribution_chart = new LLScoreDistributionChart('score_chart', { 'series': [calResult.naivePercentile], 'width': '100%', 'height': '400px' });
+    } else {
+        comp_distribution_chart.addSeries(calResult.naivePercentile);
     }
 
     if (enable_make_test_case) {
