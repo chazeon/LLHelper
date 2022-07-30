@@ -21,6 +21,21 @@
             {
                'version': LLSiteVersion.current_version,
                'features': [
+                  '添加了#llnewunitla#页面',
+                  [
+                     '用于计算演唱会竞技场得分，仅支持模拟计算',
+                     '可以设置技能发动率下降及体力伤害的debuff',
+                     '支持方宝石'
+                  ],
+                  '为模拟计算结果添加若干信息：平均每局伤害、平均最高溢出奶等级、平均方宝石加成、失败率'
+               ],
+               'enhancements': [
+                  '优化了模拟计算性能'
+               ]
+            },
+            {
+               'version': 20220702,
+               'features': [
                   '更新了#doc-score_calculation#中有关Combo Fever技能上限及复读技能哑火判定相关的内容',
                   '模拟计算可以选择Combo Fever技能上限是否解除',
                   '增加火花技能的描述（尚不支持理论和模拟计算）'
@@ -637,7 +652,8 @@
                .replace('#doc-score_calculation#', '<a href="/document/score_calculation.md">得分计算概述</a>')
                .replace('#doc-repeat_team#', '<a href="/document/repeat_team.md">复读机队伍选择</a>')
                .replace('#llnewsisdata#', '<a href="/llnewsisdata">宝石（SI技能）</a>')
-               .replace('#llnewaccessorydata#', '<a href="/llnewaccessorydata">饰品</a>');
+               .replace('#llnewaccessorydata#', '<a href="/llnewaccessorydata">饰品</a>')
+               .replace('#llnewunitla#', '<a href="/llnewunitla">演唱会竞技场计算</a>');
          }
          function createList(data) {
             var list_items = [];

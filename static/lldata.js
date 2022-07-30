@@ -8953,9 +8953,9 @@ var LLUnitResultComponent = (function () {
       resultElements.push(createMicResult(addResultController()));
       resultElements.push(createScalarResult(addResultController(), '期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore.toFixed()));
       resultElements.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
-      resultElements.push(createScalarResult(addResultController(), '平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage)));
-      resultElements.push(createScalarResult(addResultController(), '平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel)));
-      resultElements.push(createScalarResult(addResultController(), '平均方宝石加成', (team) => LLUnit.numberToPercentString(team.getResults().averageLABonus-1, 4)));
+      resultElements.push(createScalarResult(addResultController(), '平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage || 0)));
+      resultElements.push(createScalarResult(addResultController(), '平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel || 0)));
+      resultElements.push(createScalarResult(addResultController(), '平均方宝石加成', (team) => LLUnit.numberToPercentString((team.getResults().averageLABonus || 1)-1, 4)));
       resultElements.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
       resultElements.push(createScalarResult(addResultController(), '失败率', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
 
