@@ -4184,7 +4184,7 @@ var LLMember = (function() {
       var factor = 1;
       for (var i = 0; i < this.gems.length; i++) {
          if (this.gems[i].isAccuracyGem()) {
-            factor = factor * (1+this.gems[i].effect_value/100);
+            factor = factor * (1+this.gems[i].getEffectValue()/100);
          }
       }
       return factor;

@@ -40,6 +40,7 @@ function renderPage(loadDeferred) {
                     summary[toStatus] += 1;
                 }
                 deferredUpdate();
+                document.getElementById('test-result').scrollIntoView();
             }
         };
     })();
@@ -52,6 +53,23 @@ function renderPage(loadDeferred) {
            if (curCardId && uniqueCardids[curCardId] === undefined) {
               requests.push(LLCardData.getDetailedDataWithVersion(version || 'cn', curCardId));
               uniqueCardids[curCardId] = 1;
+           }
+        }
+        return LoadingUtil.start(requests, LoadingUtil.cardDetailMerger);
+    }
+
+    /**
+     * @param {LLH.Core.AccessoryIdStringType[]} accessoryIds 
+     * @param {string} version 
+     */
+    function loadAccessoryByIds(accessoryIds, version) {
+        var uniqueIds = {};
+        var requests = [];
+        for (var i = 0; i < accessoryIds.length; i++) {
+           var curAccessoryId = accessoryIds[i];
+           if (curAccessoryId && uniqueIds[curAccessoryId] === undefined) {
+              requests.push(LLAccessoryData.getDetailedDataWithVersion(version || 'latest', curAccessoryId));
+              uniqueIds[curAccessoryId] = 1;
            }
         }
         return LoadingUtil.start(requests, LoadingUtil.cardDetailMerger);
@@ -91,10 +109,24 @@ function renderPage(loadDeferred) {
     }
 
     /**
+     * @template T
+     * @param {T} obj
+     * @returns {T}
+     */
+    function copyObject(obj) {
+        var copied = {};
+        for (var k in obj) {
+            copied[k] = obj[k];
+        }
+        return copied;
+    }
+
+    /**
      * @param {LLH.Test.TestItemOptions} item 
      * @returns {LLH.Test.AcceptedTestItem}
      */
     function addTestItem(item) {
+        var itemCopy = copyObject(item);
         /** @type {LLH.Test.AcceptedTestItem} */
         var acceptedItem = item;
         testSet.push(acceptedItem);
@@ -128,7 +160,15 @@ function renderPage(loadDeferred) {
                 resultElement.className = 'success';
                 testStatusSummary.update('running', 'success');
             }
-            performanceElement.innerHTML = (acceptedItem.finishTime - acceptedItem.startTime).toFixed(3);
+            LLUnit.updateSubElements(performanceElement, [
+                (acceptedItem.finishTime - acceptedItem.startTime).toFixed(3),
+                LLUnit.createElement('br'),
+                LLUnit.createElement('a', {'className': 'btn btn-default'}, ['Re-run'], {
+                    'click': function () {
+                        addTestItem(itemCopy).start();
+                    }
+                })
+            ]);
         };
 
         acceptedItem.start = function () {
@@ -152,7 +192,7 @@ function renderPage(loadDeferred) {
             }
             LLDepends.whenAllByArray(afters).then(function () {
                 testStatusSummary.update('pending', 'running');
-                var cardDefer, songDefer;
+                var cardDefer, songDefer, accessoryDefer;
                 if (acceptedItem.cardConfigs) {
                     var cardIds = acceptedItem.cardConfigs.map(function (c) { return c[0]; });
                     cardDefer = loadCardsById(cardIds, acceptedItem.version);
@@ -162,15 +202,18 @@ function renderPage(loadDeferred) {
                     var songSetting = getSongSettingById(acceptedItem.songSettingId);
                     songDefer = data_mapnote.getLocalMapNoteData(song, songSetting);
                 }
-                return LLDepends.whenAll(cardDefer, songDefer);
+                if (acceptedItem.accessoryIds) {
+                    accessoryDefer = loadAccessoryByIds(acceptedItem.accessoryIds, acceptedItem.version);
+                }
+                return LLDepends.whenAll(cardDefer, songDefer, accessoryDefer);
             }, function () {
                 setResult('Skipped');
                 defer.reject('Skipped');
-            }).then(function (cards, noteData) {
+            }).then(function (cards, noteData, accessoryData) {
                 try {
                     resultElement.innerHTML = 'Running';
                     acceptedItem.startTime = window.performance.now();
-                    var ret = acceptedItem.run(cards, noteData);
+                    var ret = acceptedItem.run(cards, noteData, accessoryData);
                     if (ret && ret.then) {
                         ret.then(function (r) {
                             setResult(r);
@@ -445,6 +488,18 @@ function renderPage(loadDeferred) {
     }
 
     /**
+     * @param {number} a 
+     * @param {number} b 
+     * @param {number} factor 
+     * @param {number} lastDiff 
+     * @param {string} message Message to show when diff exceeds b*factor
+     * @returns {number} The max (diff, lastDiff), or throw if exceeds b*factor
+     */
+    function assertFloatEqualDynamic(a, b, factor, lastDiff, message) {
+        return assertFloatEqual(a, b, factor*b, lastDiff, message);
+    }
+
+    /**
      * @param {LLH.Internal.AttributesValue} a 
      * @param {LLH.Internal.AttributesValue} b 
      * @param {string} message 
@@ -543,9 +598,11 @@ function renderPage(loadDeferred) {
   
      /**
      * @param {LLH.API.MetaDataType} metaData
+     * @param {LLH.API.SisDictDataType} gemData
      */
-    function init(metaData) {
+    function init(metaData, gemData) {
         LLConst.initMetadata(metaData);
+        LLConst.Gem.postProcessGemData(gemData);
         data_mapnote = new LLMapNoteData('/static/live/json/');
         initSongSettings();
         defer_test_load.resolve();
@@ -908,19 +965,29 @@ function renderPage(loadDeferred) {
         });
 
         /**
-         * 
          * @param {LLH.Test.TestCaseData} caseData 
          * @param {LLH.API.CardDictDataType} cards 
          * @param {LLH.API.NoteDataType} noteData 
+         * @param {LLH.API.AccessoryDictDataType} accessoryDetails
          */
-        function runTestCase(caseData, cards, noteData) {
+        function runTestCase(caseData, cards, noteData, accessoryDetails) {
             var saveData = new LLSaveData(caseData.saveData);
-            var member =  saveData.teamMember;
+            var member = saveData.teamMember;
+            var isLA = (caseData.type == 'simla');
             /** @type {LLH.Model.LLMember[]} */
             var llmembers = [];
             for (var i = 0; i < 9; i++) {
-                member[i].card = cards[member[i].cardid];
-                llmembers.push(new LLMember(member[i], caseData.map.attribute));
+                /** @type {LLH.Model.LLMember_Options} */
+                var memberOpt = member[i];
+                memberOpt.card = cards[memberOpt.cardid];
+                if (memberOpt.accessory) {
+                    memberOpt.accessoryData = accessoryDetails[memberOpt.accessory.id];
+                }
+                if (isLA) {
+                    memberOpt.enableLAGem = true;
+                    memberOpt.gemDataDict = gemData;
+                }
+                llmembers.push(new LLMember(memberOpt, caseData.map.attribute));
             }
 
             var llteam = new LLTeam(llmembers);
@@ -940,12 +1007,24 @@ function renderPage(loadDeferred) {
             if (caseData.type == 'v1') {
                 llteam.calculateScoreDistribution();
                 llteam.calculatePercentileNaive();
-            } else if (caseData.type == 'sim') {
-                llteam.simulateScoreDistribution(caseData.map, noteData, 1000);
-                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveChanceCount, expectedResult.averageSkillsActiveChanceCount, 0.05, 'averageSkillsActiveChanceCount'));
-                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveCount, expectedResult.averageSkillsActiveCount, 0.05, 'averageSkillsActiveCount'));
-                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveNoEffectCount, expectedResult.averageSkillsActiveNoEffectCount, 0.05, 'averageSkillsActiveNoEffectCount'));
-                diffs.push(assertFloatArrayEqualDynamic(calResult.averageSkillsActiveHalfEffectCount, expectedResult.averageSkillsActiveHalfEffectCount, 0.05, 'averageSkillsActiveHalfEffectCount'));
+            } else if (caseData.type == 'sim' || caseData.type == 'simla') {
+                llteam.simulateScoreDistribution(caseData.map, noteData, 2000);
+                var floatArrayKeys = [
+                    'averageSkillsActiveChanceCount', 'averageSkillsActiveCount', 'averageSkillsActiveNoEffectCount', 'averageSkillsActiveHalfEffectCount',
+                    'averageAccessoryActiveCount', 'averageAccessoryActiveChanceCount', 'averageAccessoryActiveNoEffectCount', 'averageAccessoryActiveHalfEffectCount'
+                ];
+                var floatKeys = ['averageDamage', 'averageOverHealLevel', 'failRate'];
+                if (isLA) {
+                    floatKeys.push('averageLABonus');
+                }
+                for (var i = 0; i < floatArrayKeys.length; i++) {
+                    var floatArrayKey = floatArrayKeys[i];
+                    diffs.push(assertFloatArrayEqualDynamic(calResult[floatArrayKey], expectedResult[floatArrayKey], 0.05, floatArrayKey + ' mismatch'));
+                }
+                for (var i = 0; i < floatKeys.length; i++) {
+                    var floatKey = floatKeys[i];
+                    diffs.push(assertFloatEqualDynamic(calResult[floatKey], expectedResult[floatKey], 0.05, 0, floatKey + ' mismatch'));
+                }
             } else {
                 return 0;
             }
@@ -974,15 +1053,21 @@ function renderPage(loadDeferred) {
                 var cardConfigs = [];
                 var saveData = new LLSaveData(caseData.saveData);
                 var teamMembers = saveData.teamMember;
+                var accessoryIds = [];
                 for (var i = 0; i < teamMembers.length; i++) {
-                    cardConfigs.push([parseInt(teamMembers[i].cardid)]);
+                    var curMember = teamMembers[i];
+                    cardConfigs.push([parseInt(curMember.cardid)]);
+                    if (curMember.accessory) {
+                        accessoryIds.push(curMember.accessory.id);
+                    }
                 }
                 testOptions.cardConfigs = cardConfigs;
-                testOptions.run = function (cards, noteData) {
-                    return runTestCase(caseData, cards, noteData);
+                testOptions.run = function (cards, noteData, accessoryData) {
+                    return runTestCase(this, cards, noteData, accessoryData);
                 };
                 testOptions.name = testOptions.name + ' (' + caseFileId + '.json)';
-                caseData.url = '/llnewunit?unit=' + encodeURI(JSON.stringify(caseData.saveData));
+                testOptions.accessoryIds = accessoryIds;
+                caseData.url = '/' + caseData.page + '?unit=' + encodeURI(JSON.stringify(caseData.saveData));
                 addTestItem(caseData).start();
                 return 0;
             });
@@ -992,7 +1077,7 @@ function renderPage(loadDeferred) {
             'after': test1,
             'run': function () {
                 var runs = [];
-                for (var i = 1; i <= 9; i++) {
+                for (var i = 1; i <= 14; i++) {
                     runs.push(loadAndRunTestCase(i + ''));
                 }
                 return $.when.apply($, runs);
@@ -1011,6 +1096,7 @@ function renderPage(loadDeferred) {
 
     LLDepends.whenAll(
         LLMetaData.get(),
+        LLSisData.getAllBriefData(),
         LLCardData.getAllBriefDataWithVersion('cn'),
         LLCardData.getAllBriefDataWithVersion('latest'),
         LLSongData.getAllBriefData(),

@@ -393,6 +393,9 @@
             0,
             0,
             0
-        ]
+        ],
+        "averageDamage": 0,
+        "averageOverHealLevel": 0,
+        "failRate": 0
     }
 }

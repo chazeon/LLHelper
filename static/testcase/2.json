@@ -235,6 +235,50 @@
             0,
             0
         ],
+        "averageAccessoryActiveCount": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "averageAccessoryActiveChanceCount": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "averageAccessoryActiveNoEffectCount": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "averageAccessoryActiveHalfEffectCount": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
         "averageHeal": 0,
         "averageAccuracyNCoverage": 0.4761359516616314,
         "naivePercentile": [
@@ -339,6 +383,9 @@
             1954597,
             1974130,
             2069591
-        ]
+        ],
+        "averageDamage": 0,
+        "averageOverHealLevel": 0,
+        "failRate": 0
     }
 }

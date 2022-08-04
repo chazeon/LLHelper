@@ -1417,6 +1417,7 @@ declare namespace LLH {
             version?: "cn" | "latest";
             songId?: Core.SongIdType;
             songSettingId?: Core.SongSettingIdType;
+            accessoryIds?: Core.AccessoryIdStringType[];
             logData?: any;
             maxDiff?: number;
             successResult?: string;
@@ -1432,7 +1433,7 @@ declare namespace LLH {
 
         interface TestCaseData {
             name: string;
-            page: 'llnewunit' | 'llnewunitsis' | 'llnewautounit';
+            page: 'llnewunit' | 'llnewunitsis' | 'llnewautounit' | 'llnewunitla';
             type: Layout.ScoreDistParam.ScoreDistType;
             version: 'cn' | 'latest';
             songId: Core.SongIdType;
