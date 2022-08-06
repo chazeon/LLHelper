@@ -1021,33 +1021,6 @@ var LLFiltersComponent = (function() {
    return cls;
 })();
 
-/**
- * @typedef {number | string} MemberIdType
- * the number id or jp name
- */
-/**
- * @typedef {4 | 5 | 60 | 143} BigGroupIdType
- * 4 for muse, 5 for aqours, 60 for niji, 143 for liella
- */
-/**
- * @typedef NormalGemMetaType
- * @property {string} name en name
- * @property {string} cnname cn name
- * @property {string} key
- * @property {number} slot
- * @property {1|2} effect_range 1 for self, 2 for team
- * @property {number} effect_value 
- * @property {0|1} [per_color] 1 means exists gem for 3 kinds of color
- * @property {0|1} [per_grade] 1 means exists gem for 3 grades
- * @property {0|1} [per_member] 1 means exists gem for different members
- * @property {0|1} [per_unit] 1 means exists gem for different units
- * @property {0|1} [attr_add] 1 means effect_value is fixed value to add attr
- * @property {0|1} [attr_mul] 1 means effect_value is percentage buff to attr
- * @property {0|1} [skill_mul] 1 means effect_value is percentage buff to score skill
- * @property {0|1} [heal_mul] 1 means effect_value is rate of heal to score on overheal
- * @property {0|1} [ease_attr_mul] 1 means effect_value is percentage buff to attr when covered by ease
- */
-
 /*
  * LLConst: static meta data
  */
@@ -1135,11 +1108,24 @@ var LLConst = (function () {
       '嵐千砂都': 303,
       '平安名すみれ': 304,
       '葉月恋': 305,
+      '桜小路きな子': 306,
+      '米女メイ': 307,
+      '若菜四季': 308,
+      '鬼塚夏美': 309,
       'MEMBER_KANON': 301,
       'MEMBER_KEKE': 302,
       'MEMBER_CHISATO': 303,
       'MEMBER_SUMIRE': 304,
       'MEMBER_REN': 305,
+      'MEMBER_KINAKO': 306,
+      'MEMBER_MEI': 307,
+      'MEMBER_SHIKI': 308,
+      'MEMBER_NATUMI': 309,
+
+      '聖澤悠奈': 311,
+      '柊摩央': 312,
+      'MEMBER_YUUNA': 311,
+      'MEMBER_MAO': 312,
 
       'GROUP_UNKNOWN': 0,
       'GROUP_GRADE1': 1,
@@ -1357,7 +1343,7 @@ var LLConst = (function () {
    };
 
    /**
-    * @param {MemberIdType} member
+    * @param {LLH.Core.MemberIdType} member
     * @returns {number | undefined}
     */
    var mGetMemberId = function (member) {
@@ -3198,7 +3184,7 @@ var LLCardSelectorComponent = (function() {
       for (i = 0; i < normalizedTypeIds.length; i++) {
          var curTypeId = normalizedTypeIds[i];
          var jpName = LLConst.Member.getMemberName(curTypeId);
-         var cnName = LLConst.Member.getMemberName(curTypeId, LLConst.LANGUAGE_JP);
+         var cnName = LLConst.Member.getMemberName(curTypeId, LLConst.LANGUAGE_CN);
          var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
          charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
          charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
@@ -6481,7 +6467,7 @@ var LLGemStockComponent = (function () {
    var STOCK_SUB_TYPE_COLOR = 5;
    /**
     * @param {nummber} curSubType 
-    * @param {NormalGemMetaType} gemMeta 
+    * @param {LLH.Internal.NormalGemMetaType} gemMeta 
     * @returns {number}
     */
    function getNextSubType(curSubType, gemMeta) {
@@ -6686,7 +6672,7 @@ var LLGemStockComponent = (function () {
     * @param {string} curKey 
     * @param {any} data 
     * @param {number} curSubType STOCK_SUB_TYPE_*
-    * @param {NormalGemMetaType} [gemMeta]
+    * @param {LLH.Internal.NormalGemMetaType} [gemMeta]
     * @returns {{items: HTMLElement[], controller: any}}
     */
    function buildStockGUI(curKey, data, curSubType, gemMeta) {
