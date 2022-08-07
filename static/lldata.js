@@ -135,8 +135,8 @@ var LoadingUtil = {
 var LLClassUtil = {
    /**
     * Set super class
-    * @param {class} cls 
-    * @param {class} superCls 
+    * @param {*} cls 
+    * @param {*} superCls 
     */
    'setSuper': function (cls, superCls) {
       var s = function () {};
@@ -146,7 +146,7 @@ var LLClassUtil = {
   }
 };
 
-var LLHelperLocalStorage = {
+const LLHelperLocalStorageKeys = {
    'localStorageDataVersionKey': 'llhelper_data_version__',
    'localStorageDistParamKey': 'llhelper_dist_param__',
    'localStorageDistParamLAKey': 'llhelper_dist_param_la__',
@@ -157,12 +157,15 @@ var LLHelperLocalStorage = {
    'localStorageSongSelectKey': 'llhelper_song_select__',
    'localStorageCardSelectKey': 'llhelper_card_select__',
    'localStorageLanguageKey': 'llhelper_language__',
-   'localStorageAccessorySelectKey': 'llhelper_accessory_select__',
+   'localStorageAccessorySelectKey': 'llhelper_accessory_select__'
+};
 
+/** @type {LLH.Persistence.LLHelperLocalStorage} */
+var LLHelperLocalStorage = {
    'getDataVersion': function () {
       var version;
       try {
-         version = localStorage.getItem(LLHelperLocalStorage.localStorageDataVersionKey);
+         version = localStorage.getItem(LLHelperLocalStorageKeys.localStorageDataVersionKey);
       } catch (e) {
          version = 'latest';
          console.error(e);
@@ -171,7 +174,7 @@ var LLHelperLocalStorage = {
    },
    'setDataVersion': function (v) {
       try {
-         localStorage.setItem(LLHelperLocalStorage.localStorageDataVersionKey, v);
+         localStorage.setItem(LLHelperLocalStorageKeys.localStorageDataVersionKey, v);
       } catch (e) {
          console.error(e);
       }
@@ -202,6 +205,52 @@ var LLHelperLocalStorage = {
       }
    }
 };
+
+/** @type {typeof LLH.Persistence.LLSaveLoadJsonGroup} */
+var LLSaveLoadJsonGroup = (function () {
+   /**
+    * @constructor
+    */
+   function LLSaveLoadJsonGroup_cls() {
+      /** @type {LLH.Persistence.SaveLoadJsonConfig[]} */
+      this.groups = [];
+   }
+   /**
+    * @param {string} key 
+    * @param {LLH.Mixin.SaveLoadJson} serializable 
+    * @param {string} [defaultJson]
+    * @param {boolean} [skipClear]
+    */
+   LLSaveLoadJsonGroup_cls.prototype.register = function (key, serializable, defaultJson, skipClear) {
+      this.groups.push({
+         'key': key,
+         'serializable': serializable,
+         'defaultJson': defaultJson,
+         'skipClear': skipClear
+      });
+   };
+   LLSaveLoadJsonGroup_cls.prototype.loadAll = function () {
+      for (var i = 0; i < this.groups.length; i++) {
+         var config = this.groups[i];
+         config.serializable.loadJson(LLHelperLocalStorage.getData(config.key, config.defaultJson));
+      }
+   };
+   LLSaveLoadJsonGroup_cls.prototype.saveAll = function () {
+      for (var i = 0; i < this.groups.length; i++) {
+         var config = this.groups[i];
+         LLHelperLocalStorage.setData(config.key, config.serializable.saveJson());
+      }
+   };
+   LLSaveLoadJsonGroup_cls.prototype.clearAll = function () {
+      for (var i = 0; i < this.groups.length; i++) {
+         var config = this.groups[i];
+         if (!config.skipClear) {
+            LLHelperLocalStorage.clearData(config.key);
+         }
+      }
+   };
+   return LLSaveLoadJsonGroup_cls;
+})();
 
 /*
  * LLData: class to load json data from backend
@@ -519,7 +568,13 @@ var LLMapNoteData = (function () {
 
 // base components
 
+/** @type {typeof LLH.Component.LLComponentBase} */
 var LLComponentBase = (function () {
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Component.LLComponentBase_Options} options 
+    */
    function LLComponentBase_cls(id, options) {
       this.id = undefined;
       this.exist = false;
@@ -542,53 +597,57 @@ var LLComponentBase = (function () {
          }
       }
    };
-   /** @type {typeof LLH.Component.LLComponentBase} */
-   var cls = LLComponentBase_cls;
-   var proto = cls.prototype;
-   proto.show = function () {
-      if (!this.exist) return;
+   LLComponentBase_cls.prototype.show = function () {
+      if (!this.element) return;
       if (this.visible) return;
       this.element.style.display = '';
       this.visible = true;
    };
-   proto.hide = function () {
-      if (!this.exist) return;
+   LLComponentBase_cls.prototype.hide = function () {
+      if (!this.element) return;
       if (!this.visible) return;
       this.element.style.display = 'none';
       this.visible = false;
    };
-   proto.toggleVisible = function () {
-      if (!this.exist) return;
+   LLComponentBase_cls.prototype.toggleVisible = function () {
+      if (!this.element) return;
       if (this.visible) {
          this.hide();
       } else {
          this.show();
       }
    };
-   proto.setVisible = function (visible) {
+   LLComponentBase_cls.prototype.setVisible = function (visible) {
       if (visible) this.show();
       else this.hide();
    };
-   proto.serialize = function () {
-      if (!this.exist) return undefined;
+   LLComponentBase_cls.prototype.serialize = function () {
+      if (!this.element) return undefined;
       return this.visible;
    };
-   proto.deserialize = function (v) {
+   LLComponentBase_cls.prototype.deserialize = function (v) {
       if (v) {
          this.show();
       } else {
          this.hide();
       }
    };
-   proto.on = function (e, callback) {
-      if (!this.exist) return;
+   LLComponentBase_cls.prototype.saveJson = function () {
+      return JSON.stringify(this.serialize());
+   };
+   LLComponentBase_cls.prototype.loadJson = function (json) {
+      var me = this;
+      LLSaveLoadJsonHelper.commonLoadJson(v => me.deserialize(v), json);
+   };
+   LLComponentBase_cls.prototype.on = function (e, callback) {
+      if (!this.element) return;
       if ((!e) || (!callback)) return;
       this.element.addEventListener(e, callback);
    };
-   proto.isInDocument = function () {
-      return (this.element && this.element.ownerDocument);
+   LLComponentBase_cls.prototype.isInDocument = function () {
+      return !!(this.element && this.element.ownerDocument);
    };
-   return cls;
+   return LLComponentBase_cls;
 })();
 
 var LLValuedComponent = (function() {
@@ -791,20 +850,20 @@ var LLImageComponent = (function() {
    return cls;
 })();
 
+/** @type {typeof LLH.Component.LLComponentCollection} */
 var LLComponentCollection = (function() {
+   /** @constructor */
    function LLComponentCollection_cls() {
+      /** @type {{[name: string]: LLH.Component.LLComponentBase}} */
       this.components = {};
    };
-   /** @type {typeof LLH.Component.LLComponentCollection} */
-   var cls = LLComponentCollection_cls;
-   var proto = cls.prototype;
-   proto.add = function (name, component) {
+   LLComponentCollection_cls.prototype.add = function (name, component) {
       this.components[name] = component;
    };
-   proto.getComponent = function (name) {
+   LLComponentCollection_cls.prototype.getComponent = function (name) {
       return this.components[name];
    };
-   proto.serialize = function () {
+   LLComponentCollection_cls.prototype.serialize = function () {
       var ret = {};
       for (var i in this.components) {
          var val = this.components[i].serialize();
@@ -814,7 +873,7 @@ var LLComponentCollection = (function() {
       }
       return ret;
    };
-   proto.deserialize = function (v) {
+   LLComponentCollection_cls.prototype.deserialize = function (v) {
       if (!v) return;
       for (var i in this.components) {
          var val = v[i];
@@ -823,10 +882,10 @@ var LLComponentCollection = (function() {
          }
       }
    };
-   proto.saveJson = function () {
+   LLComponentCollection_cls.prototype.saveJson = function () {
       return JSON.stringify(this.serialize());
    };
-   proto.loadJson = function (data) {
+   LLComponentCollection_cls.prototype.loadJson = function (data) {
       if (data && data != 'undefined') {
          try {
             this.deserialize(JSON.parse(data));
@@ -835,17 +894,17 @@ var LLComponentCollection = (function() {
          }
       }
    };
-   proto.saveLocalStorage = function (key) {
+   LLComponentCollection_cls.prototype.saveLocalStorage = function (key) {
       LLHelperLocalStorage.setData(key, this.saveJson());
    };
-   proto.loadLocalStorage = function (key) {
+   LLComponentCollection_cls.prototype.loadLocalStorage = function (key) {
       var data = LLHelperLocalStorage.getData(key);
       this.loadJson(data);
    };
-   proto.deleteLocalStorage = function (key) {
+   LLComponentCollection_cls.prototype.deleteLocalStorage = function (key) {
       LLHelperLocalStorage.clearData(key);
    };
-   return cls;
+   return LLComponentCollection_cls;
 })();
 
 var LLFiltersComponent = (function() {
@@ -2957,8 +3016,6 @@ var LLSkillContainer = (function() {
    return cls;
 })();
 
-/** @typedef {'smile'|'pure'|'cool'} AttributeType */
-
 var LLCardSelectorComponent = (function() {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
@@ -3685,6 +3742,24 @@ var LLSaveLoadJsonMixin = (function () {
       obj.saveJson = saveJson;
    };
 })();
+
+var LLSaveLoadJsonHelper = {
+   /**
+    * @param {(any) => void} loader
+    * @param {string} [jsonString] 
+    */
+   commonLoadJson: function (loader, jsonString) {
+      if (!jsonString) return;
+      try {
+         var json = JSON.parse(jsonString);
+         loader(json);
+      } catch (e) {
+         console.error('Failed to load json:');
+         console.error(e);
+         console.error(jsonString);
+      }
+   }
+}
 
 /*
  * strength calculation helper
@@ -6457,6 +6532,7 @@ var LLSaveData = (function () {
    return cls;
 })();
 
+/** @type {typeof LLH.Layout.GemStock.LLGemStockComponent} */
 var LLGemStockComponent = (function () {
    var createElement = LLUnit.createElement;
    var STOCK_SUB_TYPE_START = 0;
@@ -6744,13 +6820,11 @@ var LLGemStockComponent = (function () {
    //    'min': min,
    //    'max': max,
    // }
-   //
-   // component controller:
-   // {
-   //    'loadData': function (data),
-   //    'saveData': function (),
-   //    :LLSaveLoadJsonMixin
-   // }
+
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    */
    function LLGemStockComponent_cls(id) {
       var data = LLSaveData.makeFullyExpandedGemStock();
       var gui = buildStockGUI('技能宝石仓库', data, STOCK_SUB_TYPE_START);
@@ -6758,10 +6832,8 @@ var LLGemStockComponent = (function () {
       this.loadData = function(data) { gui.controller.ALL.deserialize(data); };
       this.saveData = function() { return gui.controller.ALL.serialize(); }
    };
-   var cls = LLGemStockComponent_cls;
-   var proto = cls.prototype;
-   LLSaveLoadJsonMixin(proto);
-   return cls;
+   LLSaveLoadJsonMixin(LLGemStockComponent_cls.prototype);
+   return LLGemStockComponent_cls;
 })();
 
 var LLSwapper = (function () {
@@ -6785,6 +6857,7 @@ var LLSwapper = (function () {
    return cls;
 })();
 
+/** @type {typeof LLH.Layout.SubMember.LLSubMemberComponent} */
 var LLSubMemberComponent = (function () {
    var createElement = LLUnit.createElement;
    function createSimpleInputContainer(text, input) {
@@ -6890,18 +6963,10 @@ var LLSubMemberComponent = (function () {
       return panel;
    }
 
-   // LLSubMemberComponent
-   // {
-   //    'add': function (member),
-   //    'remove': function (start, n),
-   //    'count': function (),
-   //    'empty': function (),
-   //    'setSwapper': function (swapper),
-   //    'setOnCountChange': function (callback(count)),
-   //    'loadData': function (data),
-   //    'saveData': function (),
-   //    :LLSaveLoadJsonMixin
-   // }
+   /**
+    * @constructor
+    * @param {LLH.Component.HTMLElementOrId} id 
+    */
    function LLSubMemberComponent_cls(id) {
       var element = LLUnit.getElement(id);
       var controllers = [];
@@ -6975,13 +7040,11 @@ var LLSubMemberComponent = (function () {
          return ret;
       };
    };
-   var cls = LLSubMemberComponent_cls;
-   var proto = cls.prototype;
-   LLSaveLoadJsonMixin(proto);
-   proto.setOnCountChange = function (callback) {
+   LLSaveLoadJsonMixin(LLSubMemberComponent_cls.prototype);
+   LLSubMemberComponent_cls.prototype.setOnCountChange = function (callback) {
       this.onCountChange = callback;
    };
-   return cls;
+   return LLSubMemberComponent_cls;
 })();
 
 var LLMicDisplayComponent = (function () {
@@ -8017,9 +8080,9 @@ var LLTeamComponent = (function () {
     * @returns {HTMLElement[]}
     */
    function normalGemListCreator(controller, position) {
-      /** @type {AttributeType} */
+      /** @type {LLH.Core.AttributeType} */
       var memberAttribute = undefined;
-      /** @type {AttributeType} */
+      /** @type {LLH.Core.AttributeType} */
       var mapAttribute = undefined;
       var listContainer = renderGemList(controller);
 
@@ -9314,6 +9377,7 @@ var LLGemSelectorComponent = (function () {
    return cls;
 })();
 
+/** @type {typeof LLH.Layout.Language.LLLanguageComponent} */
 var LLLanguageComponent = (function() {
    var createElement = LLUnit.createElement;
 
@@ -9340,34 +9404,39 @@ var LLLanguageComponent = (function() {
       }
       var me = this;
       me.value = 0;
+      /** @type {LLH.Mixin.LanguageSupport[]} */
       me.langSupports = [];
       this.on('click', () => toggleLanguage(me));
    };
-   /** @type {typeof LLH.Layout.Language.LLLanguageComponent} */
-   var cls = LLLanguageComponent_cls;
-   LLClassUtil.setSuper(cls, LLComponentBase);
-   var proto = cls.prototype;
-   proto.get = function () {
+   LLClassUtil.setSuper(LLLanguageComponent_cls, LLComponentBase);
+   LLLanguageComponent_cls.prototype.get = function () {
       return this.value;
    };
-   /** @this {LLH.Layout.Language.LLLanguageComponent} */
-   proto.set = function (v) {
+   LLLanguageComponent_cls.prototype.set = function (v) {
       this.value = v;
       for (var i = 0; i < this.langSupports.length; i++) {
          this.langSupports[i].setLanguage(v);
       }
       if (this.onValueChange) this.onValueChange(v);
    };
-   proto.registerLanguageChange = function (langSupport) {
+   LLLanguageComponent_cls.prototype.registerLanguageChange = function (langSupport) {
       this.langSupports.push(langSupport);
    };
-   proto.serialize = function () {
+   LLLanguageComponent_cls.prototype.serialize = function () {
       return this.get();
    };
-   proto.deserialize = function (v) {
+   LLLanguageComponent_cls.prototype.deserialize = function (v) {
       this.set(v);
    };
-   return cls;
+   LLLanguageComponent_cls.prototype.saveJson = function () {
+      return this.serialize() + '';
+   };
+   LLLanguageComponent_cls.prototype.loadJson = function (json) {
+      if (json) {
+         this.set(parseInt(json));
+      }
+   };
+   return LLLanguageComponent_cls;
 })();
 
 var LLAccessoryComponent = (function () {

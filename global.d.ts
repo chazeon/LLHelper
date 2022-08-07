@@ -383,6 +383,19 @@ declare namespace LLH {
         }
 
         type SimulateMode = 'sim' | 'simla';
+
+        type PoolType = 'card' | 'song' | 'accessory';
+
+        interface PoolSaveDataType<IdType> {
+            name: string;
+            items: IdType[];
+        }
+
+        interface PoolsSaveDataType<IdType> {
+            type: PoolType;
+            pools: PoolSaveDataType<IdType>[];
+        }
+
     }
 
     namespace Depends {
@@ -404,7 +417,7 @@ declare namespace LLH {
     namespace Mixin {
         interface SaveLoadJson {
             saveJson(): string;
-            loadJson(jsonData: string): void;
+            loadJson(jsonData?: string): void;
         }
 
         interface LanguageSupport {
@@ -429,7 +442,7 @@ declare namespace LLH {
         interface LLComponentBase_Options {
             listen: {[e: string]: (event: Event) => void};
         }
-        class LLComponentBase {
+        class LLComponentBase implements Mixin.SaveLoadJson {
             constructor(id: HTMLElementOrId, options: LLComponentBase_Options);
 
             id?: string;
@@ -445,6 +458,10 @@ declare namespace LLH {
             deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
             isInDocument(): boolean;
+
+            // implements
+            saveJson(): string;
+            loadJson(jsonData?: string): void;
         }
         interface LLValuedComponent_Options extends LLComponentBase_Options {
             valueKey: string;
@@ -513,7 +530,7 @@ declare namespace LLH {
             serialize(): any;
             deserialize(data: any): void;
             saveJson(): string;
-            loadJson(json: string): void;
+            loadJson(json?: string): void;
             saveLocalStorage(key: string): void;
             loadLocalStorage(key: string): void;
             deleteLocalStorage(key: string): void;
@@ -549,6 +566,43 @@ declare namespace LLH {
             /** handle changes when specified component's value change, when not provided name, handle all component's filters */
             handleFilters(name?: string): void;
             override deserialize(data: any): void;
+        }
+    }
+
+    namespace Persistence {
+        interface LLHelperLocalStorage {
+            getDataVersion(): string;
+            setDataVersion(v: string): void;
+            getData(key: string, defaultValue?: string): string | undefined;
+            setData(key: string, value: string): void;
+            clearData(key: string): void;
+        }
+
+        interface SaveLoadJsonConfig {
+            key: string;
+            serializable: Mixin.SaveLoadJson;
+            defaultJson?: string;
+            skipClear?: boolean;
+        }
+        
+        class LLSaveLoadJsonGroup {
+            constructor();
+
+            groups: SaveLoadJsonConfig[];
+
+            register(key: string, serializable: Mixin.SaveLoadJson, defaultJson?: string, skipClear?: boolean): void;
+            loadAll(): void;
+            saveAll(): void;
+            clearAll(): void;
+        }
+    }
+
+    namespace Pool {
+        interface PoolProcessedDataType<IdType> extends Internal.PoolSaveDataType<IdType> {
+            itemSet: Set<IdType>;
+        }
+        interface PoolUtil {
+            loadPools<IdType>(storageKey: string): PoolProcessedDataType<IdType>[];
         }
     }
 
@@ -1318,6 +1372,9 @@ declare namespace LLH {
                 get(): Core.LanguageType;
                 set(val: Core.LanguageType): void;
                 registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
+
+                override saveJson(): string;
+                override loadJson(jsonData?: string): void;
             }
         }
         namespace ScoreDistParam {
@@ -1369,6 +1426,43 @@ declare namespace LLH {
                 showResult(team: Model.LLTeam): void;
                 showError(errorMessage: string): void;
                 hideError(): void;
+            }
+        }
+
+        namespace GemStock {
+            class LLGemStockComponent implements Mixin.SaveLoadJson {
+                constructor (id: Component.HTMLElementOrId);
+
+                saveData(): any;
+                loadData(data: any): void;
+
+                // implements
+                saveJson(): string;
+                loadJson(jsonData?: string): void;
+            }
+        }
+
+        namespace SubMember {
+            type LLSubMemberComponent_OnCountChangeCallback = (count: number) => void;
+
+            class LLSubMemberComponent implements Mixin.SaveLoadJson {
+                constructor (id: Component.HTMLElementOrId);
+
+                onCountChange?: LLSubMemberComponent_OnCountChangeCallback;
+
+                add(member: Internal.SubMemberSaveDataType, skipCountChange: boolean): void;
+                remove(start: number, n: number): void;
+                count(): number;
+                empty(): boolean;
+                setSwapper(swapper: TODO.LLSwapper): void;
+                setOnCountChange(callback: LLSubMemberComponent_OnCountChangeCallback): void;
+
+                saveData(): Internal.SubMemberSaveDataType[];
+                loadData(data: Internal.SubMemberSaveDataType[]): void;
+
+                // implements
+                saveJson(): string;
+                loadJson(jsonData?: string): void;
             }
         }
     }
