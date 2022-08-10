@@ -1,7 +1,8 @@
 var import_unit_json = undefined;
 var mezame = 0;
 
-var data_mapnote = 0;
+/** @type {LLMapNoteData} */
+var data_mapnote;
 var comp_skill = 0;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
@@ -16,8 +17,6 @@ var comp_distribution_param;
 var comp_distribution_chart = 0;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
 var comp_team;
-var comp_cskill_team = 0;
-var comp_cskill_friend = 0;
 var comp_result = 0;
 /** @type {LLH.Layout.Language.LLLanguageComponent} */
 var comp_language;
@@ -197,8 +196,8 @@ function renderPage(loadDeferred) {
     function init(cardData, songData, metaData, accessoryData) {
         // init components
         LLConst.initMetadata(metaData);
-        comp_cskill_team = new LLCSkillComponent('cskill_team');
-        comp_cskill_friend = new LLCSkillComponent('cskill_friend', { 'editable': true, 'title': '好友主唱技能' });
+        var comp_cskill_team = new LLCSkillComponent('cskill_team');
+        var comp_cskill_friend = new LLCSkillComponent('cskill_friend', { 'editable': true, 'title': '好友主唱技能' });
         comp_songselector = new LLSongSelectorComponent('song_filter', { 'songs': songData, 'includeMapInfo': true, 'friendCSkill': comp_cskill_friend });
         data_mapnote = new LLMapNoteData();
         comp_skill = new LLSkillContainer();

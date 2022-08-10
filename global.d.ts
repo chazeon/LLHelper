@@ -400,7 +400,7 @@ declare namespace LLH {
 
     namespace Depends {
         interface Promise<DoneT, FailT> {
-            then<DoneU, FailU>(doneCallback: (arg: DoneT) => DoneU, failCallback: (arg: FailT) => FailU): Promise<DoneU, FailU>;
+            then<DoneU, FailU>(doneCallback: (arg: DoneT) => DoneU, failCallback?: (arg: FailT) => FailU): Promise<DoneU, FailU>;
         }
         interface Deferred<DoneT, FailT> extends Promise<DoneT, FailT> {
             resolve(arg?: DoneT): void;
@@ -488,7 +488,7 @@ declare namespace LLH {
         /** returns true if keep the option, false to filter out the option */
         type LLSelectComponent_FilterCallback = (opt: LLSelectComponent_OptionDef) => boolean;
         class LLSelectComponent extends LLValuedComponent {
-            constructor(id: HTMLElementOrId, options: LLValuedComponent_Options);
+            constructor(id: HTMLElementOrId, options?: LLValuedComponent_Options);
 
             options: LLSelectComponent_OptionDef[];
             filter?: LLSelectComponent_FilterCallback;
@@ -500,7 +500,7 @@ declare namespace LLH {
             srcList?: string[];
         }
         class LLImageComponent extends LLComponentBase {
-            constructor(id: HTMLElementOrId, options: LLImageComponent_Options);
+            constructor(id: HTMLElementOrId, options?: LLImageComponent_Options);
             
             srcList: string[];
             curSrcIndex?: number;
@@ -632,7 +632,7 @@ declare namespace LLH {
             songs: API.SongDictDataType;
             excludeDefaultSong?: boolean;
             includeMapInfo?: boolean;
-            friendCSkill?: TODO.LLCSkillComponent;
+            friendCSkill?: Layout.CenterSkill.LLCSkillComponent;
             mode?: Layout.LayoutMode;
         }
         class LLSongSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
@@ -642,7 +642,7 @@ declare namespace LLH {
             songSettings: Internal.ProcessedSongSettingDictDataType;
             includeMapInfo: boolean;
             mode: Layout.LayoutMode;
-            friendCSkill?: TODO.LLCSkillComponent;
+            friendCSkill?: Layout.CenterSkill.LLCSkillComponent;
 
             setSongData(songs: API.SongDictDataType, includeDefaultSong?: boolean): void;
 
@@ -804,6 +804,18 @@ declare namespace LLH {
             getAccessorySkillDescription(accessory: API.AccessoryDataType, level: number): string;
 
             isStrengthSupported(card: API.CardDataType): boolean;
+        }
+    }
+
+    namespace Misc {
+        class LLMapNoteData {
+            constructor(baseUrl?: string);
+
+            baseUrl: string;
+            cache: {[jsonPath: string]: API.NoteDataType[]};
+
+            getMapNoteData(song: API.SongDataType, songSetting: API.SongSettingDataType): Depends.Promise<API.NoteDataType[], void>;
+            getLocalMapNoteData(song: API.SongDataType, songSetting: API.SongSettingDataType): Depends.Promise<API.NoteDataType[], void>;
         }
     }
 
@@ -1465,6 +1477,30 @@ declare namespace LLH {
                 loadJson(jsonData?: string): void;
             }
         }
+
+        namespace CenterSkill {
+            interface LLCSkillComponent_Options {
+                editable?: boolean;
+                /** default '主唱技能' */
+                title?: string;
+            }
+
+            interface LLCSkillComponent_Controller {
+                setCSkill(card: Internal.CSkillDataType): void;
+                getCSkill(): Internal.CSkillDataType;
+                setMapColor(color: Core.AttributeType): void;
+            }
+
+            class LLCSkillComponent {
+                constructor(id: Component.HTMLElementOrId, options?: LLCSkillComponent_Options);
+
+                controller: LLCSkillComponent_Controller;
+
+                setCSkill(card: Internal.CSkillDataType): void;
+                getCSkill(): Internal.CSkillDataType;
+                setMapColor(color: Core.AttributeType): void;
+            }
+        }
     }
 
     class LLData<DataT> {
@@ -1475,11 +1511,8 @@ declare namespace LLH {
         getAllCachedBriefData(): {[id: string]: DataT};
         getCachedDetailedData(index: string): DataT;
 
-        setVersion(version: string): void;
+        setVersion(version?: string): void;
         getVersion(): string;
-
-        private initVersion(version: string): void;
-        private version: string;
     }
 
     class LLSimpleKeyData<T> {
@@ -1541,7 +1574,6 @@ declare namespace LLH {
     namespace TODO {
         type GemStockType = any;
         type LLSwapper = any;
-        type LLCSkillComponent = any;
         type LLSkill = any;
     }
 }
@@ -1553,3 +1585,6 @@ declare var LLAccessoryData: LLH.LLData<LLH.API.AccessoryDataType>;
 declare var LLMetaData: LLH.LLSimpleKeyData<LLH.API.MetaDataType>;
 
 declare var LLDepends: LLH.Depends.Utils;
+
+type LLMapNoteData = LLH.Misc.LLMapNoteData;
+type LLCSkillComponent = LLH.Layout.CenterSkill.LLCSkillComponent;

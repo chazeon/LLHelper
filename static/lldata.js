@@ -84,22 +84,21 @@ var LoadingUtil = {
       var failedCount = 0;
       var totalCount = defers.length;
 
-      var updateProgress = function(){};
-      if (progressbox) {
-         updateProgress = function() {
+      var updateProgress = function() {
+         if (progressbox) {
             if (failedCount == 0) {
                progressbox.innerHTML = finishedCount + ' / ' + totalCount;
             } else {
                progressbox.innerHTML = (finishedCount + failedCount) + ' / ' + totalCount + ' (' + failedCount + '个资源载入失败)';
             }
          }
-      }
-      var updateLoadingBox = function(){};
-      if (loadingbox) {
-         updateLoadingBox = function(s) {
+      };
+
+      var updateLoadingBox = function(s) {
+         if (loadingbox) {
             loadingbox.style.display = s;
          }
-      }
+      };
 
       updateProgress();
       updateLoadingBox('');
@@ -260,7 +259,16 @@ var LLSaveLoadJsonGroup = (function () {
  * LLMetaData: instance for LLSimpleKeyData, load meta data
  * require jQuery
  */
+/** @type {typeof LLH.LLData} */
 var LLData = (function () {
+   /**
+    * @template DataT
+    * @constructor
+    * @param {string} brief_url 
+    * @param {string} detail_url 
+    * @param {string[]} brief_keys 
+    * @param {string} [version] 
+    */
    function LLData_cls(brief_url, detail_url, brief_keys, version) {
       this.briefUrl = brief_url;
       this.detailUrl = detail_url;
@@ -268,33 +276,31 @@ var LLData = (function () {
       this.briefCache = {};
       this.briefCachedKeys = {};
       this.detailCache = {};
+      this.version = 'latest';
       this.setVersion(version);
    }
-   /** @type {typeof LLH.LLData} */
-   var cls = LLData_cls;
-   var proto = cls.prototype;
-
-   proto.setVersion = function(version) {
+   /** @param {string} [version] */
+   LLData_cls.prototype.setVersion = function(version) {
       if (version === undefined) {
          version = LLHelperLocalStorage.getDataVersion();
       }
       this.version = version;
       this.initVersion(version);
    };
-   proto.initVersion = function (version) {
+   LLData_cls.prototype.initVersion = function (version) {
       if (!this.briefCache[version]) {
          this.briefCache[version] = {};
          this.briefCachedKeys[version] = {};
          this.detailCache[version] = {};
       }
    };
-   proto.getVersion = function() {
+   LLData_cls.prototype.getVersion = function() {
       return this.version;
    };
-   proto.getAllCachedBriefData = function() {
+   LLData_cls.prototype.getAllCachedBriefData = function() {
       return this.briefCache[this.version];
    };
-   proto.getCachedDetailedData = function (key) {
+   LLData_cls.prototype.getCachedDetailedData = function (key) {
       var v = this.detailCache[this.version];
       if (v && v[key]) {
          return v[key];
@@ -303,7 +309,7 @@ var LLData = (function () {
       }
    };
 
-   proto.getAllBriefDataWithVersion = function(version, keys, url) {
+   LLData_cls.prototype.getAllBriefDataWithVersion = function(version, keys, url) {
       if (keys === undefined) keys = this.briefKeys;
       if (url === undefined) url = this.briefUrl;
       var me = this;
@@ -356,11 +362,11 @@ var LLData = (function () {
       });
       return defer;
    };
-   proto.getAllBriefData = function(keys, url) {
+   LLData_cls.prototype.getAllBriefData = function(keys, url) {
       return this.getAllBriefDataWithVersion(this.version, keys, url);
    };
 
-   proto.getDetailedDataWithVersion = function(version, index, url) {
+   LLData_cls.prototype.getDetailedDataWithVersion = function(version, index, url) {
       if (url === undefined) url = this.detailUrl;
       var defer = LLDepends.createDeferred();
       if (index === undefined) {
@@ -394,10 +400,10 @@ var LLData = (function () {
       });
       return defer;
    };
-   proto.getDetailedData = function(index, url) {
+   LLData_cls.prototype.getDetailedData = function(index, url) {
       return this.getDetailedDataWithVersion(this.version, index, url);
    };
-   return cls;
+   return LLData_cls;
 })();
 
 var LLSimpleKeyData = (function () {
@@ -406,9 +412,7 @@ var LLSimpleKeyData = (function () {
       this.keys = keys;
       this.cache = {};
    }
-   var cls = LLSimpleKeyData_cls;
-   var proto = cls.prototype;
-   proto.get = function(keys, url) {
+   LLSimpleKeyData_cls.prototype.get = function(keys, url) {
       if (keys === undefined) keys = this.keys;
       if (url === undefined) url = this.url;
       var me = this;
@@ -447,7 +451,7 @@ var LLSimpleKeyData = (function () {
       });
       return defer;
    };
-   return cls;
+   return LLSimpleKeyData_cls;
 })();
 
 var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
@@ -462,12 +466,14 @@ var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
+   /**
+    * @constructor
+    * @param {string} [base_url]
+    */
    function LLMapNoteData_cls(base_url) {
       this.baseUrl = (base_url || 'https://rawfile.loveliv.es/livejson/');
       this.cache = {};
    }
-   var cls = LLMapNoteData_cls;
-   var proto = cls.prototype;
    function createMapData(combo, time) {
       if (combo <= 0 || time <= 3) return undefined;
       var data = [];
@@ -515,7 +521,7 @@ var LLMapNoteData = (function () {
       }
       return false;
    }
-   proto.getMapNoteData = function (song, songSetting) {
+   LLMapNoteData_cls.prototype.getMapNoteData = function (song, songSetting) {
       var defer = LLDepends.createDeferred();
       if (song.attribute == '') {
          // 默认曲目
@@ -549,7 +555,7 @@ var LLMapNoteData = (function () {
       });
       return defer;
    };
-   proto.getLocalMapNoteData = function (song, songSetting) {
+   LLMapNoteData_cls.prototype.getLocalMapNoteData = function (song, songSetting) {
       var me = this;
       var defer = LLDepends.createDeferred();
       if (song.attribute == '') {
@@ -563,7 +569,7 @@ var LLMapNoteData = (function () {
       handleLocalServerCache(me, jsonPath, liveId, defer);
       return defer;
    };
-   return cls;
+   return LLMapNoteData_cls;
 })();
 
 // base components
@@ -650,6 +656,7 @@ var LLComponentBase = (function () {
    return LLComponentBase_cls;
 })();
 
+/** @type {typeof LLH.Component.LLValuedComponent} */
 var LLValuedComponent = (function() {
    function LLValuedComponent_cls(id, options) {
       LLComponentBase.call(this, id, options);
@@ -679,46 +686,42 @@ var LLValuedComponent = (function() {
          me.set(me.element[me.valueKey]);
       });
    };
-   /** @type {typeof LLH.Component.LLValuedComponent} */
-   var cls = LLValuedComponent_cls;
-   LLClassUtil.setSuper(cls, LLComponentBase);
-   var proto = cls.prototype;
-   proto.get = function () {
+   LLClassUtil.setSuper(LLValuedComponent_cls, LLComponentBase);
+   LLValuedComponent_cls.prototype.get = function () {
       return this.value;
    };
-   proto.set = function (v) {
+   LLValuedComponent_cls.prototype.set = function (v) {
       if (!this.exist) return;
       if (v == this.value) return;
       this.element[this.valueKey] = v;
       this.value = v;
       if (this.onValueChange) this.onValueChange(v);
    };
-   proto.serialize = function () {
+   LLValuedComponent_cls.prototype.serialize = function () {
       return this.get();
    };
-   proto.deserialize = function (v) {
+   LLValuedComponent_cls.prototype.deserialize = function (v) {
       this.set(v);
    };
-   return cls;
+   return LLValuedComponent_cls;
 })();
 
+/** @type {typeof LLH.Component.LLValuedMemoryComponent} */
 var LLValuedMemoryComponent = (function() {
    function LLValuedMemoryComponent_cls(initialValue) {
       LLValuedComponent.call(this, undefined);
       this.value = initialValue;
-   };
-   /** @type {typeof LLH.Component.LLValuedMemoryComponent} */
-   var cls = LLValuedMemoryComponent_cls;
-   LLClassUtil.setSuper(cls, LLValuedComponent);
-   var proto = cls.prototype;
-   proto.set = function (v) {
+   }
+   LLClassUtil.setSuper(LLValuedMemoryComponent_cls, LLValuedComponent);
+   LLValuedMemoryComponent_cls.prototype.set = function (v) {
       if (v == this.value) return;
       this.value = v;
       if (this.onValueChange) this.onValueChange(v);
    };
-   return cls;
+   return LLValuedMemoryComponent_cls;
 })();
 
+/** @type {typeof LLH.Component.LLSelectComponent} */
 var LLSelectComponent = (function() {
    function LLSelectComponent_cls(id, options) {
       LLValuedComponent.call(this, id, options);
@@ -735,12 +738,9 @@ var LLSelectComponent = (function() {
          });
       }
       this.options = opts;
-   };
-   /** @type {typeof LLH.Component.LLSelectComponent} */
-   var cls = LLSelectComponent_cls;
-   LLClassUtil.setSuper(cls, LLValuedComponent);
-   var proto = cls.prototype;
-   proto.set = function (v) {
+   }
+   LLClassUtil.setSuper(LLSelectComponent_cls, LLValuedComponent);
+   LLSelectComponent_cls.prototype.set = function (v) {
       if (!this.exist) return;
       if (v != this.element[this.valueKey]) {
          this.element[this.valueKey] = v;
@@ -756,12 +756,12 @@ var LLSelectComponent = (function() {
          if (this.onValueChange) this.onValueChange(v);
       }
    };
-   proto.setOptions = function (options, filter) {
+   LLSelectComponent_cls.prototype.setOptions = function (options, filter) {
       if (!this.exist) return;
       this.options = options || [];
       this.filterOptions(filter);
    };
-   proto.filterOptions = function (filter) {
+   LLSelectComponent_cls.prototype.filterOptions = function (filter) {
       if (!this.exist) return;
       if (!filter) filter = this.filter;
       var oldValue = this.get();
@@ -783,9 +783,10 @@ var LLSelectComponent = (function() {
       }
       this.filter = filter;
    };
-   return cls;
+   return LLSelectComponent_cls;
 })();
 
+/** @type {typeof LLH.Component.LLImageComponent} */
 var LLImageComponent = (function() {
    /**
     * @constructor
@@ -817,12 +818,9 @@ var LLImageComponent = (function() {
          console.error(e);
       });
       this.setSrcList(srcList);
-   };
-   /** @type {typeof LLH.Component.LLImageComponent} */
-   var cls = LLImageComponent_cls;
-   LLClassUtil.setSuper(cls, LLComponentBase)
-   var proto = cls.prototype;
-   proto.setSrcList = function (srcList) {
+   }
+   LLClassUtil.setSuper(LLImageComponent_cls, LLComponentBase)
+   LLImageComponent_cls.prototype.setSrcList = function (srcList) {
       this.srcList = srcList;
       if (srcList.length > 0) {
          for (var i = 0; i < srcList.length; i++) {
@@ -840,14 +838,14 @@ var LLImageComponent = (function() {
          this.element.src = '';
       }
    };
-   proto.setAltText = function (text) {
+   LLImageComponent_cls.prototype.setAltText = function (text) {
       if (this.element.title == text) {
          return;
       }
       this.element.title = text;
       // this.element.alt = text;
    };
-   return cls;
+   return LLImageComponent_cls;
 })();
 
 /** @type {typeof LLH.Component.LLComponentCollection} */
@@ -907,6 +905,7 @@ var LLComponentCollection = (function() {
    return LLComponentCollection_cls;
 })();
 
+/** @type {typeof LLH.Component.LLFiltersComponent} */
 var LLFiltersComponent = (function() {
    function LLFiltersComponent_cls() {
       LLComponentCollection.call(this);
@@ -981,18 +980,14 @@ var LLFiltersComponent = (function() {
          }
       }
    }
-
-   /** @type {typeof LLH.Component.LLFiltersComponent} */
-   var cls = LLFiltersComponent_cls;
-   LLClassUtil.setSuper(cls, LLComponentCollection);
-   var proto = cls.prototype;
-   proto.setFreezed = function (isFreezed) {
+   LLClassUtil.setSuper(LLFiltersComponent_cls, LLComponentCollection);
+   LLFiltersComponent_cls.prototype.setFreezed = function (isFreezed) {
       this.freeze = isFreezed;
    };
-   proto.isFreezed = function () {
+   LLFiltersComponent_cls.prototype.isFreezed = function () {
       return this.freeze;
    };
-   proto.addFilterable = function (name, component, dataGetter) {
+   LLFiltersComponent_cls.prototype.addFilterable = function (name, component, dataGetter) {
       var me = this;
       me.add(name, component);
       var curFilter = me.getFilter(name, true);
@@ -1002,13 +997,13 @@ var LLFiltersComponent = (function() {
          if (me.onValueChange) me.onValueChange(name, v);
       };
    };
-   proto.getFilter = function (name, createIfAbsent) {
+   LLFiltersComponent_cls.prototype.getFilter = function (name, createIfAbsent) {
       if (createIfAbsent && this.filters[name] === undefined) {
          this.filters[name] = {};
       }
       return this.filters[name];
    };
-   proto.addFilterCallback = function (sourceName, targetName, callback) {
+   LLFiltersComponent_cls.prototype.addFilterCallback = function (sourceName, targetName, callback) {
       var sourceFilter = this.getFilter(sourceName, true);
       var targetFilter = this.getFilter(targetName, true);
       if (!sourceFilter.callbacks) {
@@ -1020,7 +1015,7 @@ var LLFiltersComponent = (function() {
       sourceFilter.callbacks[targetName] = callback;
       targetFilter.reverseCallbacks[sourceName] = callback;
    };
-   proto.setFilterOptionGroupCallback = function (name, groupGetter, affectedBy) {
+   LLFiltersComponent_cls.prototype.setFilterOptionGroupCallback = function (name, groupGetter, affectedBy) {
       var curFilter = this.getFilter(name, true);
       curFilter.groupGetter = groupGetter;
       if (affectedBy) {
@@ -1034,19 +1029,19 @@ var LLFiltersComponent = (function() {
          }
       }
    };
-   proto.setFilterOptionGroups = function (name, groups) {
+   LLFiltersComponent_cls.prototype.setFilterOptionGroups = function (name, groups) {
       var curFilter = this.getFilter(name, true);
       curFilter.optionGroups = groups;
       curFilter.currentOptionGroup = undefined;
    };
-   proto.setFilterOptions = function (name, options) {
+   LLFiltersComponent_cls.prototype.setFilterOptions = function (name, options) {
       var curFilter = this.getFilter(name, true);
       curFilter.optionGroups = undefined;
       /** @type {LLH.Component.LLSelectComponent} */
       var curComp = this.getComponent(name);
       curComp.setOptions(options);
    };
-   proto.handleFilters = function (name) {
+   LLFiltersComponent_cls.prototype.handleFilters = function (name) {
       var i;
       if (name) {
          var filter = this.getFilter(name);
@@ -1067,8 +1062,8 @@ var LLFiltersComponent = (function() {
          }
       }
    };
-   var super_deserialize = proto.deserialize;
-   proto.deserialize = function (v) {
+   var super_deserialize = LLFiltersComponent_cls.prototype.deserialize;
+   LLFiltersComponent_cls.prototype.deserialize = function (v) {
       if (!v) return;
       /** @type {LLH.Component.LLFiltersComponent} */
       var me = this;
@@ -1077,7 +1072,7 @@ var LLFiltersComponent = (function() {
       me.setFreezed(false);
       me.handleFilters();
    };
-   return cls;
+   return LLFiltersComponent_cls;
 })();
 
 /*
@@ -8782,12 +8777,11 @@ var LLCSkillComponent = (function () {
       cTo.Csecondskilllimit = cFrom.Csecondskilllimit;
       cTo.Csecondskillattribute = cFrom.Csecondskillattribute;
    }
-   // controller
-   // {
-   //    setCSkill: function(cskill)
-   //    getCSkill: function()
-   //    setMapColor: function(color)
-   // }
+   /**
+    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} controller 
+    * @param {string} title 
+    * @returns {HTMLElement}
+    */
    function createTextDisplay(controller, title) {
       var textElement = createElement('span', {'innerHTML': title + 'N/A'});
       var cskill = {};
@@ -8807,12 +8801,11 @@ var LLCSkillComponent = (function () {
       controller.setMapColor = function(color) {}; // do nothing
       return textElement;
    }
-   // controller
-   // {
-   //    setCSkill: function(cskill)
-   //    getCSkill: function()
-   //    setMapColor: function(color)
-   // }
+   /**
+    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} controller 
+    * @param {string} title 
+    * @returns {HTMLElement}
+    */
    function createEditable(controller, title) {
       var selectClass = {'className': 'form-control no-padding'};
       var addToColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
@@ -8871,16 +8864,11 @@ var LLCSkillComponent = (function () {
          '%'
       ]);
    }
-   // LLCSkillComponent
-   // {
-   //    setCSkill: function(cskill)
-   //    getCSkill: function()
-   //    setMapColor: function(color)
-   // }
+
    /**
     * @constructor
-    * @param {string | HTMLElement} id 
-    * @param {{editable?: boolean, title?: string}} [options] editable default false, title default '主唱技能'
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Options} [options]
     */
    function LLCSkillComponent_cls(id, options) {
       var element = LLUnit.getElement(id);
@@ -8888,9 +8876,22 @@ var LLCSkillComponent = (function () {
       var editable = opt.editable || false;
       var title = opt.title || '主唱技能';
       title = title + '：';
+      /** @type {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} */
+      var controller = {};
       var innerElement = (editable ? createEditable(this, title) : createTextDisplay(this, title));
       element.appendChild(innerElement);
+      this.controller = controller;
    }
+
+   LLCSkillComponent_cls.prototype.setCSkill = function (cskill) {
+      this.controller.setCSkill(cskill);
+   };
+   LLCSkillComponent_cls.prototype.getCSkill = function () {
+      return this.controller.getCSkill();
+   };
+   LLCSkillComponent_cls.prototype.setMapColor = function (color) {
+      this.controller.setMapColor(color);
+   };
 
    return LLCSkillComponent_cls;
 })();
