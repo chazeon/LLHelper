@@ -443,7 +443,7 @@ declare namespace LLH {
             listen: {[e: string]: (event: Event) => void};
         }
         class LLComponentBase implements Mixin.SaveLoadJson {
-            constructor(id: HTMLElementOrId, options: LLComponentBase_Options);
+            constructor(id: HTMLElementOrId, options?: LLComponentBase_Options);
 
             id?: string;
             exist: boolean;
@@ -467,7 +467,7 @@ declare namespace LLH {
             valueKey: string;
         }
         class LLValuedComponent extends LLComponentBase {
-            constructor(id: HTMLElementOrId, options: LLValuedComponent_Options);
+            constructor(id: HTMLElementOrId, options?: LLValuedComponent_Options);
 
             value: string;
             valueKey: string;
@@ -526,7 +526,7 @@ declare namespace LLH {
             components: {[name: string]: LLComponentBase};
 
             add(name: string, component: LLComponentBase): void;
-            getComponent(name: string): LLComponentBase;
+            getComponent(name: string): LLComponentBase | undefined;
             serialize(): any;
             deserialize(data: any): void;
             saveJson(): string;
@@ -553,7 +553,7 @@ declare namespace LLH {
 
             filters: {[name: string]: LLFiltersComponent_FilterDef};
             freeze: boolean;
-            onValueChange: (name: string, newValue: string) => void;
+            onValueChange?: (name: string, newValue: string) => void;
 
             setFreezed(isFreezed: boolean): void;
             isFreezed(): boolean;
@@ -615,7 +615,7 @@ declare namespace LLH {
             constructor(id: Component.HTMLElementOrId, options: LLCardSelectorComponent_Options);
 
             /** album group id to members type id mapping */
-            private albumGroupMemberCache: {[albumGroupId: string]: Core.UnitTypeIdType[]};
+            albumGroupMemberCache: {[albumGroupId: string]: Core.UnitTypeIdType[]};
             cards: API.CardDictDataType;
 
             setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
@@ -653,7 +653,8 @@ declare namespace LLH {
             getSongAttribute(): Core.AttributeAllType;
             getMap(customWeight: Core.PositionWeightType): Model.LLMap;
 
-            private updateMapInfo(songSetting: Internal.ProcessedSongSettingDataType): void;
+            // private
+            updateMapInfo(songSetting: Internal.ProcessedSongSettingDataType): void;
 
             // optional callback
             onSongSettingChange?: (songSettingId: Core.SongSettingIdType, songSetting: Internal.ProcessedSongSettingDataType) => void;
@@ -681,7 +682,7 @@ declare namespace LLH {
             includeLAGem: boolean;
 
             setGemData(gemData: API.SisDictDataType): void;
-            getGemId(): string;
+            getGemId(): Core.SisIdType | Internal.NormalGemCategoryKeyType;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -1501,6 +1502,35 @@ declare namespace LLH {
                 setMapColor(color: Core.AttributeType): void;
             }
         }
+
+        namespace Skill {
+            interface LLSkillContainer_Options {
+                /** default 'skillcontainer' */
+                container?: string;
+                /** default 'skilllvup' */
+                lvup?: string;
+                /** default 'skilllvdown' */
+                lvdown?: string;
+                /** default 'skilllevel' */
+                level?: string;
+                /** default 'skilltext' */
+                text?: string;
+                showall?: boolean;
+                cardData?: API.CardDataType;
+            }
+            class LLSkillContainer extends Component.LLComponentCollection {
+                constructor(options?: LLSkillContainer_Options)
+
+                /** base 0, 0~7/0~15 */
+                skillLevel: number;
+                showAll: boolean;
+                cardData?: API.CardDataType;
+
+                setSkillLevel(lv: number): void;
+                setCardData(cardData?: API.CardDataType, skipRender?: boolean): void;
+                render(): void;
+            }
+        }
     }
 
     class LLData<DataT> {
@@ -1587,4 +1617,14 @@ declare var LLMetaData: LLH.LLSimpleKeyData<LLH.API.MetaDataType>;
 declare var LLDepends: LLH.Depends.Utils;
 
 type LLMapNoteData = LLH.Misc.LLMapNoteData;
+
+type LLComponentCollection = LLH.Component.LLComponentCollection;
+type LLFiltersComponent = LLH.Component.LLFiltersComponent;
+type LLSkillContainer = LLH.Layout.Skill.LLSkillContainer;
+
+type LLCardSelectorComponent = LLH.Selector.LLCardSelectorComponent;
+type LLSongSelectorComponent = LLH.Selector.LLSongSelectorComponent;
+type LLGemSelectorComponent = LLH.Selector.LLGemSelectorComponent;
+type LLAccessorySelectorComponent = LLH.Selector.LLAccessorySelectorComponent;
+
 type LLCSkillComponent = LLH.Layout.CenterSkill.LLCSkillComponent;

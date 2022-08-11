@@ -3,7 +3,8 @@ var mezame = 0;
 
 /** @type {LLMapNoteData} */
 var data_mapnote;
-var comp_skill = 0;
+/** @type {LLSkillContainer} */
+var comp_skill;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
 /** @type {LLH.Selector.LLSongSelectorComponent} */

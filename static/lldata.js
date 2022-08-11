@@ -579,7 +579,7 @@ var LLComponentBase = (function () {
    /**
     * @constructor
     * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Component.LLComponentBase_Options} options 
+    * @param {LLH.Component.LLComponentBase_Options} [options] 
     */
    function LLComponentBase_cls(id, options) {
       this.id = undefined;
@@ -848,71 +848,206 @@ var LLImageComponent = (function() {
    return LLImageComponent_cls;
 })();
 
-/** @type {typeof LLH.Component.LLComponentCollection} */
 var LLComponentCollection = (function() {
-   /** @constructor */
-   function LLComponentCollection_cls() {
-      /** @type {{[name: string]: LLH.Component.LLComponentBase}} */
-      this.components = {};
-   };
-   LLComponentCollection_cls.prototype.add = function (name, component) {
-      this.components[name] = component;
-   };
-   LLComponentCollection_cls.prototype.getComponent = function (name) {
-      return this.components[name];
-   };
-   LLComponentCollection_cls.prototype.serialize = function () {
-      var ret = {};
-      for (var i in this.components) {
-         var val = this.components[i].serialize();
-         if (val !== undefined) {
-            ret[i] = val;
+   /**
+    * @implements {LLH.Mixin.SaveLoadJson}
+    */
+   class LLComponentCollection_cls {
+      constructor() {
+         /** @type {{[name: string]: LLH.Component.LLComponentBase}} */
+         this.components = {};
+      }
+      /**
+       * @param {string} name 
+       * @param {LLH.Component.LLComponentBase} component 
+       */
+      add(name, component) {
+         this.components[name] = component;
+      }
+      /** @param {string} name */
+      getComponent(name) {
+         return this.components[name];
+      }
+      serialize() {
+         var ret = {};
+         for (var i in this.components) {
+            var val = this.components[i].serialize();
+            if (val !== undefined) {
+               ret[i] = val;
+            }
+         }
+         return ret;
+      }
+      deserialize(v) {
+         if (!v) return;
+         for (var i in this.components) {
+            var val = v[i];
+            if (val !== undefined) {
+               this.components[i].deserialize(val);
+            }
          }
       }
-      return ret;
-   };
-   LLComponentCollection_cls.prototype.deserialize = function (v) {
-      if (!v) return;
-      for (var i in this.components) {
-         var val = v[i];
-         if (val !== undefined) {
-            this.components[i].deserialize(val);
+      saveJson() {
+         return JSON.stringify(this.serialize());
+      }
+      loadJson(data) {
+         if (data && data != 'undefined') {
+            try {
+               this.deserialize(JSON.parse(data));
+            } catch (e) {
+               console.error(e);
+            }
          }
       }
-   };
-   LLComponentCollection_cls.prototype.saveJson = function () {
-      return JSON.stringify(this.serialize());
-   };
-   LLComponentCollection_cls.prototype.loadJson = function (data) {
-      if (data && data != 'undefined') {
-         try {
-            this.deserialize(JSON.parse(data));
-         } catch (e) {
-            console.error(e);
-         }
+      saveLocalStorage(key) {
+         LLHelperLocalStorage.setData(key, this.saveJson());
       }
-   };
-   LLComponentCollection_cls.prototype.saveLocalStorage = function (key) {
-      LLHelperLocalStorage.setData(key, this.saveJson());
-   };
-   LLComponentCollection_cls.prototype.loadLocalStorage = function (key) {
-      var data = LLHelperLocalStorage.getData(key);
-      this.loadJson(data);
-   };
-   LLComponentCollection_cls.prototype.deleteLocalStorage = function (key) {
-      LLHelperLocalStorage.clearData(key);
-   };
+      loadLocalStorage(key) {
+         var data = LLHelperLocalStorage.getData(key);
+         this.loadJson(data);
+      }
+      deleteLocalStorage(key) {
+         LLHelperLocalStorage.clearData(key);
+      }
+   }
+
    return LLComponentCollection_cls;
 })();
 
-/** @type {typeof LLH.Component.LLFiltersComponent} */
 var LLFiltersComponent = (function() {
-   function LLFiltersComponent_cls() {
-      LLComponentCollection.call(this);
-      this.filters = {};
-      this.freeze = false;
-   };
-
+   class LLFiltersComponent_cls extends LLComponentCollection {
+      constructor() {
+         super();
+         /** @type {{[name: string]: LLH.Component.LLFiltersComponent_FilterDef}} */
+         this.filters = {};
+         this.freeze = false;
+         /** @type {((name: string, newValue: string) => void) | undefined} */
+         this.onValueChange = undefined;
+      }
+      /** @param {boolean} isFreezed */
+      setFreezed(isFreezed) {
+         this.freeze = isFreezed;
+      }
+      isFreezed() {
+         return this.freeze;
+      };
+      /**
+       * @param {string} name 
+       * @param {LLH.Component.LLValuedComponent} component 
+       * @param {(opt: LLH.Component.LLSelectComponent_OptionDef) => any} [dataGetter] 
+       */
+      addFilterable(name, component, dataGetter) {
+         var me = this;
+         me.add(name, component);
+         var curFilter = me.getFilter(name, true);
+         if (dataGetter) curFilter.dataGetter = dataGetter;
+         component.onValueChange = function (v) {
+            if (!me.isFreezed()) me.handleFilters(name);
+            if (me.onValueChange) me.onValueChange(name, v);
+         };
+      }
+      /**
+       * @param {string} name 
+       * @param {boolean} [createIfAbsent] 
+       * @returns {LLH.Component.LLFiltersComponent_FilterDef}
+       */
+      getFilter(name, createIfAbsent) {
+         if (createIfAbsent && this.filters[name] === undefined) {
+            this.filters[name] = {};
+         }
+         return this.filters[name];
+      }
+      /**
+       * @param {string} sourceName 
+       * @param {string} targetName 
+       * @param {LLH.Component.LLFiltersComponent_FilterCallback} callback 
+       */
+      addFilterCallback(sourceName, targetName, callback) {
+         var sourceFilter = this.getFilter(sourceName, true);
+         var targetFilter = this.getFilter(targetName, true);
+         if (!sourceFilter.callbacks) {
+            sourceFilter.callbacks = {};
+         }
+         if (!targetFilter.reverseCallbacks) {
+            targetFilter.reverseCallbacks = {};
+         }
+         sourceFilter.callbacks[targetName] = callback;
+         targetFilter.reverseCallbacks[sourceName] = callback;
+      }
+      /**
+       * @param {string} name 
+       * @param {() => string} groupGetter 
+       * @param {string[]} affectedBy 
+       */
+      setFilterOptionGroupCallback(name, groupGetter, affectedBy) {
+         var curFilter = this.getFilter(name, true);
+         curFilter.groupGetter = groupGetter;
+         if (affectedBy) {
+            for (var i = 0; i < affectedBy.length; i++) {
+               var affectedFilter = this.getFilter(affectedBy[i], true);
+               if (!affectedFilter.affectOptionGroupFilters) {
+                  affectedFilter.affectOptionGroupFilters = [name];
+               } else {
+                  affectedFilter.affectOptionGroupFilters.push(name);
+               }
+            }
+         }
+      }
+      /**
+       * @param {string} name 
+       * @param {LLH.Component.LLFiltersComponent_OptionGroupType} groups 
+       */
+      setFilterOptionGroups(name, groups) {
+         var curFilter = this.getFilter(name, true);
+         curFilter.optionGroups = groups;
+         curFilter.currentOptionGroup = undefined;
+      }
+      /**
+       * @param {string} name 
+       * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
+       */
+      setFilterOptions(name, options) {
+         var curFilter = this.getFilter(name, true);
+         curFilter.optionGroups = undefined;
+         /** @type {LLH.Component.LLSelectComponent} */
+         var curComp = this.getComponent(name);
+         curComp.setOptions(options);
+      }
+      /**
+       * Handle changes when specified component's value change.
+       * When not provided name, handle all component's filters.
+       * @param {string} [name] 
+       */
+      handleFilters(name) {
+         var i;
+         if (name) {
+            var filter = this.getFilter(name);
+            if (filter.callbacks) {
+               for (i in filter.callbacks) {
+                  handleFilter(this, i, true, false);
+               }
+            }
+            if (filter.affectOptionGroupFilters) {
+               var affectFilters = filter.affectOptionGroupFilters;
+               for (i = 0; i < affectFilters.length; i++) {
+                  handleFilter(this, affectFilters[i], false, true);
+               }
+            }
+         } else {
+            for (i in this.filters) {
+               handleFilter(this, i, true, true);
+            }
+         }
+      }
+      /** @override */
+      deserialize(v) {
+         if (!v) return;
+         this.setFreezed(true);
+         super.deserialize(v);
+         this.setFreezed(false);
+         this.handleFilters();
+      }
+   }
    /**
     * @param {LLH.Component.LLFiltersComponent} me
     * @param {string} targetName
@@ -925,9 +1060,9 @@ var LLFiltersComponent = (function() {
          console.warn('Not found filter for ' + targetName, me);
          return;
       }
-      /** @type {LLH.Component.LLSelectComponent_FilterCallback} */
+      /** @type {LLH.Component.LLSelectComponent_FilterCallback | undefined} */
       var newFilter = undefined;
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[] | undefined} */
       var newOptions = undefined;
       var i;
       if (checkCallbacks && filter.reverseCallbacks) {
@@ -935,7 +1070,7 @@ var LLFiltersComponent = (function() {
          var filterCallbacks = [];
          /** @type {string[]} */
          var values = [];
-         /** @type {LLH.Component.LLValuedComponent} */
+         /** @type {LLH.Component.LLValuedComponent | undefined} */
          var comp = undefined;
          for (i in filter.reverseCallbacks) {
             comp = me.getComponent(i);
@@ -980,98 +1115,7 @@ var LLFiltersComponent = (function() {
          }
       }
    }
-   LLClassUtil.setSuper(LLFiltersComponent_cls, LLComponentCollection);
-   LLFiltersComponent_cls.prototype.setFreezed = function (isFreezed) {
-      this.freeze = isFreezed;
-   };
-   LLFiltersComponent_cls.prototype.isFreezed = function () {
-      return this.freeze;
-   };
-   LLFiltersComponent_cls.prototype.addFilterable = function (name, component, dataGetter) {
-      var me = this;
-      me.add(name, component);
-      var curFilter = me.getFilter(name, true);
-      if (dataGetter) curFilter.dataGetter = dataGetter;
-      component.onValueChange = function (v) {
-         if (!me.isFreezed()) me.handleFilters(name);
-         if (me.onValueChange) me.onValueChange(name, v);
-      };
-   };
-   LLFiltersComponent_cls.prototype.getFilter = function (name, createIfAbsent) {
-      if (createIfAbsent && this.filters[name] === undefined) {
-         this.filters[name] = {};
-      }
-      return this.filters[name];
-   };
-   LLFiltersComponent_cls.prototype.addFilterCallback = function (sourceName, targetName, callback) {
-      var sourceFilter = this.getFilter(sourceName, true);
-      var targetFilter = this.getFilter(targetName, true);
-      if (!sourceFilter.callbacks) {
-         sourceFilter.callbacks = {};
-      }
-      if (!targetFilter.reverseCallbacks) {
-         targetFilter.reverseCallbacks = {};
-      }
-      sourceFilter.callbacks[targetName] = callback;
-      targetFilter.reverseCallbacks[sourceName] = callback;
-   };
-   LLFiltersComponent_cls.prototype.setFilterOptionGroupCallback = function (name, groupGetter, affectedBy) {
-      var curFilter = this.getFilter(name, true);
-      curFilter.groupGetter = groupGetter;
-      if (affectedBy) {
-         for (var i = 0; i < affectedBy.length; i++) {
-            var affectedFilter = this.getFilter(affectedBy[i], true);
-            if (!affectedFilter.affectOptionGroupFilters) {
-               affectedFilter.affectOptionGroupFilters = [name];
-            } else {
-               affectedFilter.affectOptionGroupFilters.push(name);
-            }
-         }
-      }
-   };
-   LLFiltersComponent_cls.prototype.setFilterOptionGroups = function (name, groups) {
-      var curFilter = this.getFilter(name, true);
-      curFilter.optionGroups = groups;
-      curFilter.currentOptionGroup = undefined;
-   };
-   LLFiltersComponent_cls.prototype.setFilterOptions = function (name, options) {
-      var curFilter = this.getFilter(name, true);
-      curFilter.optionGroups = undefined;
-      /** @type {LLH.Component.LLSelectComponent} */
-      var curComp = this.getComponent(name);
-      curComp.setOptions(options);
-   };
-   LLFiltersComponent_cls.prototype.handleFilters = function (name) {
-      var i;
-      if (name) {
-         var filter = this.getFilter(name);
-         if (filter.callbacks) {
-            for (i in filter.callbacks) {
-               handleFilter(this, i, true, false);
-            }
-         }
-         if (filter.affectOptionGroupFilters) {
-            var affectFilters = filter.affectOptionGroupFilters;
-            for (i = 0; i < affectFilters.length; i++) {
-               handleFilter(this, affectFilters[i], false, true);
-            }
-         }
-      } else {
-         for (i in this.filters) {
-            handleFilter(this, i, true, true);
-         }
-      }
-   };
-   var super_deserialize = LLFiltersComponent_cls.prototype.deserialize;
-   LLFiltersComponent_cls.prototype.deserialize = function (v) {
-      if (!v) return;
-      /** @type {LLH.Component.LLFiltersComponent} */
-      var me = this;
-      me.setFreezed(true);
-      super_deserialize.call(this, v);
-      me.setFreezed(false);
-      me.handleFilters();
-   };
+   
    return LLFiltersComponent_cls;
 })();
 
@@ -2939,76 +2983,83 @@ var LLImageServerSwitch = (function () {
  *   LLSkillContainer (require LLUnit)
  */
 var LLSkillContainer = (function() {
-   function LLSkillContainer_cls(options) {
-      LLComponentCollection.call(this);
-      this.skillLevel = 0; // base 0, range 0-7
-      this.cardData = undefined;
-      options = options || {};
-      options.container = options.container || 'skillcontainer';
-      options.lvup = options.lvup || 'skilllvup';
-      options.lvdown = options.lvdown || 'skilllvdown';
-      options.level = options.level || 'skilllevel';
-      options.text = options.text || 'skilltext';
-      options.showall = options.showall || 0;
-      var me = this;
-      this.showAll = (options.showall || 0);
-      this.add('container', new LLComponentBase(options.container));
-      this.add('lvup', new LLComponentBase(options.lvup));
-      this.getComponent('lvup').on('click', function (e) {
-         me.setSkillLevel(me.skillLevel+1);
-      });
-      this.add('lvdown', new LLComponentBase(options.lvdown));
-      this.getComponent('lvdown').on('click', function (e) {
-         me.setSkillLevel(me.skillLevel-1);
-      });
-      this.add('level', new LLValuedComponent(options.level));
-      this.add('text', new LLValuedComponent(options.text));
-      this.setCardData(options.cardData, true);
-      this.render();
-   };
-   var cls = LLSkillContainer_cls;
-   cls.prototype = new LLComponentCollection();
-   cls.prototype.constructor = cls;
-   var proto = cls.prototype;
-   proto.setSkillLevel = function (lv) {
-      if (lv == this.skillLevel) return;
-      var lvCap = 8;
-      if (this.showAll && this.cardData && this.cardData.skilldetail && this.cardData.skilldetail.length > lvCap) {
-         lvCap = this.cardData.skilldetail.length;
+   class LLSkillContainer_cls extends LLComponentCollection {
+      /**
+       * @param {LLH.Layout.Skill.LLSkillContainer_Options} [options] 
+       */
+      constructor(options) {
+         super();
+         this.skillLevel = 0; // base 0, range 0-7
+         this.cardData = undefined;
+         options = options || {};
+         options.container = options.container || 'skillcontainer';
+         options.lvup = options.lvup || 'skilllvup';
+         options.lvdown = options.lvdown || 'skilllvdown';
+         options.level = options.level || 'skilllevel';
+         options.text = options.text || 'skilltext';
+         options.showall = options.showall || false;
+         var me = this;
+         this.showAll = options.showall;
+         this.add('container', new LLComponentBase(options.container));
+         this.add('lvup', new LLComponentBase(options.lvup));
+         this.getComponent('lvup').on('click', function (e) {
+            me.setSkillLevel(me.skillLevel+1);
+         });
+         this.add('lvdown', new LLComponentBase(options.lvdown));
+         this.getComponent('lvdown').on('click', function (e) {
+            me.setSkillLevel(me.skillLevel-1);
+         });
+         this.add('level', new LLValuedComponent(options.level));
+         this.add('text', new LLValuedComponent(options.text));
+         this.setCardData(options.cardData, true);
+         this.render();
       }
-      if (lv >= lvCap) {
-         this.skillLevel = 0;
-      } else if (lv < 0) {
-         this.skillLevel = lvCap-1;
-      } else {
-         this.skillLevel = lv;
+      /** @param {number} lv */
+      setSkillLevel(lv) {
+         if (lv == this.skillLevel) return;
+         var lvCap = 8;
+         if (this.showAll && this.cardData && this.cardData.skilldetail && this.cardData.skilldetail.length > lvCap) {
+            lvCap = this.cardData.skilldetail.length;
+         }
+         if (lv >= lvCap) {
+            this.skillLevel = 0;
+         } else if (lv < 0) {
+            this.skillLevel = lvCap-1;
+         } else {
+            this.skillLevel = lv;
+         }
+         this.render();
       }
-      this.render();
-   };
-   proto.setCardData = function (cardData, skipRender) {
-      if (this.cardData === undefined) {
-         if (cardData === undefined) return;
-         this.cardData = cardData;
-         this.skillLevel = 0;
-         if (!skipRender) this.render();
-      } else {
-         if (cardData === undefined || this.cardData.id != cardData.id) {
+      /**
+       * @param {LLH.API.CardDataType} [cardData] 
+       * @param {boolean} [skipRender] 
+       */
+      setCardData(cardData, skipRender) {
+         if (this.cardData === undefined) {
+            if (cardData === undefined) return;
             this.cardData = cardData;
             this.skillLevel = 0;
             if (!skipRender) this.render();
+         } else {
+            if (cardData === undefined || this.cardData.id != cardData.id) {
+               this.cardData = cardData;
+               this.skillLevel = 0;
+               if (!skipRender) this.render();
+            }
          }
       }
-   };
-   proto.render = function () {
-      if ((!this.cardData) || this.cardData.skill == 0 || this.cardData.skill == null) {
-         this.getComponent('container').hide();
-      } else {
-         this.getComponent('container').show();
-         this.getComponent('text').set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
-         this.getComponent('level').set(this.skillLevel+1);
+      render() {
+         if ((!this.cardData) || this.cardData.skill == 0 || this.cardData.skill == null) {
+            this.getComponent('container').hide();
+         } else {
+            this.getComponent('container').show();
+            this.getComponent('text').set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
+            this.getComponent('level').set(this.skillLevel+1);
+         }
       }
-   };
-   return cls;
+   }
+
+   return LLSkillContainer_cls;
 })();
 
 var LLCardSelectorComponent = (function() {
@@ -3030,110 +3081,6 @@ var LLCardSelectorComponent = (function() {
    var SEL_ID_SHOW_N_CARD = 'showncard';
    var MEM_ID_LANGUAGE = 'language';
 
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Selector.LLCardSelectorComponent_Options} options
-    */
-   function LLCardSelectorComponent_cls(id, options) {
-      LLFiltersComponent.call(this);
-      var container = LLUnit.getElement(id);
-
-      /** @type {LLH.Selector.LLCardSelectorComponent} */
-      var me = this;
-
-      // init components
-      var selCardChoice = createFormSelect();
-      var selRarity = createFormSelect();
-      var selChara = createFormSelect();
-      var selUnitGrade = createFormSelect();
-      var selAttribute = createFormSelect();
-      var selTriggerType = createFormSelect();
-      var selTriggerRequire = createFormSelect();
-      var selSkillType = createFormSelect();
-      var selSpecial = createFormSelect();
-      var selSetName = createFormSelect();
-      var checkShowNCard = createElement('input', {'type': 'checkbox'});
-
-      me.addFilterable(SEL_ID_CARD_CHOICE, new LLSelectComponent(selCardChoice), function (opt) {
-         var index = opt.value;
-         if (!index) return undefined;
-         return me.cards[index];
-      });
-      me.addFilterable(SEL_ID_RARITY, new LLSelectComponent(selRarity));
-      me.addFilterable(SEL_ID_CHARA, new LLSelectComponent(selChara));
-      me.addFilterable(SEL_ID_UNIT_GRADE, new LLSelectComponent(selUnitGrade));
-      me.addFilterable(SEL_ID_ATTRIBUTE, new LLSelectComponent(selAttribute));
-      me.addFilterable(SEL_ID_TRIGGER_TYPE, new LLSelectComponent(selTriggerType));
-      me.addFilterable(SEL_ID_TRIGGER_REQUIRE, new LLSelectComponent(selTriggerRequire));
-      me.addFilterable(SEL_ID_SKILL_TYPE, new LLSelectComponent(selSkillType));
-      me.addFilterable(SEL_ID_SPECIAL, new LLSelectComponent(selSpecial));
-      me.addFilterable(SEL_ID_SET_NAME, new LLSelectComponent(selSetName));
-      me.addFilterable(SEL_ID_SHOW_N_CARD, new LLValuedComponent(checkShowNCard));
-      me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
-
-      var languageGroupGetter = function () {
-         return me.getComponent(MEM_ID_LANGUAGE).get(); 
-      }
-      me.setFilterOptionGroupCallback(SEL_ID_CARD_CHOICE, languageGroupGetter, [MEM_ID_LANGUAGE]);
-      me.setFilterOptionGroupCallback(SEL_ID_CHARA, languageGroupGetter, [MEM_ID_LANGUAGE]);
-      me.setFilterOptionGroupCallback(SEL_ID_SET_NAME, languageGroupGetter, [MEM_ID_LANGUAGE]);
-      me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => me.getComponent(SEL_ID_TRIGGER_TYPE).get(), [SEL_ID_TRIGGER_TYPE]);
-
-      me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.rarity == v));
-      me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (LLConst.Member.getMemberName(d.typeid) == v));
-      me.addFilterCallback(SEL_ID_CHARA, SEL_ID_SET_NAME, function (opt, v) {
-         if (v == '' || opt.value === '') return true;
-         var members = me.albumGroupMemberCache[opt.value];
-         if (!members) return false;
-         for (var i = 0; i < members.length; i++) {
-            if (LLConst.Member.getMemberName(members[i]) == v) return true;
-         }
-         return false;
-      });
-      me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Member.isMemberInGroup(parseInt(d.typeid), v));
-      me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (v == '') || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
-      me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_SET_NAME, function (opt, v) {
-         if (v == '' || opt.value === '') return true;
-         var members = me.albumGroupMemberCache[opt.value];
-         if (!members) return false;
-         for (var i = 0; i < members.length; i++) {
-            if (LLConst.Member.isMemberInGroup(members[i], v)) return true;
-         }
-         return false;
-      });
-      me.addFilterCallback(SEL_ID_ATTRIBUTE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.attribute == v));
-      me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggertype == v));
-      me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggerrequire == v));
-      me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.skilleffect == v));
-      me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (parseInt(d.special) == parseInt(v)));
-      me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
-      me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
-      me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConst[opt.value] !== undefined));
-
-      var generalFilters = [selRarity, selChara, selUnitGrade, selAttribute, selSpecial];
-      if (!options.noShowN) {
-         generalFilters.push(checkShowNCard, '显示N卡');
-      }
-      updateSubElements(container, [
-         createFormInlineGroup('筛选：', generalFilters),
-         createFormInlineGroup('技能筛选：', [selTriggerType, selTriggerRequire, selSkillType]),
-         createFormInlineGroup('相册：', [selSetName]),
-         createFormInlineGroup('卡片：', [selCardChoice])
-      ], true);
-
-      me.onValueChange = function (name, newValue) {
-         if (name == SEL_ID_CARD_CHOICE && me.onCardChange) {
-            me.onCardChange(newValue);
-         }
-      }
-
-      me.setCardData(options.cards);
-   };
-   /** @type {typeof LLH.Selector.LLCardSelectorComponent} */
-   var cls = LLCardSelectorComponent_cls;
-   LLClassUtil.setSuper(cls, LLFiltersComponent);
-
    var makeTriggerTypeOption = function (triggerId) {
       return {'value': triggerId, 'text': LLConst.getSkillTriggerText(parseInt(triggerId))};
    };
@@ -3141,195 +3088,306 @@ var LLCardSelectorComponent = (function() {
       return {'value': effectId, 'text': LLConst.Skill.getEffectBrief(parseInt(effectId))};
    };
 
-   var proto = cls.prototype;
-   proto.setLanguage = function (language) {
-      this.getComponent(MEM_ID_LANGUAGE).set(language);
-   };
-   proto.getCardId = function () {
-      return this.getComponent(SEL_ID_CARD_CHOICE).get() || '';
-   };
-   proto.setCardData = function (cards, resetSelection) {
-      /** @type {LLH.Selector.LLCardSelectorComponent} */
-      var me = this;
-      me.cards = cards;
-      me.setFreezed(true);
+   /**
+    * @implements {LLH.Mixin.LanguageSupport}
+    */
+   class LLCardSelectorComponent_cls extends LLFiltersComponent {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Selector.LLCardSelectorComponent_Options} options
+       */
+      constructor(id, options) {
+         super();
+         var container = LLUnit.getElement(id);
 
-      /** @type {{[id: number]: 0|1}} */
-      var foundTypeIds = {};
-      /** @type {{[triggerType: number]: {[triggerRequire: string]: 0|1}}} */
-      var foundTriggerRequires = {};
-      /** @type {{[albumGroupId: string]: LLH.Core.UnitTypeIdType[]}} */
-      var albumGroupMemberCache = {};
+         /** @type {{[albumGroupId: string]: LLH.Core.UnitTypeIdType[]}} */
+         this.albumGroupMemberCache = {};
+         /** @type {LLH.API.CardDictDataType} */
+         this.cards = {};
 
-      // build card options for both language
-      var cardOptionsCN = [{'value': '', 'text': ''}];
-      var cardOptionsJP = [{'value': '', 'text': ''}];
-      var cardKeys = Object.keys(cards).sort(function(a,b){return parseInt(a) - parseInt(b);});
-      var i;
-      for (i = 0; i < cardKeys.length; i++) {
-         var index = cardKeys[i];
-         if (index == "0") continue;
-         var curCard = cards[index];
-         if (curCard.support == 1) continue;
-
-         var curTypeId = (curCard.typeid ? curCard.typeid : -1);
-         var cnName = LLConst.getCardDescription(curCard, false);
-         var jpName = LLConst.getCardDescription(curCard, true);
-         var color = LLConst.Common.getAttributeColor(curCard.attribute);
-         cardOptionsCN.push({'value': index, 'text': cnName, 'color': color});
-         cardOptionsJP.push({'value': index, 'text': jpName, 'color': color});
-
-         foundTypeIds[curTypeId] = 1;
-         if (curCard.triggerrequire) {
-            if (!foundTriggerRequires[curCard.triggertype]) {
-               foundTriggerRequires[curCard.triggertype] = {};
+         var me = this;
+         // init components
+         var selCardChoice = createFormSelect();
+         var selRarity = createFormSelect();
+         var selChara = createFormSelect();
+         var selUnitGrade = createFormSelect();
+         var selAttribute = createFormSelect();
+         var selTriggerType = createFormSelect();
+         var selTriggerRequire = createFormSelect();
+         var selSkillType = createFormSelect();
+         var selSpecial = createFormSelect();
+         var selSetName = createFormSelect();
+         var checkShowNCard = createElement('input', {'type': 'checkbox'});
+   
+         me.addFilterable(SEL_ID_CARD_CHOICE, new LLSelectComponent(selCardChoice), function (opt) {
+            var index = opt.value;
+            if (!index) return undefined;
+            return me.cards[index];
+         });
+         me.addFilterable(SEL_ID_RARITY, new LLSelectComponent(selRarity));
+         me.addFilterable(SEL_ID_CHARA, new LLSelectComponent(selChara));
+         me.addFilterable(SEL_ID_UNIT_GRADE, new LLSelectComponent(selUnitGrade));
+         me.addFilterable(SEL_ID_ATTRIBUTE, new LLSelectComponent(selAttribute));
+         me.addFilterable(SEL_ID_TRIGGER_TYPE, new LLSelectComponent(selTriggerType));
+         me.addFilterable(SEL_ID_TRIGGER_REQUIRE, new LLSelectComponent(selTriggerRequire));
+         me.addFilterable(SEL_ID_SKILL_TYPE, new LLSelectComponent(selSkillType));
+         me.addFilterable(SEL_ID_SPECIAL, new LLSelectComponent(selSpecial));
+         me.addFilterable(SEL_ID_SET_NAME, new LLSelectComponent(selSetName));
+         me.addFilterable(SEL_ID_SHOW_N_CARD, new LLValuedComponent(checkShowNCard));
+         me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+   
+         var languageGroupGetter = function () {
+            return me.getComponent(MEM_ID_LANGUAGE).get(); 
+         }
+         me.setFilterOptionGroupCallback(SEL_ID_CARD_CHOICE, languageGroupGetter, [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_CHARA, languageGroupGetter, [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_SET_NAME, languageGroupGetter, [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => me.getComponent(SEL_ID_TRIGGER_TYPE).get(), [SEL_ID_TRIGGER_TYPE]);
+   
+         me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.rarity == v));
+         me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (LLConst.Member.getMemberName(d.typeid) == v));
+         me.addFilterCallback(SEL_ID_CHARA, SEL_ID_SET_NAME, function (opt, v) {
+            if (v == '' || opt.value === '') return true;
+            var members = me.albumGroupMemberCache[opt.value];
+            if (!members) return false;
+            for (var i = 0; i < members.length; i++) {
+               if (LLConst.Member.getMemberName(members[i]) == v) return true;
             }
-            foundTriggerRequires[curCard.triggertype][curCard.triggerrequire] = 1;
+            return false;
+         });
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Member.isMemberInGroup(parseInt(d.typeid), v));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (v == '') || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_SET_NAME, function (opt, v) {
+            if (v == '' || opt.value === '') return true;
+            var members = me.albumGroupMemberCache[opt.value];
+            if (!members) return false;
+            for (var i = 0; i < members.length; i++) {
+               if (LLConst.Member.isMemberInGroup(members[i], v)) return true;
+            }
+            return false;
+         });
+         me.addFilterCallback(SEL_ID_ATTRIBUTE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.attribute == v));
+         me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggertype == v));
+         me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggerrequire == v));
+         me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.skilleffect == v));
+         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (parseInt(d.special) == parseInt(v)));
+         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConst[opt.value] !== undefined));
+   
+         var generalFilters = [selRarity, selChara, selUnitGrade, selAttribute, selSpecial];
+         if (!options.noShowN) {
+            generalFilters.push(checkShowNCard, '显示N卡');
          }
-
-         if (curCard.album) {
-            var albumGroup = LLConst.Album.getAlbumGroupByAlbumId(curCard.album);
-            if (albumGroupMemberCache[albumGroup.id]) {
-               albumGroupMemberCache[albumGroup.id].push(curTypeId);
-            } else {
-               albumGroupMemberCache[albumGroup.id] = [curTypeId];
+         updateSubElements(container, [
+            createFormInlineGroup('筛选：', generalFilters),
+            createFormInlineGroup('技能筛选：', [selTriggerType, selTriggerRequire, selSkillType]),
+            createFormInlineGroup('相册：', [selSetName]),
+            createFormInlineGroup('卡片：', [selCardChoice])
+         ], true);
+   
+         me.onValueChange = function (name, newValue) {
+            if (name == SEL_ID_CARD_CHOICE && me.onCardChange) {
+               me.onCardChange(newValue);
             }
          }
+   
+         me.setCardData(options.cards);
       }
-      me.setFilterOptionGroups(SEL_ID_CARD_CHOICE, {'0': cardOptionsCN, '1': cardOptionsJP});
-      me.albumGroupMemberCache = albumGroupMemberCache;
-      if (resetSelection) me.getComponent(SEL_ID_CARD_CHOICE).set('');
-
-      // build set name options from album groups
-      var setNameOptionsCN = [{'value': '', 'text': '相册名'}];
-      var setNameOptionsJP = [{'value': '', 'text': '相册名'}];
-      var albumGroups = LLConst.Album.getAlbumGroups();
-      for (i = 0; i < albumGroups.length; i++) {
-         var curGroup = albumGroups[i];
-         setNameOptionsCN.push({'value': i, 'text': (curGroup.cnname || curGroup.name)});
-         setNameOptionsJP.push({'value': i, 'text': curGroup.name});
+      /** @param {LLH.Core.LanguageType} language */
+      setLanguage(language) {
+         this.getComponent(MEM_ID_LANGUAGE).set(language);
       }
-      me.setFilterOptionGroups(SEL_ID_SET_NAME, {'0': setNameOptionsCN, '1': setNameOptionsJP});
-
-      // build character name options
-      var charaNameOptionsCN = [{'value': '', 'text': '角色'}];
-      var charaNameOptionsJP = [{'value': '', 'text': '角色'}];
-      var typeIds = Object.keys(foundTypeIds).sort(function (a, b){return parseInt(a)-parseInt(b);});
-      /** @type {LLH.Core.UnitTypeIdType[]} */
-      var normalizedTypeIds = [];
-      /** @type {{[jpName: string]: LLH.Core.UnitTypeIdType}} */
-      var typeNameId = {};
-      for (i = 0; i < typeIds.length; i++) {
-         var curTypeId = parseInt(typeIds[i]);
-         if (curTypeId < 0) continue;
-         // some member has more than 1 id, we need normalize the ids using LLConst
-         var jpName = LLConst.Member.getMemberName(curTypeId);
-         if (typeNameId[jpName] === undefined) {
-            if (LLConst[jpName] !== undefined) {
-               curTypeId = LLConst[jpName];
-            } 
-            typeNameId[jpName] = curTypeId;
-            normalizedTypeIds.push(curTypeId);
+      /** @returns {LLH.Core.CardIdOrStringType} */
+      getCardId() {
+         return this.getComponent(SEL_ID_CARD_CHOICE).get() || '';
+      }
+      /**
+       * @param {LLH.API.CardDictDataType} cards 
+       * @param {boolean} [resetSelection] 
+       */
+      setCardData(cards, resetSelection) {
+         var me = this;
+         me.cards = cards;
+         me.setFreezed(true);
+   
+         /** @type {{[id: number]: 0|1}} */
+         var foundTypeIds = {};
+         /** @type {{[triggerType: number]: {[triggerRequire: string]: 0|1}}} */
+         var foundTriggerRequires = {};
+         /** @type {{[albumGroupId: string]: LLH.Core.UnitTypeIdType[]}} */
+         var albumGroupMemberCache = {};
+   
+         // build card options for both language
+         var cardOptionsCN = [{'value': '', 'text': ''}];
+         var cardOptionsJP = [{'value': '', 'text': ''}];
+         var cardKeys = Object.keys(cards).sort(function(a,b){return parseInt(a) - parseInt(b);});
+         var i;
+         for (i = 0; i < cardKeys.length; i++) {
+            var index = cardKeys[i];
+            if (index == "0") continue;
+            var curCard = cards[index];
+            if (curCard.support == 1) continue;
+   
+            var curTypeId = (curCard.typeid ? curCard.typeid : -1);
+            var cnName = LLConst.getCardDescription(curCard, false);
+            var jpName = LLConst.getCardDescription(curCard, true);
+            var color = LLConst.Common.getAttributeColor(curCard.attribute);
+            cardOptionsCN.push({'value': index, 'text': cnName, 'color': color});
+            cardOptionsJP.push({'value': index, 'text': jpName, 'color': color});
+   
+            foundTypeIds[curTypeId] = 1;
+            if (curCard.triggerrequire) {
+               if (!foundTriggerRequires[curCard.triggertype]) {
+                  foundTriggerRequires[curCard.triggertype] = {};
+               }
+               foundTriggerRequires[curCard.triggertype][curCard.triggerrequire] = 1;
+            }
+   
+            if (curCard.album) {
+               var albumGroup = LLConst.Album.getAlbumGroupByAlbumId(curCard.album);
+               if (albumGroupMemberCache[albumGroup.id]) {
+                  albumGroupMemberCache[albumGroup.id].push(curTypeId);
+               } else {
+                  albumGroupMemberCache[albumGroup.id] = [curTypeId];
+               }
+            }
          }
-      }
-      normalizedTypeIds = normalizedTypeIds.sort(function (a, b) {return a - b});
-      for (i = 0; i < normalizedTypeIds.length; i++) {
-         var curTypeId = normalizedTypeIds[i];
-         var jpName = LLConst.Member.getMemberName(curTypeId);
-         var cnName = LLConst.Member.getMemberName(curTypeId, LLConst.LANGUAGE_CN);
-         var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
-         charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
-         charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
-      }
-      me.setFilterOptionGroups(SEL_ID_CHARA, {'0': charaNameOptionsCN, '1': charaNameOptionsJP});
-
-      // build trigger require options
-      /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
-      var triggerRequireOptions = {};
-      for (i in foundTriggerRequires) {
-         var triggerRequires = Object.keys(foundTriggerRequires[i]).sort(function (a, b){return parseInt(a) - parseInt(b)});
-         var options = [{'value': '', 'text': '触发条件'}];
-         var unitText = LLConst.getSkillTriggerUnit(parseInt(i));
-         for (var j = 0; j < triggerRequires.length; j++) {
-            options.push({'value': triggerRequires[j], 'text': triggerRequires[j] + unitText});
+         me.setFilterOptionGroups(SEL_ID_CARD_CHOICE, {'0': cardOptionsCN, '1': cardOptionsJP});
+         me.albumGroupMemberCache = albumGroupMemberCache;
+         if (resetSelection) me.getComponent(SEL_ID_CARD_CHOICE).set('');
+   
+         // build set name options from album groups
+         var setNameOptionsCN = [{'value': '', 'text': '相册名'}];
+         var setNameOptionsJP = [{'value': '', 'text': '相册名'}];
+         var albumGroups = LLConst.Album.getAlbumGroups();
+         for (i = 0; i < albumGroups.length; i++) {
+            var curGroup = albumGroups[i];
+            setNameOptionsCN.push({'value': i, 'text': (curGroup.cnname || curGroup.name)});
+            setNameOptionsJP.push({'value': i, 'text': curGroup.name});
          }
-         triggerRequireOptions[i] = options;
+         me.setFilterOptionGroups(SEL_ID_SET_NAME, {'0': setNameOptionsCN, '1': setNameOptionsJP});
+   
+         // build character name options
+         var charaNameOptionsCN = [{'value': '', 'text': '角色'}];
+         var charaNameOptionsJP = [{'value': '', 'text': '角色'}];
+         var typeIds = Object.keys(foundTypeIds).sort(function (a, b){return parseInt(a)-parseInt(b);});
+         /** @type {LLH.Core.UnitTypeIdType[]} */
+         var normalizedTypeIds = [];
+         /** @type {{[jpName: string]: LLH.Core.UnitTypeIdType}} */
+         var typeNameId = {};
+         for (i = 0; i < typeIds.length; i++) {
+            var curTypeId = parseInt(typeIds[i]);
+            if (curTypeId < 0) continue;
+            // some member has more than 1 id, we need normalize the ids using LLConst
+            var jpName = LLConst.Member.getMemberName(curTypeId);
+            if (typeNameId[jpName] === undefined) {
+               if (LLConst[jpName] !== undefined) {
+                  curTypeId = LLConst[jpName];
+               } 
+               typeNameId[jpName] = curTypeId;
+               normalizedTypeIds.push(curTypeId);
+            }
+         }
+         normalizedTypeIds = normalizedTypeIds.sort(function (a, b) {return a - b});
+         for (i = 0; i < normalizedTypeIds.length; i++) {
+            var curTypeId = normalizedTypeIds[i];
+            var jpName = LLConst.Member.getMemberName(curTypeId);
+            var cnName = LLConst.Member.getMemberName(curTypeId, LLConst.LANGUAGE_CN);
+            var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
+            charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
+            charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
+         }
+         me.setFilterOptionGroups(SEL_ID_CHARA, {'0': charaNameOptionsCN, '1': charaNameOptionsJP});
+   
+         // build trigger require options
+         /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
+         var triggerRequireOptions = {};
+         for (i in foundTriggerRequires) {
+            var triggerRequires = Object.keys(foundTriggerRequires[i]).sort(function (a, b){return parseInt(a) - parseInt(b)});
+            var options = [{'value': '', 'text': '触发条件'}];
+            var unitText = LLConst.getSkillTriggerUnit(parseInt(i));
+            for (var j = 0; j < triggerRequires.length; j++) {
+               options.push({'value': triggerRequires[j], 'text': triggerRequires[j] + unitText});
+            }
+            triggerRequireOptions[i] = options;
+         }
+         me.setFilterOptionGroups(SEL_ID_TRIGGER_REQUIRE, triggerRequireOptions);
+   
+         // set other options
+         me.setFilterOptions(SEL_ID_RARITY, [
+            {'value': '',    'text': '稀有度'},
+            {'value': 'N',   'text': 'N'},
+            {'value': 'R',   'text': 'R'},
+            {'value': 'SR',  'text': 'SR'},
+            {'value': 'SSR', 'text': 'SSR'},
+            {'value': 'UR',  'text': 'UR'}
+         ]);
+         me.setFilterOptions(SEL_ID_UNIT_GRADE, [
+            {'value': '', 'text': '年级小队'},
+            {'value': LLConst.GROUP_MUSE,   'text': "μ's"},
+            {'value': LLConst.GROUP_AQOURS, 'text': 'Aqours'},
+            {'value': LLConst.GROUP_NIJIGASAKI, 'text': '虹咲'},
+            {'value': LLConst.GROUP_LIELLA, 'text': 'Liella!'},
+            {'value': LLConst.GROUP_GRADE1, 'text': '一年级'},
+            {'value': LLConst.GROUP_GRADE2, 'text': '二年级'},
+            {'value': LLConst.GROUP_GRADE3, 'text': '三年级'},
+            {'value': LLConst.GROUP_PRINTEMPS, 'text': 'Printemps'},
+            {'value': LLConst.GROUP_LILYWHITE, 'text': 'lilywhite'},
+            {'value': LLConst.GROUP_BIBI,   'text': 'BiBi'},
+            {'value': LLConst.GROUP_CYARON, 'text': 'CYaRon!'},
+            {'value': LLConst.GROUP_AZALEA, 'text': 'AZALEA'},
+            {'value': LLConst.GROUP_GUILTYKISS, 'text': 'Guilty Kiss'},
+            {'value': LLConst.GROUP_DIVER_DIVA, 'text': 'DiverDiva'},
+            {'value': LLConst.GROUP_A_ZU_NA, 'text': 'A・ZU・NA'},
+            {'value': LLConst.GROUP_QU4RTZ, 'text': 'QU4RTZ'}
+         ]);
+         me.setFilterOptions(SEL_ID_ATTRIBUTE, [
+            {'value': '',      'text': '属性',  'color': 'black'},
+            {'value': 'smile', 'text': 'smile', 'color': 'red'},
+            {'value': 'pure',  'text': 'pure',  'color': 'green'},
+            {'value': 'cool',  'text': 'cool',  'color': 'blue'}
+         ]);
+         me.setFilterOptions(SEL_ID_TRIGGER_TYPE, [
+            {'value': '', 'text': '触发类型'},
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_TIME),
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_NOTE),
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_COMBO),
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_SCORE),
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_PERFECT),
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_STAR_PERFECT),
+            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_MEMBERS)
+         ]);
+         me.setFilterOptions(SEL_ID_SKILL_TYPE, [
+            {'value': '', 'text': '技能类型'},
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_ACCURACY_SMALL),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_ACCURACY_NORMAL),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_HEAL),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_SCORE),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_POSSIBILITY_UP),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_REPEAT),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_PERFECT_SCORE_UP),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_COMBO_FEVER),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_SYNC),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_LEVEL_UP),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP),
+            makeEffectTypeOption(LLConst.SKILL_EFFECT_CHARGED_SPARK)
+         ]);
+         me.setFilterOptions(SEL_ID_SPECIAL, [
+            {'value': '', 'text': '是否特典卡'},
+            {'value': '0', 'text': '不是特典'},
+            {'value': '1', 'text': '是特典'}
+         ]);
+   
+         // at last, unfreeze the card filter and refresh filter
+         me.setFreezed(false);
+         me.handleFilters();
       }
-      me.setFilterOptionGroups(SEL_ID_TRIGGER_REQUIRE, triggerRequireOptions);
-
-      // set other options
-      me.setFilterOptions(SEL_ID_RARITY, [
-         {'value': '',    'text': '稀有度'},
-         {'value': 'N',   'text': 'N'},
-         {'value': 'R',   'text': 'R'},
-         {'value': 'SR',  'text': 'SR'},
-         {'value': 'SSR', 'text': 'SSR'},
-         {'value': 'UR',  'text': 'UR'}
-      ]);
-      me.setFilterOptions(SEL_ID_UNIT_GRADE, [
-         {'value': '', 'text': '年级小队'},
-         {'value': LLConst.GROUP_MUSE,   'text': "μ's"},
-         {'value': LLConst.GROUP_AQOURS, 'text': 'Aqours'},
-         {'value': LLConst.GROUP_NIJIGASAKI, 'text': '虹咲'},
-         {'value': LLConst.GROUP_LIELLA, 'text': 'Liella!'},
-         {'value': LLConst.GROUP_GRADE1, 'text': '一年级'},
-         {'value': LLConst.GROUP_GRADE2, 'text': '二年级'},
-         {'value': LLConst.GROUP_GRADE3, 'text': '三年级'},
-         {'value': LLConst.GROUP_PRINTEMPS, 'text': 'Printemps'},
-         {'value': LLConst.GROUP_LILYWHITE, 'text': 'lilywhite'},
-         {'value': LLConst.GROUP_BIBI,   'text': 'BiBi'},
-         {'value': LLConst.GROUP_CYARON, 'text': 'CYaRon!'},
-         {'value': LLConst.GROUP_AZALEA, 'text': 'AZALEA'},
-         {'value': LLConst.GROUP_GUILTYKISS, 'text': 'Guilty Kiss'},
-         {'value': LLConst.GROUP_DIVER_DIVA, 'text': 'DiverDiva'},
-         {'value': LLConst.GROUP_A_ZU_NA, 'text': 'A・ZU・NA'},
-         {'value': LLConst.GROUP_QU4RTZ, 'text': 'QU4RTZ'}
-      ]);
-      me.setFilterOptions(SEL_ID_ATTRIBUTE, [
-         {'value': '',      'text': '属性',  'color': 'black'},
-         {'value': 'smile', 'text': 'smile', 'color': 'red'},
-         {'value': 'pure',  'text': 'pure',  'color': 'green'},
-         {'value': 'cool',  'text': 'cool',  'color': 'blue'}
-      ]);
-      me.setFilterOptions(SEL_ID_TRIGGER_TYPE, [
-         {'value': '', 'text': '触发类型'},
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_TIME),
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_NOTE),
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_COMBO),
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_SCORE),
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_PERFECT),
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_STAR_PERFECT),
-         makeTriggerTypeOption(LLConst.SKILL_TRIGGER_MEMBERS)
-      ]);
-      me.setFilterOptions(SEL_ID_SKILL_TYPE, [
-         {'value': '', 'text': '技能类型'},
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_ACCURACY_SMALL),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_ACCURACY_NORMAL),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_HEAL),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_SCORE),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_POSSIBILITY_UP),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_REPEAT),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_PERFECT_SCORE_UP),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_COMBO_FEVER),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_SYNC),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_LEVEL_UP),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP),
-         makeEffectTypeOption(LLConst.SKILL_EFFECT_CHARGED_SPARK)
-      ]);
-      me.setFilterOptions(SEL_ID_SPECIAL, [
-         {'value': '', 'text': '是否特典卡'},
-         {'value': '0', 'text': '不是特典'},
-         {'value': '1', 'text': '是特典'}
-      ]);
-
-      // at last, unfreeze the card filter and refresh filter
-      me.setFreezed(false);
-      me.handleFilters();
-   };
-   proto.scrollIntoView = function () {
-      this.getComponent(SEL_ID_CARD_CHOICE).element.scrollIntoView(true);
-   };
-   return cls;
+      scrollIntoView() {
+         this.getComponent(SEL_ID_CARD_CHOICE).element.scrollIntoView(true);
+      }
+   }
+   return LLCardSelectorComponent_cls;
 })();
 
 var LLSongSelectorComponent = (function() {
@@ -3438,281 +3496,292 @@ var LLSongSelectorComponent = (function() {
    }
 
    /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id
-    * @param {LLH.Selector.LLSongSelectorComponent_Options} options
+    * @implements {LLH.Mixin.LanguageSupport}
     */
-   function LLSongSelectorComponent_cls(id, options) {
-      LLFiltersComponent.call(this);
-
-      /** @type {LLH.Selector.LLSongSelectorComponent} */
-      var me = this;
-      me.includeMapInfo = options.includeMapInfo || false;
-      me.friendCSkill = options.friendCSkill || undefined;
-      me.mode = options.mode || 'normal';
-
-      var container = LLUnit.getElement(id);
-
-      var selDiffChoice = createFormSelect();
-      var selSongChoice = createFormSelect();
-      var selSongAtt = createFormSelect();
-      var selSongUnit = createFormSelect();
-      var textSongSearch = createElement('input', {'type': 'text', 'className': 'form-control small-padding'});
-      var selSongDiff = createFormSelect();
-      var selSongAc = createFormSelect();
-      var selSongSwing = createFormSelect();
-      var selSongStarDiff = createFormSelect();
-
-      me.addFilterable(SEL_ID_DIFF_CHOICE, new LLSelectComponent(selDiffChoice), function (opt) {
-         var settingId = opt.value;
-         if (!settingId) return undefined;
-         return me.songSettings[settingId];
-      });
-      me.addFilterable(SEL_ID_SONG_CHOICE, new LLSelectComponent(selSongChoice), function (opt) {
-         var songId = opt.value;
-         if (!songId) return undefined;
-         return me.songs[songId];
-      });
-      me.addFilterable(SEL_ID_SONG_ATT, new LLSelectComponent(selSongAtt));
-      me.addFilterable(SEL_ID_SONG_UNIT, new LLSelectComponent(selSongUnit));
-      me.addFilterable(TEXT_ID_SONG_SEARCH, new LLValuedComponent(textSongSearch));
-      me.addFilterable(SEL_ID_SONG_DIFF, new LLSelectComponent(selSongDiff));
-      me.addFilterable(SEL_ID_SONG_AC, new LLSelectComponent(selSongAc));
-      me.addFilterable(SEL_ID_SONG_SWING, new LLSelectComponent(selSongSwing));
-      me.addFilterable(SEL_ID_SONG_STAR_DIFF, new LLSelectComponent(selSongStarDiff));
-      me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
-
-      me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
-      me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
-
+   class LLSongSelectorComponent_cls extends LLFiltersComponent {
       /**
-       * @param {string} name
-       * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.API.SongDataType) => boolean} songChecker
+       * @param {LLH.Component.HTMLElementOrId} id
+       * @param {LLH.Selector.LLSongSelectorComponent_Options} options
        */
-      var addSongAndSettingFilterBySong = function (name, songChecker) {
-         me.addFilterCallback(name, SEL_ID_SONG_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, d));
-         me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, me.songs[d.song]));
-      };
-      /**
-       * @param {string} name 
-       * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.Internal.ProcessedSongSettingDataType) => boolean} songSettingChecker 
-       */
-      var addSongAndSettingFilterBySongSetting = function (name, songSettingChecker) {
-         me.addFilterCallback(name, SEL_ID_SONG_CHOICE, function (opt, v, d) {
-            if (v == '' || (!d)) return true;
-            for (var k in d.settings) {
-               if (songSettingChecker(opt, v, d.settings[k])) return true;
-            }
-            return false;
+      constructor(id, options) {
+         super();
+         /** @type {LLH.Selector.LLSongSelectorComponent} */
+         var me = this;
+         me.includeMapInfo = options.includeMapInfo || false;
+         me.friendCSkill = options.friendCSkill || undefined;
+         me.mode = options.mode || 'normal';
+
+         var container = LLUnit.getElement(id);
+
+         var selDiffChoice = createFormSelect();
+         var selSongChoice = createFormSelect();
+         var selSongAtt = createFormSelect();
+         var selSongUnit = createFormSelect();
+         var textSongSearch = createElement('input', {'type': 'text', 'className': 'form-control small-padding'});
+         var selSongDiff = createFormSelect();
+         var selSongAc = createFormSelect();
+         var selSongSwing = createFormSelect();
+         var selSongStarDiff = createFormSelect();
+
+         me.addFilterable(SEL_ID_DIFF_CHOICE, new LLSelectComponent(selDiffChoice), function (opt) {
+            var settingId = opt.value;
+            if (!settingId) return undefined;
+            return me.songSettings[settingId];
          });
-         me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songSettingChecker(opt, v, d));
-      };
-      me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.song == v));
-      addSongAndSettingFilterBySong(SEL_ID_SONG_ATT, (opt, v, d) => (d.attribute == '' || (d.attribute == v)));
-      addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => (d.group == v));
-      addSongAndSettingFilterBySong(TEXT_ID_SONG_SEARCH, function (opt, v, d) {
-         v = v.toLowerCase();
-         return (d.name.toLowerCase().indexOf(v) >= 0) || (d.jpname.toLowerCase().indexOf(v) >= 0);
-      });
-      addSongAndSettingFilterBySongSetting(SEL_ID_SONG_DIFF, (opt, v, d) => (d.difficulty == v));
-      addSongAndSettingFilterBySongSetting(SEL_ID_SONG_AC, (opt, v, d) => (d.isac == v));
-      addSongAndSettingFilterBySongSetting(SEL_ID_SONG_SWING, (opt, v, d) => (d.isswing == v));
-      addSongAndSettingFilterBySongSetting(SEL_ID_SONG_STAR_DIFF, (opt, v, d) => (d.stardifficulty == v));
+         me.addFilterable(SEL_ID_SONG_CHOICE, new LLSelectComponent(selSongChoice), function (opt) {
+            var songId = opt.value;
+            if (!songId) return undefined;
+            return me.songs[songId];
+         });
+         me.addFilterable(SEL_ID_SONG_ATT, new LLSelectComponent(selSongAtt));
+         me.addFilterable(SEL_ID_SONG_UNIT, new LLSelectComponent(selSongUnit));
+         me.addFilterable(TEXT_ID_SONG_SEARCH, new LLValuedComponent(textSongSearch));
+         me.addFilterable(SEL_ID_SONG_DIFF, new LLSelectComponent(selSongDiff));
+         me.addFilterable(SEL_ID_SONG_AC, new LLSelectComponent(selSongAc));
+         me.addFilterable(SEL_ID_SONG_SWING, new LLSelectComponent(selSongSwing));
+         me.addFilterable(SEL_ID_SONG_STAR_DIFF, new LLSelectComponent(selSongStarDiff));
+         me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
 
-      me.onValueChange = function (name, newValue) {
-         if (name == SEL_ID_DIFF_CHOICE) {
-            if (options.includeMapInfo) me.updateMapInfo(me.getSelectedSongSetting());
-            if (me.onSongSettingChange) me.onSongSettingChange(newValue, me.getSelectedSongSetting());
-         } else if (name == SEL_ID_MAP_ATT) {
-            if (me.friendCSkill) me.friendCSkill.setMapColor(newValue);
-            if (me.onSongColorChange) me.onSongColorChange(newValue);
+         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+
+         /**
+          * @param {string} name
+          * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.API.SongDataType) => boolean} songChecker
+          */
+         var addSongAndSettingFilterBySong = function (name, songChecker) {
+            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, d));
+            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, me.songs[d.song]));
+         };
+         /**
+          * @param {string} name 
+          * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.Internal.ProcessedSongSettingDataType) => boolean} songSettingChecker 
+          */
+         var addSongAndSettingFilterBySongSetting = function (name, songSettingChecker) {
+            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, function (opt, v, d) {
+               if (v == '' || (!d)) return true;
+               for (var k in d.settings) {
+                  if (songSettingChecker(opt, v, d.settings[k])) return true;
+               }
+               return false;
+            });
+            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songSettingChecker(opt, v, d));
+         };
+         me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.song == v));
+         addSongAndSettingFilterBySong(SEL_ID_SONG_ATT, (opt, v, d) => (d.attribute == '' || (d.attribute == v)));
+         addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => (d.group == v));
+         addSongAndSettingFilterBySong(TEXT_ID_SONG_SEARCH, function (opt, v, d) {
+            v = v.toLowerCase();
+            return (d.name.toLowerCase().indexOf(v) >= 0) || (d.jpname.toLowerCase().indexOf(v) >= 0);
+         });
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_DIFF, (opt, v, d) => (d.difficulty == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_AC, (opt, v, d) => (d.isac == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_SWING, (opt, v, d) => (d.isswing == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_STAR_DIFF, (opt, v, d) => (d.stardifficulty == v));
+
+         me.onValueChange = function (name, newValue) {
+            if (name == SEL_ID_DIFF_CHOICE) {
+               if (options.includeMapInfo) me.updateMapInfo(me.getSelectedSongSetting());
+               if (me.onSongSettingChange) me.onSongSettingChange(newValue, me.getSelectedSongSetting());
+            } else if (name == SEL_ID_MAP_ATT) {
+               if (me.friendCSkill) me.friendCSkill.setMapColor(newValue);
+               if (me.onSongColorChange) me.onSongColorChange(newValue);
+            }
+         };
+
+         updateSubElements(container, [
+            createFormInlineGroup('搜索', textSongSearch),
+            createFormInlineGroup('筛选', [selSongDiff, selSongAtt, selSongUnit, selSongSwing, selSongAc, selSongStarDiff]),
+            createFormInlineGroup('歌曲', selSongChoice),
+            createFormInlineGroup('谱面', selDiffChoice)
+         ], true);
+
+         if (options.includeMapInfo) {
+            initMapInfo(me, container);
          }
-      };
 
-      updateSubElements(container, [
-         createFormInlineGroup('搜索', textSongSearch),
-         createFormInlineGroup('筛选', [selSongDiff, selSongAtt, selSongUnit, selSongSwing, selSongAc, selSongStarDiff]),
-         createFormInlineGroup('歌曲', selSongChoice),
-         createFormInlineGroup('谱面', selDiffChoice)
-      ], true);
-
-      if (options.includeMapInfo) {
-         initMapInfo(me, container);
+         me.setSongData(options.songs, options.excludeDefaultSong);
       }
-
-      me.setSongData(options.songs, options.excludeDefaultSong);
-   };
-
-   /** @type {typeof LLH.Selector.LLSongSelectorComponent} */
-   var cls = LLSongSelectorComponent_cls;
-   LLClassUtil.setSuper(cls, LLFiltersComponent);
-   var proto = cls.prototype;
-
-   proto.setSongData = function (songs, excludeDefaultSong) {
-      /** @type {LLH.Selector.LLSongSelectorComponent} */
-      var me = this;
-      var i, j;
-
-      if (!excludeDefaultSong) {
-         var songGroups = LLConst.getSongGroupIds();
-         var songDefaultSets = LLConst.getDefaultSongSetIds();
-         for (i = 0; i < songGroups.length; i++) {
-            for (j = 0; j < songDefaultSets.length; j++) {
-               var defaultSong = LLConst.getDefaultSong(songGroups[i], songDefaultSets[j]);
-               songs[String(-((i+1)*100 + j))] = defaultSong;
+      /**
+       * @param {LLH.API.SongDictDataType} songs 
+       * @param {boolean} [excludeDefaultSong] 
+       */
+      setSongData(songs, excludeDefaultSong) {
+         /** @type {LLH.Selector.LLSongSelectorComponent} */
+         var me = this;
+         var i, j;
+   
+         if (!excludeDefaultSong) {
+            var songGroups = LLConst.getSongGroupIds();
+            var songDefaultSets = LLConst.getDefaultSongSetIds();
+            for (i = 0; i < songGroups.length; i++) {
+               for (j = 0; j < songDefaultSets.length; j++) {
+                  var defaultSong = LLConst.getDefaultSong(songGroups[i], songDefaultSets[j]);
+                  songs[String(-((i+1)*100 + j))] = defaultSong;
+               }
             }
          }
-      }
-
-      /** @type {LLH.Internal.ProcessedSongSettingDictDataType} */
-      var songSettings = {};
-      for (i in songs) {
-         if (!songs[i].settings) continue;
-         for (j in songs[i].settings) {
-            songSettings[j] = songs[i].settings[j];
-            songSettings[j].song = i;
+   
+         /** @type {LLH.Internal.ProcessedSongSettingDictDataType} */
+         var songSettings = {};
+         for (i in songs) {
+            if (!songs[i].settings) continue;
+            for (j in songs[i].settings) {
+               songSettings[j] = songs[i].settings[j];
+               songSettings[j].song = i;
+            }
          }
-      }
-
-      me.songs = songs;
-      me.songSettings = songSettings;
-
-      me.setFreezed(true);
-
-      // build song setting options for both language
-      var songSettingAvailableStarDiff = new Array(20);
-      var songSettingOptionsCN = [{'value': '', 'text': '谱面', 'color': 'black'}];
-      var songSettingOptionsJP = [{'value': '', 'text': '谱面', 'color': 'black'}];
-      var songSettingKeys = Object.keys(songSettings).sort(function (a,b){
-         var ia = parseInt(a), ib =  parseInt(b);
-         if (ia < 0 && ib < 0) return ib - ia;
-         return ia - ib;
-      });
-      for (i = 0; i < songSettingKeys.length; i++) {
-         var liveId = songSettingKeys[i];
-         var curSongSetting = songSettings[liveId];
-         var curSong = songs[curSongSetting.song];
-         var fullname = String(liveId);
-         if (parseInt(liveId) > 0) {
-            while (fullname.length < 3) fullname = '0' + fullname;
+   
+         me.songs = songs;
+         me.songSettings = songSettings;
+   
+         me.setFreezed(true);
+   
+         // build song setting options for both language
+         var songSettingAvailableStarDiff = new Array(20);
+         var songSettingOptionsCN = [{'value': '', 'text': '谱面', 'color': 'black'}];
+         var songSettingOptionsJP = [{'value': '', 'text': '谱面', 'color': 'black'}];
+         var songSettingKeys = Object.keys(songSettings).sort(function (a,b){
+            var ia = parseInt(a), ib =  parseInt(b);
+            if (ia < 0 && ib < 0) return ib - ia;
+            return ia - ib;
+         });
+         for (i = 0; i < songSettingKeys.length; i++) {
+            var liveId = songSettingKeys[i];
+            var curSongSetting = songSettings[liveId];
+            var curSong = songs[curSongSetting.song];
+            var fullname = String(liveId);
+            if (parseInt(liveId) > 0) {
+               while (fullname.length < 3) fullname = '0' + fullname;
+            }
+            fullname += ' ★ ' + curSongSetting.stardifficulty + ' [';
+            var cnName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 1) + (curSongSetting.isac ? ' 街机' : '') + (curSongSetting.isswing ? ' 滑键' : '') + '][' + curSongSetting.combo + ' 连击] ' + curSong.name;
+            var jpName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 0) + (curSongSetting.isac ? ' Arcade' : '') + (curSongSetting.isswing ? ' Swing' : '') + '][' + curSongSetting.combo + ' COMBO] ' + curSong.jpname;
+            var color = LLConst.Common.getAttributeColor(curSong.attribute);
+            songSettingOptionsCN.push({'value': liveId, 'text': cnName, 'color': color});
+            songSettingOptionsJP.push({'value': liveId, 'text': jpName, 'color': color});
+   
+            songSettingAvailableStarDiff[parseInt(curSongSetting.stardifficulty)] = 1;
          }
-         fullname += ' ★ ' + curSongSetting.stardifficulty + ' [';
-         var cnName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 1) + (curSongSetting.isac ? ' 街机' : '') + (curSongSetting.isswing ? ' 滑键' : '') + '][' + curSongSetting.combo + ' 连击] ' + curSong.name;
-         var jpName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 0) + (curSongSetting.isac ? ' Arcade' : '') + (curSongSetting.isswing ? ' Swing' : '') + '][' + curSongSetting.combo + ' COMBO] ' + curSong.jpname;
-         var color = LLConst.Common.getAttributeColor(curSong.attribute);
-         songSettingOptionsCN.push({'value': liveId, 'text': cnName, 'color': color});
-         songSettingOptionsJP.push({'value': liveId, 'text': jpName, 'color': color});
-
-         songSettingAvailableStarDiff[parseInt(curSongSetting.stardifficulty)] = 1;
-      }
-      me.setFilterOptionGroups(SEL_ID_DIFF_CHOICE, {'0': songSettingOptionsCN, '1': songSettingOptionsJP});
-
-      // build song options for both language
-      var songOptionsCN = [{'value': '', 'text': '歌曲', 'color': 'black'}];
-      var songOptionsJP = [{'value': '', 'text': '歌曲', 'color': 'black'}];
-      var songKeys = Object.keys(songs).sort(function (a,b){
-         var ia = parseInt(a), ib =  parseInt(b);
-         if (ia < 0 && ib < 0) return ib - ia;
-         return ia - ib;
-      });
-      for (i = 0; i < songKeys.length; i++) {
-         var songId = songKeys[i];
-         var curSong = songs[songId];
-         var color = LLConst.Common.getAttributeColor(curSong.attribute);
-         songOptionsCN.push({'value': songId, 'text': curSong.name, 'color': color});
-         songOptionsJP.push({'value': songId, 'text': curSong.jpname, 'color': color});
-      }
-      me.setFilterOptionGroups(SEL_ID_SONG_CHOICE, {'0': songOptionsCN, '1': songOptionsJP});
-
-      // set other options
-      me.setFilterOptions(SEL_ID_SONG_DIFF, [
-         {'value': '',  'text': '难度'},
-         {'value': '1', 'text': '简单（Easy）'},
-         {'value': '2', 'text': '普通（Normal）'},
-         {'value': '3', 'text': '困难（Hard）'},
-         {'value': '4', 'text': '专家（Expert）'},
-         {'value': '5', 'text': '随机（Random）'},
-         {'value': '6', 'text': '大师（Master）'}
-      ]);
-      me.setFilterOptions(SEL_ID_SONG_ATT, [
-         {'value': '',      'text': '属性',  'color': 'black'},
-         {'value': 'smile', 'text': 'Smile', 'color': 'red'},
-         {'value': 'pure',  'text': 'Pure',  'color': 'green'},
-         {'value': 'cool',  'text': 'Cool',  'color': 'blue'}
-      ]);
-      me.setFilterOptions(SEL_ID_SONG_UNIT, [
-         {'value': '',  'text': '组合'},
-         {'value': '1', 'text': "μ's"},
-         {'value': '2', 'text': 'Aqours'},
-         {'value': '3', 'text': '虹咲'},
-         {'value': '4', 'text': 'Liella!'}
-      ]);
-      me.setFilterOptions(SEL_ID_SONG_SWING, [
-         {'value': '',  'text': '是否滑键谱面'},
-         {'value': '0', 'text': '非滑键'},
-         {'value': '1', 'text': '滑键'},
-      ]);
-      me.setFilterOptions(SEL_ID_SONG_AC, [
-         {'value': '',  'text': '是否街机谱面'},
-         {'value': '0', 'text': '非街机'},
-         {'value': '1', 'text': '街机'},
-      ]);
-      var songStarDifficultyOptions = [{'value': '', 'text': '星级'}];
-      for (i = 0; i < songSettingAvailableStarDiff.length; i++) {
-         if (songSettingAvailableStarDiff[i]) {
-            songStarDifficultyOptions.push({'value': String(i), 'text': '★ ' + i});
+         me.setFilterOptionGroups(SEL_ID_DIFF_CHOICE, {'0': songSettingOptionsCN, '1': songSettingOptionsJP});
+   
+         // build song options for both language
+         var songOptionsCN = [{'value': '', 'text': '歌曲', 'color': 'black'}];
+         var songOptionsJP = [{'value': '', 'text': '歌曲', 'color': 'black'}];
+         var songKeys = Object.keys(songs).sort(function (a,b){
+            var ia = parseInt(a), ib =  parseInt(b);
+            if (ia < 0 && ib < 0) return ib - ia;
+            return ia - ib;
+         });
+         for (i = 0; i < songKeys.length; i++) {
+            var songId = songKeys[i];
+            var curSong = songs[songId];
+            var color = LLConst.Common.getAttributeColor(curSong.attribute);
+            songOptionsCN.push({'value': songId, 'text': curSong.name, 'color': color});
+            songOptionsJP.push({'value': songId, 'text': curSong.jpname, 'color': color});
          }
-      }
-      me.setFilterOptions(SEL_ID_SONG_STAR_DIFF, songStarDifficultyOptions);
-      if (me.includeMapInfo) {
-         me.setFilterOptions(SEL_ID_MAP_ATT, [
+         me.setFilterOptionGroups(SEL_ID_SONG_CHOICE, {'0': songOptionsCN, '1': songOptionsJP});
+   
+         // set other options
+         me.setFilterOptions(SEL_ID_SONG_DIFF, [
+            {'value': '',  'text': '难度'},
+            {'value': '1', 'text': '简单（Easy）'},
+            {'value': '2', 'text': '普通（Normal）'},
+            {'value': '3', 'text': '困难（Hard）'},
+            {'value': '4', 'text': '专家（Expert）'},
+            {'value': '5', 'text': '随机（Random）'},
+            {'value': '6', 'text': '大师（Master）'}
+         ]);
+         me.setFilterOptions(SEL_ID_SONG_ATT, [
+            {'value': '',      'text': '属性',  'color': 'black'},
             {'value': 'smile', 'text': 'Smile', 'color': 'red'},
             {'value': 'pure',  'text': 'Pure',  'color': 'green'},
             {'value': 'cool',  'text': 'Cool',  'color': 'blue'}
          ]);
+         me.setFilterOptions(SEL_ID_SONG_UNIT, [
+            {'value': '',  'text': '组合'},
+            {'value': '1', 'text': "μ's"},
+            {'value': '2', 'text': 'Aqours'},
+            {'value': '3', 'text': '虹咲'},
+            {'value': '4', 'text': 'Liella!'}
+         ]);
+         me.setFilterOptions(SEL_ID_SONG_SWING, [
+            {'value': '',  'text': '是否滑键谱面'},
+            {'value': '0', 'text': '非滑键'},
+            {'value': '1', 'text': '滑键'},
+         ]);
+         me.setFilterOptions(SEL_ID_SONG_AC, [
+            {'value': '',  'text': '是否街机谱面'},
+            {'value': '0', 'text': '非街机'},
+            {'value': '1', 'text': '街机'},
+         ]);
+         var songStarDifficultyOptions = [{'value': '', 'text': '星级'}];
+         for (i = 0; i < songSettingAvailableStarDiff.length; i++) {
+            if (songSettingAvailableStarDiff[i]) {
+               songStarDifficultyOptions.push({'value': String(i), 'text': '★ ' + i});
+            }
+         }
+         me.setFilterOptions(SEL_ID_SONG_STAR_DIFF, songStarDifficultyOptions);
+         if (me.includeMapInfo) {
+            me.setFilterOptions(SEL_ID_MAP_ATT, [
+               {'value': 'smile', 'text': 'Smile', 'color': 'red'},
+               {'value': 'pure',  'text': 'Pure',  'color': 'green'},
+               {'value': 'cool',  'text': 'Cool',  'color': 'blue'}
+            ]);
+         }
+   
+         // at last, unfreeze the filter
+         me.setFreezed(false);
+         me.handleFilters();
       }
-
-      // at last, unfreeze the filter
-      me.setFreezed(false);
-      me.handleFilters();
-   };
-
-   proto.setLanguage = function (language) {
-      this.getComponent(MEM_ID_LANGUAGE).set(language);
-   };
-
-   proto.getSelectedSongId = function () {
-      var curSongId = this.getComponent(SEL_ID_SONG_CHOICE).get();
-      if (curSongId) return curSongId;
-      var curSongSettingId = this.getComponent(SEL_ID_DIFF_CHOICE).get();
-      if (curSongSettingId && this.songSettings[curSongSettingId]) {
-         return this.songSettings[curSongSettingId].song || '';
+      /** @param {LLH.Core.LanguageType} language */
+      setLanguage(language) {
+         this.getComponent(MEM_ID_LANGUAGE).set(language);
       }
-      return '';
-   };
-   proto.getSelectedSong = function () {
-      return this.songs[this.getSelectedSongId()];
-   };
-   proto.getSelectedSongSettingId = function () {
-      return this.getComponent(SEL_ID_DIFF_CHOICE).get();
-   };
-   proto.getSelectedSongSetting = function () {
-      return this.songSettings[this.getSelectedSongSettingId()];
-   };
-   proto.getSongAttribute = function () {
-      var me = this;
-      if (!me.includeMapInfo) {
-         var curSong = me.getSelectedSong();
-         if (curSong) return curSong.attribute;
+      /** @returns {LLH.Core.SongIdType} */
+      getSelectedSongId() {
+         var curSongId = this.getComponent(SEL_ID_SONG_CHOICE).get();
+         if (curSongId) return curSongId;
+         var curSongSettingId = this.getComponent(SEL_ID_DIFF_CHOICE).get();
+         if (curSongSettingId && this.songSettings[curSongSettingId]) {
+            return this.songSettings[curSongSettingId].song || '';
+         }
          return '';
-      } else {
-         return me.getComponent(SEL_ID_MAP_ATT).get();
       }
-   };
-   proto.updateMapInfo = function (songSetting) {
-      console.error('Unexpected call to updateMapInfo on LLSongSelectorCompoent excluding map info');
-   };
-   return cls;
+      getSelectedSong() {
+         return this.songs[this.getSelectedSongId()];
+      }
+      /** @returns {LLH.Core.SongSettingIdType} */
+      getSelectedSongSettingId() {
+         return this.getComponent(SEL_ID_DIFF_CHOICE).get();
+      }
+      getSelectedSongSetting() {
+         return this.songSettings[this.getSelectedSongSettingId()];
+      }
+      /** @returns {LLH.Core.AttributeAllType} */
+      getSongAttribute() {
+         var me = this;
+         if (!me.includeMapInfo) {
+            var curSong = me.getSelectedSong();
+            if (curSong) return curSong.attribute;
+            return '';
+         } else {
+            return me.getComponent(SEL_ID_MAP_ATT).get();
+         }
+      }
+      /** @param {LLH.Internal.ProcessedSongSettingDataType} songSetting */
+      updateMapInfo(songSetting) {
+         console.error('Unexpected call to updateMapInfo on LLSongSelectorCompoent excluding map info');
+      }
+      /**
+       * @param {LLH.Core.PositionWeightType} customWeight
+       * @returns {LLH.Model.LLMap}
+       */
+      getMap(customWeight) {
+         console.error('Unexpected call to getMap on LLSongSelectorCompoent excluding map info');
+      }
+   }
+   return LLSongSelectorComponent_cls;
 })();
 
 var LLSaveLoadJsonMixin = (function () {
@@ -9182,200 +9251,200 @@ var LLGemSelectorComponent = (function () {
    }
 
    /**
-    * @constructor
-    * @param {string | HTMLElement} id 
-    * @param {LLH.Selector.LLGemSelectorComponent_Options} options
-    * @this {LLH.Selector.LLGemSelectorComponent}
+    * @implements {LLH.Mixin.LanguageSupport}
     */
-   function LLGemSelectorComponent_cls(id, options) {
-      LLFiltersComponent.call(this);
-      var container = LLUnit.getElement(id);
-      var me = this;
-      if (!options) options = {};
-      this.gemData = undefined;
-      this.includeNormalGemCategory = options.includeNormalGemCategory || false;
-      this.includeNormalGem = options.includeNormalGem || false;
-      this.includeLAGem = options.includeLAGem || false;
-
-      var gemChoice = createFormSelect();
-      var gemType = createFormSelect();
-      var gemSize = createFormSelect();
-      this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice), function (opt) {
-         if (opt.value && options.gemData && options.gemData[opt.value]) {
-            return options.gemData[opt.value];
-         } else {
-            return undefined;
-         }
-      });
-      this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
-      this.addFilterable(SEL_ID_GEM_SIZE, new LLSelectComponent(gemSize));
-      this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
-      this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE,
-         () => me.getComponent(SEL_ID_GEM_TYPE).get() + '_' + me.getComponent(MEM_ID_LANGUAGE).get(),
-         [SEL_ID_GEM_TYPE, MEM_ID_LANGUAGE]);
-      this.setFilterOptionGroupCallback(SEL_ID_GEM_SIZE, () => me.getComponent(SEL_ID_GEM_TYPE).get(), [SEL_ID_GEM_TYPE]);
-      this.addFilterCallback(SEL_ID_GEM_SIZE, SEL_ID_GEM_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.size))
-
-      updateSubElements(container, [
-         createFormInlineGroup('筛选条件：', [gemType, gemSize]),
-         createFormInlineGroup('宝石：', gemChoice)
-      ], true);
-
-      var detailController = undefined;
-      var seriesController = undefined;
-      if (options.includeLAGem || options.includeNormalGem) {
-         detailController = {};
-         if (options.showBrief) {
-            updateSubElements(container, renderGemDetail(detailController, false), false);
-         } else {
-            seriesController = {};
-            updateSubElements(container, [
-               createElement('h3', undefined, '详细信息'),
-               renderGemDetail(detailController, true),
-               createElement('h3', undefined, '升级序列'),
-               renderGemSeries(seriesController)
-            ], false);
-         }
-      }
-
+   class LLGemSelectorComponent_cls extends LLFiltersComponent {
       /**
-       * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
-       * @param {string} gemId
-       * @param {LLH.Core.LanguageType} language
+       * @param {string | HTMLElement} id 
+       * @param {LLH.Selector.LLGemSelectorComponent_Options} options
        */
-      var setDetail = function (controller, gemId, language) {
-         if (controller && controller.set) {
-            if (options.gemData && options.gemData[gemId]) {
-               controller.set(options.gemData[gemId], language);
+      constructor(id, options) {
+         super();
+         var container = LLUnit.getElement(id);
+         var me = this;
+         if (!options) options = {};
+         this.gemData = undefined;
+         this.includeNormalGemCategory = options.includeNormalGemCategory || false;
+         this.includeNormalGem = options.includeNormalGem || false;
+         this.includeLAGem = options.includeLAGem || false;
+
+         var gemChoice = createFormSelect();
+         var gemType = createFormSelect();
+         var gemSize = createFormSelect();
+         this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice), function (opt) {
+            if (opt.value && options.gemData && options.gemData[opt.value]) {
+               return options.gemData[opt.value];
             } else {
-               controller.set(gemId, language);
+               return undefined;
+            }
+         });
+         this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
+         this.addFilterable(SEL_ID_GEM_SIZE, new LLSelectComponent(gemSize));
+         this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE,
+            () => me.getComponent(SEL_ID_GEM_TYPE).get() + '_' + me.getComponent(MEM_ID_LANGUAGE).get(),
+            [SEL_ID_GEM_TYPE, MEM_ID_LANGUAGE]);
+         this.setFilterOptionGroupCallback(SEL_ID_GEM_SIZE, () => me.getComponent(SEL_ID_GEM_TYPE).get(), [SEL_ID_GEM_TYPE]);
+         this.addFilterCallback(SEL_ID_GEM_SIZE, SEL_ID_GEM_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.size))
+
+         updateSubElements(container, [
+            createFormInlineGroup('筛选条件：', [gemType, gemSize]),
+            createFormInlineGroup('宝石：', gemChoice)
+         ], true);
+
+         var detailController = undefined;
+         var seriesController = undefined;
+         if (options.includeLAGem || options.includeNormalGem) {
+            detailController = {};
+            if (options.showBrief) {
+               updateSubElements(container, renderGemDetail(detailController, false), false);
+            } else {
+               seriesController = {};
+               updateSubElements(container, [
+                  createElement('h3', undefined, '详细信息'),
+                  renderGemDetail(detailController, true),
+                  createElement('h3', undefined, '升级序列'),
+                  renderGemSeries(seriesController)
+               ], false);
             }
          }
-      };
 
-      this.onValueChange = function (name, newValue) {
-         var curGem, curLanguage, updateDetail = false;
-         if (name == SEL_ID_GEM_CHOICE) {
-            curGem = newValue;
-            curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
-            updateDetail = true;
-         } else if (name == MEM_ID_LANGUAGE) {
-            curGem = me.getComponent(SEL_ID_GEM_CHOICE).get();
-            curLanguage = newValue;
-            updateDetail = true;
-         }
-         if (updateDetail) {
-            setDetail(detailController, curGem, curLanguage);
-            setDetail(seriesController, curGem, curLanguage);
-         }
-      };
+         /**
+          * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
+          * @param {string} gemId
+          * @param {LLH.Core.LanguageType} language
+          */
+         var setDetail = function (controller, gemId, language) {
+            if (controller && controller.set) {
+               if (options.gemData && options.gemData[gemId]) {
+                  controller.set(options.gemData[gemId], language);
+               } else {
+                  controller.set(gemId, language);
+               }
+            }
+         };
 
-      this.setGemData(options.gemData);
+         this.onValueChange = function (name, newValue) {
+            var curGem, curLanguage, updateDetail = false;
+            if (name == SEL_ID_GEM_CHOICE) {
+               curGem = newValue;
+               curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+               updateDetail = true;
+            } else if (name == MEM_ID_LANGUAGE) {
+               curGem = me.getComponent(SEL_ID_GEM_CHOICE).get();
+               curLanguage = newValue;
+               updateDetail = true;
+            }
+            if (updateDetail) {
+               setDetail(detailController, curGem, curLanguage);
+               setDetail(seriesController, curGem, curLanguage);
+            }
+         };
+
+         this.setGemData(options.gemData);
+      }
+      /** @param {LLH.API.SisDictDataType} gemData */
+      setGemData(gemData) {
+         if (gemData) {
+            LLConst.Gem.postProcessGemData(gemData);
+         }
+   
+         /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
+         var gemOptionGroups = {};
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var gemTypeOptions = [];
+         /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
+         var gemSizeOptionGroups = {};
+         var i;
+         var me = this;
+   
+         this.setFreezed(true);
+         this.gemData = gemData;
+   
+         if (this.includeNormalGemCategory) {
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var gemNormalCatOptions = [{'value': '', 'text': '选择宝石'}];
+            var normalGems = LLConst.Gem.getNormalGemTypeKeys();
+            for (i = 0; i < normalGems.length; i++) {
+               var normalGemKey = normalGems[i];
+               var normalGemId = LLConst.GemType[normalGemKey];
+               gemNormalCatOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
+            }
+            var normalCategoryKey = GEM_GROUP_NORMAL_CATEGORY.toFixed();
+            gemOptionGroups[normalCategoryKey + '_0'] = gemNormalCatOptions;
+            gemOptionGroups[normalCategoryKey + '_1'] = gemNormalCatOptions;
+            gemTypeOptions.push({'value': normalCategoryKey, 'text': '普通宝石（大类）'});
+         }
+         if (gemData && (this.includeNormalGem || this.includeLAGem)) {
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var gemNormalOptions = [{'value': '', 'text': '选择宝石'}];
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var gemNormalOptionsJp = [{'value': '', 'text': '选择宝石'}];
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var gemLAOptions = [{'value': '', 'text': '选择宝石'}];
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var gemLAOptionsJp = [{'value': '', 'text': '选择宝石'}];
+            var gemDataKeys = Object.keys(gemData).sort((a, b) => parseInt(a) - parseInt(b));
+            var gemNormalSizeCollection = {};
+            var gemLASizeCollection = {};
+            for (i = 0; i < gemDataKeys.length; i++) {
+               var curKey = gemDataKeys[i];
+               var curGemData = gemData[curKey];
+               if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
+                  if (this.includeNormalGem) {
+                     var curColor = LLConst.Gem.getGemColor(curGemData);
+                     gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
+                     gemNormalOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
+                     gemNormalSizeCollection[curGemData.size.toFixed()] = 1;
+                  }
+               } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
+                  if (this.includeLAGem) {
+                     var curColor = LLConst.Gem.getGemColor(curGemData);
+                     gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
+                     gemLAOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
+                     gemLASizeCollection[curGemData.size.toFixed()] = 1;
+                  }
+               }
+            }
+            if (this.includeNormalGem) {
+               var normalKey = GEM_GROUP_NORMAL.toFixed();
+               gemOptionGroups[normalKey + '_0'] = gemNormalOptions;
+               gemOptionGroups[normalKey + '_1'] = gemNormalOptionsJp;
+               gemTypeOptions.push({'value': normalKey, 'text': '普通宝石'});
+               gemSizeOptionGroups[normalKey] =
+                  [{'value': '', 'text': '大小'}].concat(
+                     Object.keys(gemNormalSizeCollection).sort((a, b) => parseInt(a) - parseInt(b)).map((x) => {return {'value': x, 'text': '●' + x};})
+                  );
+            }
+            if (this.includeLAGem) {
+               var laKey = GEM_GROUP_LA.toFixed();
+               gemOptionGroups[laKey + '_0'] = gemLAOptions;
+               gemOptionGroups[laKey + '_1'] = gemLAOptionsJp;
+               gemTypeOptions.push({'value': laKey, 'text': '演唱会竞技场宝石'});
+               gemSizeOptionGroups[laKey] =
+                  [{'value': '', 'text': '大小'}].concat(
+                     Object.keys(gemLASizeCollection).sort((a, b) => parseInt(a) - parseInt(b)).map((x) => {return {'value': x, 'text': '■' + x};})
+                  );
+            }
+         }
+         this.setFilterOptions(SEL_ID_GEM_TYPE, gemTypeOptions);
+         this.setFilterOptionGroups(SEL_ID_GEM_SIZE, gemSizeOptionGroups);
+         this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups);
+   
+         this.setFreezed(false);
+         this.handleFilters();
+      }
+      /** @returns {LLH.Core.SisIdType | LLH.Internal.NormalGemCategoryKeyType} */
+      getGemId() {
+         return this.getComponent(SEL_ID_GEM_CHOICE).get();
+      }
+      /** @param {LLH.Core.LanguageType} language */
+      setLanguage(language) {
+         this.getComponent(MEM_ID_LANGUAGE).set(language);
+      }
    }
 
-   /** @type {typeof LLH.Selector.LLGemSelectorComponent} */
-   var cls = LLGemSelectorComponent_cls;
-   LLClassUtil.setSuper(cls, LLFiltersComponent);
-   var proto = cls.prototype;
-
-   /** @this {LLH.Selector.LLGemSelectorComponent} */
-   proto.setGemData = function (gemData) {
-      if (gemData) {
-         LLConst.Gem.postProcessGemData(gemData);
-      }
-
-      /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
-      var gemOptionGroups = {};
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var gemTypeOptions = [];
-      /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
-      var gemSizeOptionGroups = {};
-      var i;
-      var me = this;
-
-      this.setFreezed(true);
-      this.gemData = gemData;
-
-      if (this.includeNormalGemCategory) {
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-         var gemNormalCatOptions = [{'value': '', 'text': '选择宝石'}];
-         var normalGems = LLConst.Gem.getNormalGemTypeKeys();
-         for (i = 0; i < normalGems.length; i++) {
-            var normalGemKey = normalGems[i];
-            var normalGemId = LLConst.GemType[normalGemKey];
-            gemNormalCatOptions.push({'value': normalGemKey, 'text': LLConst.Gem.getNormalGemNameAndDescription(normalGemId)});
-         }
-         var normalCategoryKey = GEM_GROUP_NORMAL_CATEGORY.toFixed();
-         gemOptionGroups[normalCategoryKey + '_0'] = gemNormalCatOptions;
-         gemOptionGroups[normalCategoryKey + '_1'] = gemNormalCatOptions;
-         gemTypeOptions.push({'value': normalCategoryKey, 'text': '普通宝石（大类）'});
-      }
-      if (gemData && (this.includeNormalGem || this.includeLAGem)) {
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-         var gemNormalOptions = [{'value': '', 'text': '选择宝石'}];
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-         var gemNormalOptionsJp = [{'value': '', 'text': '选择宝石'}];
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-         var gemLAOptions = [{'value': '', 'text': '选择宝石'}];
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-         var gemLAOptionsJp = [{'value': '', 'text': '选择宝石'}];
-         var gemDataKeys = Object.keys(gemData).sort((a, b) => parseInt(a) - parseInt(b));
-         var gemNormalSizeCollection = {};
-         var gemLASizeCollection = {};
-         for (i = 0; i < gemDataKeys.length; i++) {
-            var curKey = gemDataKeys[i];
-            var curGemData = gemData[curKey];
-            if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
-               if (this.includeNormalGem) {
-                  var curColor = LLConst.Gem.getGemColor(curGemData);
-                  gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
-                  gemNormalOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
-                  gemNormalSizeCollection[curGemData.size.toFixed()] = 1;
-               }
-            } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
-               if (this.includeLAGem) {
-                  var curColor = LLConst.Gem.getGemColor(curGemData);
-                  gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
-                  gemLAOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
-                  gemLASizeCollection[curGemData.size.toFixed()] = 1;
-               }
-            }
-         }
-         if (this.includeNormalGem) {
-            var normalKey = GEM_GROUP_NORMAL.toFixed();
-            gemOptionGroups[normalKey + '_0'] = gemNormalOptions;
-            gemOptionGroups[normalKey + '_1'] = gemNormalOptionsJp;
-            gemTypeOptions.push({'value': normalKey, 'text': '普通宝石'});
-            gemSizeOptionGroups[normalKey] =
-               [{'value': '', 'text': '大小'}].concat(
-                  Object.keys(gemNormalSizeCollection).sort((a, b) => parseInt(a) - parseInt(b)).map((x) => {return {'value': x, 'text': '●' + x};})
-               );
-         }
-         if (this.includeLAGem) {
-            var laKey = GEM_GROUP_LA.toFixed();
-            gemOptionGroups[laKey + '_0'] = gemLAOptions;
-            gemOptionGroups[laKey + '_1'] = gemLAOptionsJp;
-            gemTypeOptions.push({'value': laKey, 'text': '演唱会竞技场宝石'});
-            gemSizeOptionGroups[laKey] =
-               [{'value': '', 'text': '大小'}].concat(
-                  Object.keys(gemLASizeCollection).sort((a, b) => parseInt(a) - parseInt(b)).map((x) => {return {'value': x, 'text': '■' + x};})
-               );
-         }
-      }
-      this.setFilterOptions(SEL_ID_GEM_TYPE, gemTypeOptions);
-      this.setFilterOptionGroups(SEL_ID_GEM_SIZE, gemSizeOptionGroups);
-      this.setFilterOptionGroups(SEL_ID_GEM_CHOICE, gemOptionGroups);
-
-      this.setFreezed(false);
-      this.handleFilters();
-   };
-   proto.getGemId = function () {
-      return this.getComponent(SEL_ID_GEM_CHOICE).get();
-   };
-   proto.setLanguage = function (language) {
-      this.getComponent(MEM_ID_LANGUAGE).set(language);
-   };
-   return cls;
+   return LLGemSelectorComponent_cls;
 })();
 
 /** @type {typeof LLH.Layout.Language.LLLanguageComponent} */
@@ -9602,246 +9671,250 @@ var LLAccessorySelectorComponent = (function () {
    }
 
    /**
-    * @constructor
-    * @param {string | HTMLElement} id 
-    * @param {LLH.Selector.LLAccessorySelectorComponent_Options} options
-    * @this {LLH.Selector.LLAccessorySelectorComponent}
+    * @implements {LLH.Mixin.LanguageSupport}
     */
-   function LLAccessorySelectorComponent_cls(id, options) {
-      LLFiltersComponent.call(this);
-      var container = LLUnit.getElement(id);
-      var me = this;
-      if (!options) options = {};
-      this.accessoryData = undefined;
-      this.showDetail = options.showDetail || false;
-      this.showLevelSelect = options.showLevelSelect || false;
-      this.excludeMaterial = options.excludeMaterial || false;
-
-      var accessoryChoice = createFormSelect();
-      var accessoryRarity = createFormSelect();
-      var accessoryMainAttribute = createFormSelect();
-      var accessoryType = createFormSelect();
-      var accessoryEffectType = createFormSelect();
-      this.addFilterable(SEL_ID_ACCESSORY_CHOICE, new LLSelectComponent(accessoryChoice), function (opt) {
-         if (opt.value && me.accessoryData && me.accessoryData[opt.value]) {
-            return me.accessoryData[opt.value];
+   class LLAccessorySelectorComponent_cls extends LLFiltersComponent {
+      /**
+       * @param {string | HTMLElement} id 
+       * @param {LLH.Selector.LLAccessorySelectorComponent_Options} options
+       */
+      constructor(id, options) {
+         super();
+         var container = LLUnit.getElement(id);
+         var me = this;
+         if (!options) options = {};
+         this.accessoryData = undefined;
+         this.showDetail = options.showDetail || false;
+         this.showLevelSelect = options.showLevelSelect || false;
+         this.excludeMaterial = options.excludeMaterial || false;
+   
+         var accessoryChoice = createFormSelect();
+         var accessoryRarity = createFormSelect();
+         var accessoryMainAttribute = createFormSelect();
+         var accessoryType = createFormSelect();
+         var accessoryEffectType = createFormSelect();
+         this.addFilterable(SEL_ID_ACCESSORY_CHOICE, new LLSelectComponent(accessoryChoice), function (opt) {
+            if (opt.value && me.accessoryData && me.accessoryData[opt.value]) {
+               return me.accessoryData[opt.value];
+            } else {
+               return undefined;
+            }
+         });
+         this.addFilterable(SEL_ID_ACCESSORY_RARITY, new LLSelectComponent(accessoryRarity));
+         this.addFilterable(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, new LLSelectComponent(accessoryMainAttribute));
+         this.addFilterable(SEL_ID_ACCESSORY_TYPE, new LLSelectComponent(accessoryType));
+         this.addFilterable(SEL_ID_ACCESSORY_EFFECT_TYPE, new LLSelectComponent(accessoryEffectType));
+         this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
+         this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && !d.main_attribute)));
+         this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!d) || (((!v) || (v == d.type)) && !(d.is_material && me.excludeMaterial)));
+         this.addFilterCallback(SEL_ID_ACCESSORY_EFFECT_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.effect_type));
+   
+         updateSubElements(container, [
+            createFormInlineGroup('筛选条件：', [accessoryRarity, accessoryMainAttribute, accessoryType, accessoryEffectType]),
+            createFormInlineGroup('饰品：', accessoryChoice)
+         ], true);
+   
+         var briefController = {};
+         if (this.showLevelSelect) {
+            var accessoryLevel = createFormSelect();
+            this.addFilterable(SEL_ID_ACCESSORY_LEVEL, new LLSelectComponent(accessoryLevel));
+            this.addFilterCallback(SEL_ID_ACCESSORY_CHOICE, SEL_ID_ACCESSORY_LEVEL, (opt, v) => (!v) || (!me.accessoryData) || (!me.accessoryData[v]) || me.accessoryData[v].max_level >= parseInt(opt.value));
+            updateSubElements(container, [
+               createFormInlineGroup('饰品等级：', accessoryLevel),
+               renderAccessoryBrief(briefController)
+            ], false);
+         }
+         var detailController = {};
+         if (this.showDetail) {
+            updateSubElements(container, [
+               createElement('h3', undefined, '饰品详细信息'),
+               renderAccessoryDetail(detailController)
+            ], false);
+         }
+   
+         /**
+          * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} contDetail
+          * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} contBrief
+          * @param {LLH.Core.AccessoryIdStringType} accessoryId
+          * @param {number} accessoryLevel
+          * @param {LLH.Core.LanguageType} language
+          */
+         var setDetail = function (contDetail, contBrief, accessoryId, accessoryLevel, language) {
+            var hasDetail = (contDetail && contDetail.set);
+            var hasBrief = (contBrief && contBrief.set);
+            if (hasDetail || hasBrief) {
+               var curAccessory = undefined;
+               if (me.accessoryData && me.accessoryData[accessoryId]) {
+                  curAccessory = me.accessoryData[accessoryId]
+               }
+               if (accessoryId) {
+                  LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
+                     LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
+                     me.accessoryData[accessoryId] = accessory;
+                     if (hasDetail) {
+                        contDetail.set(accessory, language);
+                     }
+                     if (hasBrief) {
+                        contBrief.set(accessory, accessoryLevel, language);
+                     }
+                  });
+               } else {
+                  if (hasDetail) {
+                     contDetail.set(curAccessory, language);
+                  }
+                  if (hasBrief) {
+                     contBrief.set(curAccessory, accessoryLevel, language);
+                  }
+               }
+            }
+         };
+   
+         this.onValueChange = function (name, newValue) {
+            var curId, curLanguage, curLevel = 1, updateDetail = false;
+            if (name == SEL_ID_ACCESSORY_CHOICE) {
+               curId = newValue;
+               updateDetail = true;
+            } else {
+               curId = me.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+            }
+            if (name == MEM_ID_LANGUAGE) {
+               curLanguage = newValue;
+               updateDetail = true;
+            } else {
+               curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+            }
+            if (me.showLevelSelect) {
+               if (name == SEL_ID_ACCESSORY_LEVEL) {
+                  curLevel = newValue;
+                  updateDetail = true;
+               } else {
+                  curLevel = me.getComponent(SEL_ID_ACCESSORY_LEVEL).get();
+               }
+            }
+            if (updateDetail) {
+               setDetail(detailController, briefController, curId, curLevel, curLanguage);
+            }
+         };
+   
+         this.setAccessoryData(options.accessoryData, options.cardData);
+      }
+      /**
+       * @param {LLH.API.AccessoryDictDataType} accessoryData 
+       * @param {LLH.API.CardDictDataType} cardData 
+       */
+      setAccessoryData(accessoryData, cardData) {
+         if (accessoryData && cardData) {
+            accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
+         }
+   
+         var i;
+   
+         this.setFreezed(true);
+         this.accessoryData = accessoryData;
+         this.cardData = cardData;
+   
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var accessoryOptions = [{'value': '', 'text': '选择饰品'}];
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var accessoryOptionsJp = [{'value': '', 'text': '选择饰品'}];
+         var effectTypeCollector = {};
+         var accessoryDataKeys = Object.keys(this.accessoryData).sort((a, b) => parseInt(a) - parseInt(b));
+         for (i = 0; i < accessoryDataKeys.length; i++) {
+            var curKey = accessoryDataKeys[i];
+            var curAccessoryData = this.accessoryData[curKey];
+            var curColor = LLConst.Common.getAttributeColor(LLConst.Accessory.getAccessoryMainAttribute(curAccessoryData));
+            accessoryOptions.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_CN), 'color': curColor});
+            accessoryOptionsJp.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_JP), 'color': curColor});
+            if (curAccessoryData.effect_type) effectTypeCollector[curAccessoryData.effect_type] = 1;
+         }
+   
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var effectTypeOptions = [{'value': '', 'text': '技能类型'}];
+         var effectTypeKeys = Object.keys(effectTypeCollector).sort((a, b) => parseInt(a) - parseInt(b));
+         for (i = 0; i < effectTypeKeys.length; i++) {
+            var curEffect = effectTypeKeys[i];
+            var curEffectBrief = LLConst.Skill.getEffectBrief(parseInt(curEffect));
+            if (curEffectBrief != '未知') effectTypeOptions.push({'value': curEffect, 'text': curEffectBrief});
+         }
+   
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var rarityOptions = [
+            {'value': '', 'text': '稀有度'},
+            {'value': '1', 'text': 'N'},
+            {'value': '2', 'text': 'R'},
+            {'value': '3', 'text': 'SR'},
+            {'value': '5', 'text': 'SSR'},
+            {'value': '4', 'text': 'UR'}
+         ];
+         
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var mainAttributeOptions = [
+            {'value': '', 'text': '主属性'},
+            {'value': 'smile', 'text': 'smile', 'color': 'red'},
+            {'value': 'pure', 'text': 'pure', 'color': 'green'},
+            {'value': 'cool', 'text': 'cool', 'color': 'blue'},
+            {'value': 'other', 'text': '其它', 'color': 'purple'}
+         ];
+   
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var typeOptions = [
+            {'value': '', 'text': '分类'},
+            {'value': '通用', 'text': '通用'},
+            {'value': '个人', 'text': '个人'}
+         ];
+         if (!this.excludeMaterial) {
+            typeOptions.push({'value': '材料', 'text': '材料'});
+         }
+   
+         if (this.showLevelSelect) {
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var levelOptions = [];
+            for (var i = 1; i <= 8; i++) {
+               levelOptions.push({'value': i + '', 'text': i + ''});
+            }
+            this.setFilterOptions(SEL_ID_ACCESSORY_LEVEL, levelOptions);
+         }
+   
+         this.setFilterOptions(SEL_ID_ACCESSORY_RARITY, rarityOptions);
+         this.setFilterOptions(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, mainAttributeOptions);
+         this.setFilterOptions(SEL_ID_ACCESSORY_TYPE, typeOptions);
+         this.setFilterOptions(SEL_ID_ACCESSORY_EFFECT_TYPE, effectTypeOptions);
+         this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, [accessoryOptions, accessoryOptionsJp]);
+   
+         this.setFreezed(false);
+         this.handleFilters();
+      }
+      /** @returns {LLH.Core.AccessoryIdStringType} */
+      getAccessoryId() {
+         return this.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+      }
+      getAccessoryLevel() {
+         if (this.showLevelSelect) {
+            return parseInt(this.getComponent(SEL_ID_ACCESSORY_LEVEL).get());
+         } else {
+            return 1;
+         }
+      }
+      /** @returns {LLH.Internal.AccessorySaveDataType} */
+      getAccessorySaveData() {
+         var accessoryId = this.getAccessoryId();
+         var level = this.getAccessoryLevel();
+         if (accessoryId && level) {
+            return {
+               'id': accessoryId,
+               'level': level
+            }
          } else {
             return undefined;
          }
-      });
-      this.addFilterable(SEL_ID_ACCESSORY_RARITY, new LLSelectComponent(accessoryRarity));
-      this.addFilterable(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, new LLSelectComponent(accessoryMainAttribute));
-      this.addFilterable(SEL_ID_ACCESSORY_TYPE, new LLSelectComponent(accessoryType));
-      this.addFilterable(SEL_ID_ACCESSORY_EFFECT_TYPE, new LLSelectComponent(accessoryEffectType));
-      this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
-      this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
-      this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
-      this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && !d.main_attribute)));
-      this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!d) || (((!v) || (v == d.type)) && !(d.is_material && me.excludeMaterial)));
-      this.addFilterCallback(SEL_ID_ACCESSORY_EFFECT_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.effect_type));
-
-      updateSubElements(container, [
-         createFormInlineGroup('筛选条件：', [accessoryRarity, accessoryMainAttribute, accessoryType, accessoryEffectType]),
-         createFormInlineGroup('饰品：', accessoryChoice)
-      ], true);
-
-      var briefController = {};
-      if (this.showLevelSelect) {
-         var accessoryLevel = createFormSelect();
-         this.addFilterable(SEL_ID_ACCESSORY_LEVEL, new LLSelectComponent(accessoryLevel));
-         this.addFilterCallback(SEL_ID_ACCESSORY_CHOICE, SEL_ID_ACCESSORY_LEVEL, (opt, v) => (!v) || (!me.accessoryData) || (!me.accessoryData[v]) || me.accessoryData[v].max_level >= parseInt(opt.value));
-         updateSubElements(container, [
-            createFormInlineGroup('饰品等级：', accessoryLevel),
-            renderAccessoryBrief(briefController)
-         ], false);
       }
-      var detailController = {};
-      if (this.showDetail) {
-         updateSubElements(container, [
-            createElement('h3', undefined, '饰品详细信息'),
-            renderAccessoryDetail(detailController)
-         ], false);
+      /** @param {LLH.Core.LanguageType} language */
+      setLanguage(language) {
+         this.getComponent(MEM_ID_LANGUAGE).set(language);
       }
-
-      /**
-       * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} contDetail
-       * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} contBrief
-       * @param {LLH.Core.AccessoryIdStringType} accessoryId
-       * @param {number} accessoryLevel
-       * @param {LLH.Core.LanguageType} language
-       */
-      var setDetail = function (contDetail, contBrief, accessoryId, accessoryLevel, language) {
-         var hasDetail = (contDetail && contDetail.set);
-         var hasBrief = (contBrief && contBrief.set);
-         if (hasDetail || hasBrief) {
-            var curAccessory = undefined;
-            if (me.accessoryData && me.accessoryData[accessoryId]) {
-               curAccessory = me.accessoryData[accessoryId]
-            }
-            if (accessoryId) {
-               LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
-                  LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
-                  me.accessoryData[accessoryId] = accessory;
-                  if (hasDetail) {
-                     contDetail.set(accessory, language);
-                  }
-                  if (hasBrief) {
-                     contBrief.set(accessory, accessoryLevel, language);
-                  }
-               });
-            } else {
-               if (hasDetail) {
-                  contDetail.set(curAccessory, language);
-               }
-               if (hasBrief) {
-                  contBrief.set(curAccessory, accessoryLevel, language);
-               }
-            }
-         }
-      };
-
-      this.onValueChange = function (name, newValue) {
-         var curId, curLanguage, curLevel = 1, updateDetail = false;
-         if (name == SEL_ID_ACCESSORY_CHOICE) {
-            curId = newValue;
-            updateDetail = true;
-         } else {
-            curId = me.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
-         }
-         if (name == MEM_ID_LANGUAGE) {
-            curLanguage = newValue;
-            updateDetail = true;
-         } else {
-            curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
-         }
-         if (me.showLevelSelect) {
-            if (name == SEL_ID_ACCESSORY_LEVEL) {
-               curLevel = newValue;
-               updateDetail = true;
-            } else {
-               curLevel = me.getComponent(SEL_ID_ACCESSORY_LEVEL).get();
-            }
-         }
-         if (updateDetail) {
-            setDetail(detailController, briefController, curId, curLevel, curLanguage);
-         }
-      };
-
-      this.setAccessoryData(options.accessoryData, options.cardData);
    }
 
-   /** @type {typeof LLH.Selector.LLAccessorySelectorComponent} */
-   var cls = LLAccessorySelectorComponent_cls;
-   LLClassUtil.setSuper(cls, LLFiltersComponent);
-   var proto = cls.prototype;
-
-   /** @this {LLH.Selector.LLAccessorySelectorComponent} */
-   proto.setAccessoryData = function (accessoryData, cardData) {
-      if (accessoryData && cardData) {
-         accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
-      }
-
-      var i;
-
-      this.setFreezed(true);
-      this.accessoryData = accessoryData;
-      this.cardData = cardData;
-
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var accessoryOptions = [{'value': '', 'text': '选择饰品'}];
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var accessoryOptionsJp = [{'value': '', 'text': '选择饰品'}];
-      var effectTypeCollector = {};
-      var accessoryDataKeys = Object.keys(this.accessoryData).sort((a, b) => parseInt(a) - parseInt(b));
-      for (i = 0; i < accessoryDataKeys.length; i++) {
-         var curKey = accessoryDataKeys[i];
-         var curAccessoryData = this.accessoryData[curKey];
-         var curColor = LLConst.Common.getAttributeColor(LLConst.Accessory.getAccessoryMainAttribute(curAccessoryData));
-         accessoryOptions.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_CN), 'color': curColor});
-         accessoryOptionsJp.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_JP), 'color': curColor});
-         if (curAccessoryData.effect_type) effectTypeCollector[curAccessoryData.effect_type] = 1;
-      }
-
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var effectTypeOptions = [{'value': '', 'text': '技能类型'}];
-      var effectTypeKeys = Object.keys(effectTypeCollector).sort((a, b) => parseInt(a) - parseInt(b));
-      for (i = 0; i < effectTypeKeys.length; i++) {
-         var curEffect = effectTypeKeys[i];
-         var curEffectBrief = LLConst.Skill.getEffectBrief(parseInt(curEffect));
-         if (curEffectBrief != '未知') effectTypeOptions.push({'value': curEffect, 'text': curEffectBrief});
-      }
-
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var rarityOptions = [
-         {'value': '', 'text': '稀有度'},
-         {'value': '1', 'text': 'N'},
-         {'value': '2', 'text': 'R'},
-         {'value': '3', 'text': 'SR'},
-         {'value': '5', 'text': 'SSR'},
-         {'value': '4', 'text': 'UR'}
-      ];
-      
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var mainAttributeOptions = [
-         {'value': '', 'text': '主属性'},
-         {'value': 'smile', 'text': 'smile', 'color': 'red'},
-         {'value': 'pure', 'text': 'pure', 'color': 'green'},
-         {'value': 'cool', 'text': 'cool', 'color': 'blue'},
-         {'value': 'other', 'text': '其它', 'color': 'purple'}
-      ];
-
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-      var typeOptions = [
-         {'value': '', 'text': '分类'},
-         {'value': '通用', 'text': '通用'},
-         {'value': '个人', 'text': '个人'}
-      ];
-      if (!this.excludeMaterial) {
-         typeOptions.push({'value': '材料', 'text': '材料'});
-      }
-
-      if (this.showLevelSelect) {
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
-         var levelOptions = [];
-         for (var i = 1; i <= 8; i++) {
-            levelOptions.push({'value': i + '', 'text': i + ''});
-         }
-         this.setFilterOptions(SEL_ID_ACCESSORY_LEVEL, levelOptions);
-      }
-
-      this.setFilterOptions(SEL_ID_ACCESSORY_RARITY, rarityOptions);
-      this.setFilterOptions(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, mainAttributeOptions);
-      this.setFilterOptions(SEL_ID_ACCESSORY_TYPE, typeOptions);
-      this.setFilterOptions(SEL_ID_ACCESSORY_EFFECT_TYPE, effectTypeOptions);
-      this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, [accessoryOptions, accessoryOptionsJp]);
-
-      this.setFreezed(false);
-      this.handleFilters();
-   };
-   proto.getAccessoryId = function () {
-      return this.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
-   };
-   proto.getAccessoryLevel = function () {
-      if (this.showLevelSelect) {
-         return parseInt(this.getComponent(SEL_ID_ACCESSORY_LEVEL).get());
-      } else {
-         return 1;
-      }
-   };
-   proto.getAccessorySaveData = function () {
-      var accessoryId = this.getAccessoryId();
-      var level = this.getAccessoryLevel();
-      if (accessoryId && level) {
-         return {
-            'id': accessoryId,
-            'level': level
-         }
-      } else {
-         return undefined;
-      }
-   };
-   proto.setLanguage = function (language) {
-      this.getComponent(MEM_ID_LANGUAGE).set(language);
-   };
-   return cls;
+   return LLAccessorySelectorComponent_cls;
 })();
