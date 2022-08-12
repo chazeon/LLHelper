@@ -574,277 +574,326 @@ var LLMapNoteData = (function () {
 
 // base components
 
-/** @type {typeof LLH.Component.LLComponentBase} */
 var LLComponentBase = (function () {
    /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Component.LLComponentBase_Options} [options] 
+    * @implements {LLH.Mixin.SaveLoadJson}
     */
-   function LLComponentBase_cls(id, options) {
-      this.id = undefined;
-      this.exist = false;
-      this.visible = false;
-      if (id) {
-         if (typeof(id) == 'string') this.id = id;
-         this.element = LLUnit.getElement(id);
-         if (this.element) {
-            this.exist = true;
-            if (this.element.style.display != 'none') {
-               this.visible = true;
-            }
-            if (options && options.listen) {
-               var listenList = Object.keys(options.listen);
-               for (var i = 0; i < listenList.length; i++) {
-                  var e = listenList[i];
-                  this.on(e, options.listen[e]);
+   class LLComponentBase_cls {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} [id] 
+       * @param {LLH.Component.LLComponentBase_Options} [options] 
+       */
+      constructor(id, options) {
+         this.id = undefined;
+         this.exist = false;
+         this.visible = false;
+         if (id) {
+            if (typeof(id) == 'string') this.id = id;
+            this.element = LLUnit.getElement(id);
+            if (this.element) {
+               this.exist = true;
+               if (this.element.style.display != 'none') {
+                  this.visible = true;
+               }
+               if (options && options.listen) {
+                  var listenList = Object.keys(options.listen);
+                  for (var i = 0; i < listenList.length; i++) {
+                     var e = listenList[i];
+                     this.on(e, options.listen[e]);
+                  }
                }
             }
          }
       }
-   };
-   LLComponentBase_cls.prototype.show = function () {
-      if (!this.element) return;
-      if (this.visible) return;
-      this.element.style.display = '';
-      this.visible = true;
-   };
-   LLComponentBase_cls.prototype.hide = function () {
-      if (!this.element) return;
-      if (!this.visible) return;
-      this.element.style.display = 'none';
-      this.visible = false;
-   };
-   LLComponentBase_cls.prototype.toggleVisible = function () {
-      if (!this.element) return;
-      if (this.visible) {
-         this.hide();
-      } else {
-         this.show();
+      show() {
+         if (!this.element) return;
+         if (this.visible) return;
+         this.element.style.display = '';
+         this.visible = true;
       }
-   };
-   LLComponentBase_cls.prototype.setVisible = function (visible) {
-      if (visible) this.show();
-      else this.hide();
-   };
-   LLComponentBase_cls.prototype.serialize = function () {
-      if (!this.element) return undefined;
-      return this.visible;
-   };
-   LLComponentBase_cls.prototype.deserialize = function (v) {
-      if (v) {
-         this.show();
-      } else {
-         this.hide();
+      hide() {
+         if (!this.element) return;
+         if (!this.visible) return;
+         this.element.style.display = 'none';
+         this.visible = false;
       }
-   };
-   LLComponentBase_cls.prototype.saveJson = function () {
-      return JSON.stringify(this.serialize());
-   };
-   LLComponentBase_cls.prototype.loadJson = function (json) {
-      var me = this;
-      LLSaveLoadJsonHelper.commonLoadJson(v => me.deserialize(v), json);
-   };
-   LLComponentBase_cls.prototype.on = function (e, callback) {
-      if (!this.element) return;
-      if ((!e) || (!callback)) return;
-      this.element.addEventListener(e, callback);
-   };
-   LLComponentBase_cls.prototype.isInDocument = function () {
-      return !!(this.element && this.element.ownerDocument);
-   };
+      toggleVisible() {
+         if (!this.element) return;
+         if (this.visible) {
+            this.hide();
+         } else {
+            this.show();
+         }
+      }
+      /** @param {boolean} visible */
+      setVisible(visible) {
+         if (visible) this.show();
+         else this.hide();
+      }
+      serialize() {
+         if (!this.element) return undefined;
+         return this.visible;
+      }
+      deserialize(v) {
+         if (v) {
+            this.show();
+         } else {
+            this.hide();
+         }
+      }
+      saveJson() {
+         return JSON.stringify(this.serialize());
+      }
+      /** @param {string} json */
+      loadJson(json) {
+         var me = this;
+         LLSaveLoadJsonHelper.commonLoadJson(v => me.deserialize(v), json);
+      }
+      /**
+       * @param {string} e 
+       * @param {(event: Event) => void} callback 
+       */
+      on(e, callback) {
+         if (!this.element) return;
+         if ((!e) || (!callback)) return;
+         this.element.addEventListener(e, callback);
+      }
+      isInDocument = function () {
+         return !!(this.element && this.element.ownerDocument);
+      }
+   }
+
    return LLComponentBase_cls;
 })();
 
-/** @type {typeof LLH.Component.LLValuedComponent} */
 var LLValuedComponent = (function() {
-   function LLValuedComponent_cls(id, options) {
-      LLComponentBase.call(this, id, options);
-      if (!this.exist) {
-         this.value = undefined;
-         return this;
-      }
-      var vk = (options && options.valueKey ? options.valueKey : '');
-      if (!vk) {
-         var tag = this.element.tagName.toUpperCase();
-         if (tag == 'INPUT') {
-            if (this.element.type.toUpperCase() == 'CHECKBOX') {
-               vk = 'checked';
-            } else {
-               vk = 'value';
-            }
-         } else if (tag == 'SELECT' ) {
-            vk = 'value';
-         } else {
-            vk = 'innerHTML';
+   class LLValuedComponent_cls extends LLComponentBase {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} [id] 
+       * @param {LLH.Component.LLValuedComponent_Options} [options] 
+       */
+      constructor(id, options) {
+         super(id, options);
+         /** @type {((newValue: string) => void) | undefined} */
+         this.onValueChange = undefined;
+         if (!this.element) {
+            this.value = undefined;
+            this.valueKey = 'value';
+            return this;
          }
-      }
-      this.valueKey = vk;
-      this.value = this.element[vk];
-      var me = this;
-      this.on('change', function (e) {
-         me.set(me.element[me.valueKey]);
-      });
-   };
-   LLClassUtil.setSuper(LLValuedComponent_cls, LLComponentBase);
-   LLValuedComponent_cls.prototype.get = function () {
-      return this.value;
-   };
-   LLValuedComponent_cls.prototype.set = function (v) {
-      if (!this.exist) return;
-      if (v == this.value) return;
-      this.element[this.valueKey] = v;
-      this.value = v;
-      if (this.onValueChange) this.onValueChange(v);
-   };
-   LLValuedComponent_cls.prototype.serialize = function () {
-      return this.get();
-   };
-   LLValuedComponent_cls.prototype.deserialize = function (v) {
-      this.set(v);
-   };
-   return LLValuedComponent_cls;
-})();
-
-/** @type {typeof LLH.Component.LLValuedMemoryComponent} */
-var LLValuedMemoryComponent = (function() {
-   function LLValuedMemoryComponent_cls(initialValue) {
-      LLValuedComponent.call(this, undefined);
-      this.value = initialValue;
-   }
-   LLClassUtil.setSuper(LLValuedMemoryComponent_cls, LLValuedComponent);
-   LLValuedMemoryComponent_cls.prototype.set = function (v) {
-      if (v == this.value) return;
-      this.value = v;
-      if (this.onValueChange) this.onValueChange(v);
-   };
-   return LLValuedMemoryComponent_cls;
-})();
-
-/** @type {typeof LLH.Component.LLSelectComponent} */
-var LLSelectComponent = (function() {
-   function LLSelectComponent_cls(id, options) {
-      LLValuedComponent.call(this, id, options);
-      if (!this.exist) {
-         this.options = undefined;
-         return this;
-      }
-      var opts = [];
-      var orig_opts = this.element.options;
-      for (var i = 0; i < orig_opts.length; i++) {
-         opts.push({
-            value: orig_opts[i].value,
-            text: orig_opts[i].text
+         var vk = (options && options.valueKey ? options.valueKey : '');
+         if (!vk) {
+            var tag = this.element.tagName.toUpperCase();
+            if (tag == 'INPUT') {
+               if (this.element.type.toUpperCase() == 'CHECKBOX') {
+                  vk = 'checked';
+               } else {
+                  vk = 'value';
+               }
+            } else if (tag == 'SELECT' ) {
+               vk = 'value';
+            } else {
+               vk = 'innerHTML';
+            }
+         }
+         this.valueKey = vk;
+         this.value = this.element[vk];
+         var me = this;
+         this.on('change', function (e) {
+            if (me.element) {
+               me.set(me.element[me.valueKey]);
+            }
          });
       }
-      this.options = opts;
-   }
-   LLClassUtil.setSuper(LLSelectComponent_cls, LLValuedComponent);
-   LLSelectComponent_cls.prototype.set = function (v) {
-      if (!this.exist) return;
-      if (v != this.element[this.valueKey]) {
+      get() {
+         return this.value;
+      }
+      /** @param {string} v */
+      set(v) {
+         if (!this.element) return;
+         if (v == this.value) return;
          this.element[this.valueKey] = v;
-      }
-      if (this.element.selectedIndex >= 0) {
-         var curOption = this.element.options[this.element.selectedIndex];
-         var curBackground = curOption.style['background-color'];
-         this.element.style.color = curOption.style.color;
-         this.element.style['background-color'] = (curBackground == '#fff' ? '' : curBackground);
-      }
-      if (v != this.value) {
          this.value = v;
          if (this.onValueChange) this.onValueChange(v);
       }
-   };
-   LLSelectComponent_cls.prototype.setOptions = function (options, filter) {
-      if (!this.exist) return;
-      this.options = options || [];
-      this.filterOptions(filter);
-   };
-   LLSelectComponent_cls.prototype.filterOptions = function (filter) {
-      if (!this.exist) return;
-      if (!filter) filter = this.filter;
-      var oldValue = this.get();
-      var foundOldValue = false;
-      this.element.options.length = 0;
-      for (var i in this.options) {
-         var option = this.options[i];
-         if (filter && !filter(option)) continue;
-         var newOption = new Option(option.text, option.value);
-         newOption.style.color = option.color || '';
-         newOption.style['background-color'] = option.background || '#fff';
-         this.element.options.add(newOption);
-         if (oldValue == option.value) foundOldValue = true;
+      /** @override */
+      serialize() {
+         return this.get();
       }
-      if (foundOldValue) {
-         this.set(oldValue);
-      } else {
-         this.set(this.element.value);
+      /**
+       * @override
+       * @param {*} v 
+       */
+      deserialize(v) {
+         this.set(v);
+      };
+   }
+
+   return LLValuedComponent_cls;
+})();
+
+var LLValuedMemoryComponent = (function() {
+   class LLValuedMemoryComponent_cls extends LLValuedComponent {
+      constructor(initialValue) {
+         super();
+         this.value = initialValue;
       }
-      this.filter = filter;
-   };
+      set(v) {
+         if (v == this.value) return;
+         this.value = v;
+         if (this.onValueChange) this.onValueChange(v);
+      }
+   }
+
+   return LLValuedMemoryComponent_cls;
+})();
+
+var LLSelectComponent = (function() {
+   class LLSelectComponent_cls extends LLValuedComponent {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Component.LLValuedComponent_Options} [options] 
+       */
+      constructor(id, options) {
+         super(id, options);
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         this.options = [];
+         /** @type {LLH.Component.LLSelectComponent_FilterCallback | undefined} */
+         this.filter = undefined;
+         if (!this.element) {
+            return this;
+         }
+         var orig_opts = this.element.options;
+         for (var i = 0; i < orig_opts.length; i++) {
+            this.options.push({
+               value: orig_opts[i].value,
+               text: orig_opts[i].text
+            });
+         }
+      }
+      /**
+       * @override
+       * @param {string} v 
+       */
+      set(v) {
+         if (!this.element) return;
+         if (v != this.element[this.valueKey]) {
+            this.element[this.valueKey] = v;
+         }
+         if (this.element.selectedIndex >= 0) {
+            var curOption = this.element.options[this.element.selectedIndex];
+            var curBackground = curOption.style['background-color'];
+            this.element.style.color = curOption.style.color;
+            this.element.style['background-color'] = (curBackground == '#fff' ? '' : curBackground);
+         }
+         if (v != this.value) {
+            this.value = v;
+            if (this.onValueChange) this.onValueChange(v);
+         }
+      }
+      /**
+       * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
+       * @param {LLH.Component.LLSelectComponent_FilterCallback} [filter] 
+       */
+      setOptions(options, filter) {
+         if (!this.exist) return;
+         this.options = options || [];
+         this.filterOptions(filter);
+      }
+      /** @param {LLH.Component.LLSelectComponent_FilterCallback} [filter] */
+      filterOptions(filter) {
+         if (!this.element) return;
+         if (!filter) filter = this.filter;
+         var oldValue = this.get();
+         var foundOldValue = false;
+         this.element.options.length = 0;
+         for (var i in this.options) {
+            var option = this.options[i];
+            if (filter && !filter(option)) continue;
+            var newOption = new Option(option.text, option.value);
+            newOption.style.color = option.color || '';
+            newOption.style['background-color'] = option.background || '#fff';
+            this.element.options.add(newOption);
+            if (oldValue == option.value) foundOldValue = true;
+         }
+         if (foundOldValue) {
+            this.set(oldValue);
+         } else {
+            this.set(this.element.value);
+         }
+         this.filter = filter;
+      }
+   }
+
    return LLSelectComponent_cls;
 })();
 
-/** @type {typeof LLH.Component.LLImageComponent} */
 var LLImageComponent = (function() {
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Component.LLImageComponent_Options} options 
-    * @this {LLH.Component.LLImageComponent}
-    */
-   function LLImageComponent_cls(id, options) {
-      LLComponentBase.call(this, id, options);
-      if (!this.exist) {
-         this.srcList = undefined;
+   class LLImageComponent_cls extends LLComponentBase {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Component.LLImageComponent_Options} [options] 
+       */
+      constructor(id, options) {
+         super(id, options);
+         /** @type {string[]} */
+         this.srcList = [];
+         /** @type {number | undefined} */
          this.curSrcIndex = undefined;
-         return this;
-      }
-      var srcList = (options && options.srcList ? options.srcList : [this.element.src]);
-      var me = this;
-      this.on('error', function (e) {
-         if (me.curSrcIndex === undefined) return;
-         if (me.curSrcIndex < me.srcList.length-1) {
-            me.curSrcIndex++;
-            me.element.src = me.srcList[me.curSrcIndex];
-         } else {
-            console.error('Failed to load image');
-            console.error(me.srcList);
+         if (!this.element) {
+            this.curSrcIndex = undefined;
+            return this;
          }
-      });
-      this.on('reset', function (e) {
-         console.error('reset called, src=' + me.element.src);
-         console.error(e);
-      });
-      this.setSrcList(srcList);
-   }
-   LLClassUtil.setSuper(LLImageComponent_cls, LLComponentBase)
-   LLImageComponent_cls.prototype.setSrcList = function (srcList) {
-      this.srcList = srcList;
-      if (srcList.length > 0) {
-         for (var i = 0; i < srcList.length; i++) {
-            // skip if already in list
-            if (this.element.src == srcList[i]) {
-               this.curSrcIndex = i;
-               return;
+         var srcList = (options && options.srcList ? options.srcList : [this.element.src]);
+         var me = this;
+         this.on('error', function (e) {
+            if (me.curSrcIndex === undefined) return;
+            if (!me.element) return;
+            if (me.curSrcIndex < me.srcList.length-1) {
+               me.curSrcIndex++;
+               me.element.src = me.srcList[me.curSrcIndex];
+            } else {
+               console.error('Failed to load image');
+               console.error(me.srcList);
             }
+         });
+         this.on('reset', function (e) {
+            console.error('reset called, src=' + (me.element && me.element.src));
+            console.error(e);
+         });
+         this.setSrcList(srcList);
+      }
+      /** @param {string[]} srcList */
+      setSrcList(srcList) {
+         this.srcList = srcList;
+         if (!this.element) return;
+         if (srcList.length > 0) {
+            for (var i = 0; i < srcList.length; i++) {
+               // skip if already in list
+               if (this.element.src == srcList[i]) {
+                  this.curSrcIndex = i;
+                  return;
+               }
+            }
+            this.curSrcIndex = 0;
+            this.element.src = '';
+            this.element.src = this.srcList[0];
+         } else {
+            this.curSrcIndex = undefined;
+            this.element.src = '';
          }
-         this.curSrcIndex = 0;
-         this.element.src = '';
-         this.element.src = this.srcList[0];
-      } else {
-         this.curSrcIndex = undefined;
-         this.element.src = '';
       }
-   };
-   LLImageComponent_cls.prototype.setAltText = function (text) {
-      if (this.element.title == text) {
-         return;
+      /** @param {string} text */
+      setAltText(text) {
+         if (!this.element) return;
+         if (this.element.title == text) {
+            return;
+         }
+         this.element.title = text;
+         // this.element.alt = text;
       }
-      this.element.title = text;
-      // this.element.alt = text;
-   };
+   }
+
    return LLImageComponent_cls;
 })();
 
@@ -3814,6 +3863,7 @@ var LLSaveLoadJsonHelper = {
     */
    commonLoadJson: function (loader, jsonString) {
       if (!jsonString) return;
+      if (jsonString == 'undefined') return;
       try {
          var json = JSON.parse(jsonString);
          loader(json);
@@ -9447,7 +9497,6 @@ var LLGemSelectorComponent = (function () {
    return LLGemSelectorComponent_cls;
 })();
 
-/** @type {typeof LLH.Layout.Language.LLLanguageComponent} */
 var LLLanguageComponent = (function() {
    var createElement = LLUnit.createElement;
 
@@ -9457,116 +9506,129 @@ var LLLanguageComponent = (function() {
       me.set(newValue);
    }
 
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @this {LLH.Layout.Language.LLLanguageComponent}
-    */
-   function LLLanguageComponent_cls(id) {
-      if (id === undefined) {
-         id = createElement('input');
+   class LLLanguageComponent_cls extends LLComponentBase {
+      /** @param {LLH.Component.HTMLElementOrId} [id] */
+      constructor(id) {
+         if (id === undefined) {
+            id = createElement('input');
+         }
+         super(id);
+         if (this.element) {
+            this.element.type = 'button';
+            this.element.value = '切换语言';
+            this.element.className = 'btn btn-default';
+         }
+         var me = this;
+         me.value = 0;
+         /** @type {LLH.Mixin.LanguageSupport[]} */
+         me.langSupports = [];
+         this.on('click', () => toggleLanguage(me));
       }
-      LLComponentBase.call(this, id);
-      if (this.element) {
-         this.element.type = 'button';
-         this.element.value = '切换语言';
-         this.element.className = 'btn btn-default';
+      /** @returns {LLH.Core.LanguageType} */
+      get() {
+         return this.value;
       }
-      var me = this;
-      me.value = 0;
-      /** @type {LLH.Mixin.LanguageSupport[]} */
-      me.langSupports = [];
-      this.on('click', () => toggleLanguage(me));
-   };
-   LLClassUtil.setSuper(LLLanguageComponent_cls, LLComponentBase);
-   LLLanguageComponent_cls.prototype.get = function () {
-      return this.value;
-   };
-   LLLanguageComponent_cls.prototype.set = function (v) {
-      this.value = v;
-      for (var i = 0; i < this.langSupports.length; i++) {
-         this.langSupports[i].setLanguage(v);
+      /** @param {LLH.Core.LanguageType} v */
+      set(v) {
+         this.value = v;
+         for (var i = 0; i < this.langSupports.length; i++) {
+            this.langSupports[i].setLanguage(v);
+         }
+         if (this.onValueChange) this.onValueChange(v);
       }
-      if (this.onValueChange) this.onValueChange(v);
-   };
-   LLLanguageComponent_cls.prototype.registerLanguageChange = function (langSupport) {
-      this.langSupports.push(langSupport);
-   };
-   LLLanguageComponent_cls.prototype.serialize = function () {
-      return this.get();
-   };
-   LLLanguageComponent_cls.prototype.deserialize = function (v) {
-      this.set(v);
-   };
-   LLLanguageComponent_cls.prototype.saveJson = function () {
-      return this.serialize() + '';
-   };
-   LLLanguageComponent_cls.prototype.loadJson = function (json) {
-      if (json) {
-         this.set(parseInt(json));
+      /** @param {LLH.Mixin.LanguageSupport} langSupport */
+      registerLanguageChange(langSupport) {
+         this.langSupports.push(langSupport);
       }
-   };
+      /** @override */
+      serialize() {
+         return this.get();
+      }
+      /**
+       * @override
+       * @param {number} v
+       */
+      deserialize(v) {
+         this.set(v);
+      }
+      /** @override */
+      saveJson() {
+         return this.serialize() + '';
+      }
+      /**
+       * @override
+       * @param {string} json 
+       */
+      loadJson(json) {
+         if (json) {
+            this.set(parseInt(json));
+         }
+      };
+   }
+
    return LLLanguageComponent_cls;
 })();
 
 var LLAccessoryComponent = (function () {
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id
-    * @param {LLH.Component.LLAccessoryComponent_Options} options
-    */
-   function LLAccessoryComponent_cls(id, options) {
-      LLComponentBase.call(this, id, options);
-      this.size = 128;
-      if (options && options.size) {
-         this.size = options.size;
+   class LLAccessoryComponent_cls extends LLComponentBase {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id
+       * @param {LLH.Component.LLAccessoryComponent_Options} options
+       */
+      constructor(id, options) {
+         super(id, options);
+         this.size = 128;
+         if (options && options.size) {
+            this.size = options.size;
+         }
+         this.accessoryId = undefined;
+         this.element.className = 'accessory-base';
+         this.element.style.width = this.size + 'px';
+         this.element.style.height = this.size + 'px';
+         var img = LLUnit.createElement('img');
+         this.accessoryImage = new LLImageComponent(img);
+         LLUnit.updateSubElements(this.element, img);
       }
-      this.accessoryId = undefined;
-      this.element.className = 'accessory-base';
-      this.element.style.width = this.size + 'px';
-      this.element.style.height = this.size + 'px';
-      var img = LLUnit.createElement('img');
-      this.accessoryImage = new LLImageComponent(img);
-      LLUnit.updateSubElements(this.element, img);
-   }
-   /** @type {typeof LLH.Component.LLAccessoryComponent} */
-   var cls = LLAccessoryComponent_cls
-   LLClassUtil.setSuper(cls, LLComponentBase);
-   var proto = cls.prototype;
-   proto.setAccessory = function (newAccessory, language) {
-      /** @type {LLH.API.AccessoryDataType} */
-      var accessory = newAccessory;
-      if (typeof(newAccessory) == 'string') {
-         accessory = LLAccessoryData.getAllCachedBriefData()[newAccessory];
-         if (!accessory) {
-            console.warn('Not found accessory in cache: ' + newAccessory)
+      /**
+       * @param {LLH.Core.AccessoryIdStringType | LLH.API.AccessoryDataType} [newAccessory] 
+       * @param {LLH.Core.LanguageType} [language] 
+       */
+      setAccessory(newAccessory, language) {
+         /** @type {LLH.API.AccessoryDataType} */
+         var accessory = newAccessory;
+         if (typeof(newAccessory) == 'string') {
+            accessory = LLAccessoryData.getAllCachedBriefData()[newAccessory];
+            if (!accessory) {
+               console.warn('Not found accessory in cache: ' + newAccessory)
+               return;
+            }
+         }
+         if (accessory === undefined) {
+            if (this.accessoryId !== undefined) {
+               this.element.className = 'accessory-base';
+               this.accessoryImage.hide();
+               this.accessoryId = undefined;
+            }
             return;
          }
-      }
-      if (accessory === undefined) {
-         if (this.accessoryId !== undefined) {
-            this.element.className = 'accessory-base';
-            this.accessoryImage.hide();
-            this.accessoryId = undefined;
+         this.accessoryImage.show();
+         this.accessoryImage.setAltText(LLConst.Accessory.getAccessoryDescription(accessory, language));
+         if (accessory.id == this.accessoryId) {
+            return;
          }
-         return;
+         var newClassName = 'accessory-' + LLConst.Common.getRarityString(accessory.rarity);
+         if (accessory.unit_id) {
+            newClassName = newClassName + ' accessory-special';
+         }
+         if (newClassName != this.element.className) {
+            this.element.className = newClassName;
+         }
+         this.accessoryImage.setSrcList(['/static/accessory/' + accessory.id + '.png']);
+         this.accessoryId = accessory.id;
       }
-      this.accessoryImage.show();
-      this.accessoryImage.setAltText(LLConst.Accessory.getAccessoryDescription(accessory, language));
-      if (accessory.id == this.accessoryId) {
-         return;
-      }
-      var newClassName = 'accessory-' + LLConst.Common.getRarityString(accessory.rarity);
-      if (accessory.unit_id) {
-         newClassName = newClassName + ' accessory-special';
-      }
-      if (newClassName != this.element.className) {
-         this.element.className = newClassName;
-      }
-      this.accessoryImage.setSrcList(['/static/accessory/' + accessory.id + '.png']);
-      this.accessoryId = accessory.id;
-   };
-   return cls;
+   }
+
+   return LLAccessoryComponent_cls;
 })();
 
 var LLAccessorySelectorComponent = (function () {

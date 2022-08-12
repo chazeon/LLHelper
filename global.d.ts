@@ -440,10 +440,10 @@ declare namespace LLH {
         type HTMLElementOrString = string | HTMLElement;
         type SubElements = HTMLElementOrString | (HTMLElementOrString | HTMLElementOrString[])[];
         interface LLComponentBase_Options {
-            listen: {[e: string]: (event: Event) => void};
+            listen?: {[e: string]: (event: Event) => void};
         }
         class LLComponentBase implements Mixin.SaveLoadJson {
-            constructor(id: HTMLElementOrId, options?: LLComponentBase_Options);
+            constructor(id?: HTMLElementOrId, options?: LLComponentBase_Options);
 
             id?: string;
             exist: boolean;
@@ -464,17 +464,20 @@ declare namespace LLH {
             loadJson(jsonData?: string): void;
         }
         interface LLValuedComponent_Options extends LLComponentBase_Options {
-            valueKey: string;
+            valueKey?: string;
         }
         class LLValuedComponent extends LLComponentBase {
-            constructor(id: HTMLElementOrId, options?: LLValuedComponent_Options);
+            constructor(id?: HTMLElementOrId, options?: LLValuedComponent_Options);
 
-            value: string;
+            value?: string;
             valueKey: string;
             onValueChange?: (newValue: string) => void;
 
             get(): string;
             set(val: string): void;
+
+            override serialize(): string;
+            override deserialize(data: string): void;
         }
         class LLValuedMemoryComponent extends LLValuedComponent {
             constructor(initialValue: any);
@@ -495,6 +498,8 @@ declare namespace LLH {
 
             setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
             filterOptions(filter?: LLSelectComponent_FilterCallback): void;
+
+            override set(val: string): void;
         }
         interface LLImageComponent_Options extends LLComponentBase_Options {
             srcList?: string[];
@@ -512,7 +517,7 @@ declare namespace LLH {
             size?: number // in pixel, default 128
         }
         class LLAccessoryComponent extends LLComponentBase {
-            constructor(id: HTMLElementOrId, options: LLAccessoryComponent_Options);
+            constructor(id: HTMLElementOrId, options?: LLAccessoryComponent_Options);
 
             accessoryId?: Core.AccessoryIdStringType;
             size: number;
@@ -1386,6 +1391,8 @@ declare namespace LLH {
                 set(val: Core.LanguageType): void;
                 registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
 
+                override serialize(): number;
+                override deserialize(data: number): void;
                 override saveJson(): string;
                 override loadJson(jsonData?: string): void;
             }
@@ -1617,6 +1624,14 @@ declare var LLMetaData: LLH.LLSimpleKeyData<LLH.API.MetaDataType>;
 declare var LLDepends: LLH.Depends.Utils;
 
 type LLMapNoteData = LLH.Misc.LLMapNoteData;
+
+type LLComponentBase = LLH.Component.LLComponentBase;
+type LLValuedComponent = LLH.Component.LLValuedComponent;
+type LLValuedMemoryComponent = LLH.Component.LLValuedMemoryComponent;
+type LLSelectComponent = LLH.Component.LLSelectComponent;
+type LLImageComponent = LLH.Component.LLImageComponent;
+type LLLanguageComponent = LLH.Layout.Language.LLLanguageComponent;
+type LLAccessoryComponent = LLH.Component.LLAccessoryComponent;
 
 type LLComponentCollection = LLH.Component.LLComponentCollection;
 type LLFiltersComponent = LLH.Component.LLFiltersComponent;
