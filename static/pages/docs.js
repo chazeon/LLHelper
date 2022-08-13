@@ -363,17 +363,17 @@ function renderPage(loadDeferred) {
                 var needCards = {};
                 var notes = {};
                 var effects = [
-                    LLConst.SKILL_EFFECT_LEVEL_UP,
-                    LLConst.SKILL_EFFECT_POSSIBILITY_UP,
-                    LLConst.SKILL_EFFECT_REPEAT,
-                    LLConst.SKILL_EFFECT_SCORE,
-                    LLConst.SKILL_EFFECT_ATTRIBUTE_UP,
-                    LLConst.SKILL_EFFECT_HEAL,
-                    LLConst.SKILL_EFFECT_ACCURACY_NORMAL
+                    LLConstValue.SKILL_EFFECT_LEVEL_UP,
+                    LLConstValue.SKILL_EFFECT_POSSIBILITY_UP,
+                    LLConstValue.SKILL_EFFECT_REPEAT,
+                    LLConstValue.SKILL_EFFECT_SCORE,
+                    LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP,
+                    LLConstValue.SKILL_EFFECT_HEAL,
+                    LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL
                 ];
                 for (var i in data) {
                     var curCard = data[i];
-                    if (curCard.triggertype != LLConst.SKILL_TRIGGER_NOTE) continue;
+                    if (curCard.triggertype != LLConstValue.SKILL_TRIGGER_NOTE) continue;
                     if (curCard.rarity != 'UR') continue;
                     var effect = parseInt(curCard.skilleffect);
                     var note = parseInt(curCard.triggerrequire);

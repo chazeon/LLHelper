@@ -1122,7 +1122,7 @@ var LLFiltersComponent = (function() {
          /** @type {LLH.Component.LLValuedComponent | undefined} */
          var comp = undefined;
          for (i in filter.reverseCallbacks) {
-            comp = me.getComponent(i);
+            comp = /** @type {LLH.Component.LLValuedComponent | undefined} */ (me.getComponent(i));
             if (!comp) {
                console.error('Not found component for ' + i, me);
                continue;
@@ -1168,256 +1168,259 @@ var LLFiltersComponent = (function() {
    return LLFiltersComponent_cls;
 })();
 
-/*
- * LLConst: static meta data
- */
+const LLConstValue = {
+   '高坂穂乃果': 1,
+   '絢瀬絵里': 2,
+   '南ことり': 3,
+   '園田海未': 4,
+   '星空凛': 5,
+   '西木野真姫': 6,
+   '東條希': 7,
+   '小泉花陽': 8,
+   '矢澤にこ': 9,
+   'MEMBER_HONOKA': 1,
+   'MEMBER_ELI': 2,
+   'MEMBER_KOTORI': 3,
+   'MEMBER_UMI': 4,
+   'MEMBER_RIN': 5,
+   'MEMBER_MAKI': 6,
+   'MEMBER_NOZOMI': 7,
+   'MEMBER_HANAYO': 8,
+   'MEMBER_NICO': 9,
+
+   '綺羅ツバサ': 80,
+   '優木あんじゅ': 81,
+   '統堂英玲奈': 82,
+   'MEMBER_TSUBASA': 80,
+   'MEMBER_ANJU': 81,
+   'MEMBER_ERENA': 82,
+
+   '高海千歌': 101,
+   '桜内梨子': 102,
+   '松浦果南': 103,
+   '黒澤ダイヤ': 104,
+   '渡辺曜': 105,
+   '津島善子': 106,
+   '国木田花丸': 107,
+   '小原鞠莉': 108,
+   '黒澤ルビィ': 109,
+   'MEMBER_CHIKA': 101,
+   'MEMBER_RIKO': 102,
+   'MEMBER_KANAN': 103,
+   'MEMBER_DIA': 104,
+   'MEMBER_YOU': 105,
+   'MEMBER_YOSHIKO': 106,
+   'MEMBER_HANAMARU': 107,
+   'MEMBER_MARI': 108,
+   'MEMBER_RUBY': 109,
+
+   '鹿角理亞': 112,
+   '鹿角聖良': 113,
+   'MEMBER_LEAH': 112,
+   'MEMBER_SARAH': 113,
+
+   '上原歩夢': 201,
+   '中須かすみ': 202,
+   '桜坂しずく': 203,
+   '朝香果林':  204,
+   '宮下愛': 205,
+   '近江彼方': 206,
+   '優木せつ菜': 207,
+   'エマ・ヴェルデ': 208,
+   '天王寺璃奈': 209,
+   '三船栞子': 212,
+   '鐘嵐珠': 213,
+   'ショウ・ランジュ': 213,
+   'ミア・テイラー': 214,
+   'MEMBER_AYUMU': 201,
+   'MEMBER_KASUMI': 202,
+   'MEMBER_SHIZUKU': 203,
+   'MEMBER_KARIN': 204,
+   'MEMBER_AI': 205,
+   'MEMBER_KANATA': 206,
+   'MEMBER_SETSUNA': 207,
+   'MEMBER_EMMA': 208,
+   'MEMBER_RINA': 209,
+   'MEMBER_SHIORIKO': 212,
+   'MEMBER_LANZHU': 213,
+   'MEMBER_MIA': 214,
+
+   '澁谷かのん': 301,
+   '唐可可': 302,
+   '嵐千砂都': 303,
+   '平安名すみれ': 304,
+   '葉月恋': 305,
+   '桜小路きな子': 306,
+   '米女メイ': 307,
+   '若菜四季': 308,
+   '鬼塚夏美': 309,
+   'MEMBER_KANON': 301,
+   'MEMBER_KEKE': 302,
+   'MEMBER_CHISATO': 303,
+   'MEMBER_SUMIRE': 304,
+   'MEMBER_REN': 305,
+   'MEMBER_KINAKO': 306,
+   'MEMBER_MEI': 307,
+   'MEMBER_SHIKI': 308,
+   'MEMBER_NATUMI': 309,
+
+   '聖澤悠奈': 311,
+   '柊摩央': 312,
+   'MEMBER_YUUNA': 311,
+   'MEMBER_MAO': 312,
+
+   'GROUP_UNKNOWN': 0,
+   'GROUP_GRADE1': 1,
+   'GROUP_GRADE2': 2,
+   'GROUP_GRADE3': 3,
+   'GROUP_MUSE': 4,
+   'GROUP_AQOURS': 5,
+   'GROUP_PRINTEMPS': 6,
+   'GROUP_LILYWHITE': 7,
+   'GROUP_BIBI': 8,
+   'GROUP_CYARON': 9,
+   'GROUP_AZALEA': 10,
+   'GROUP_GUILTYKISS': 11,
+   'GROUP_ARISE': 12,
+   'GROUP_SAINTSNOW': 13,
+   'GROUP_HONOKA_RIN': 23,
+   'GROUP_NOZOMI_NICO': 24,
+   'GROUP_KOTORI_HANAYO': 25,
+   'GROUP_KOTORI_UMI': 26,
+   'GROUP_RIN_MAKI': 27,
+   'GROUP_MAKI_NICO': 28,
+   'GROUP_ELI_UMI': 29,
+   'GROUP_ELI_NOZOMI': 30,
+   'GROUP_MUSE_COOL': 31,
+   'GROUP_MUSE_GRADE2': 32,
+   'GROUP_NICORINHANA': 33,
+   'GROUP_AQOURS_GRADE2': 34,
+   'GROUP_MUSE_GRADE1': 35,
+   'GROUP_MUSE_GRADE3': 36,
+   'GROUP_SOMEDAY': 37,
+   'GROUP_AQOURS_GRADE1': 38,
+   'GROUP_LOVE_WING_BELL':  39,
+   'GROUP_AQOURS_GRADE3': 40,
+   'GROUP_TRANSFER_STUDENT': 50,
+   'GROUP_RIVAL': 51,
+   'GROUP_SUPPORT': 52,
+   'GROUP_RIKO_HANAMARU_MARI': 53,
+   'GROUP_KUROSAWA_SISTERS': 54,
+   'GROUP_YOU_YOSHIKO': 55,
+   'GROUP_CHIKA_KANAN': 56,
+   'GROUP_SAINT_AQOURS_SNOW': 57,
+   'GROUP_NIJIGASAKI': 60,
+   'GROUP_ELI_NOZOMI2': 83,
+   'GROUP_RIN_HANAYO': 99,
+   'GROUP_YOSHIKO_HANAMARU': 137,
+   'GROUP_LIELLA': 143,
+   'GROUP_DIVER_DIVA': 1000,
+   'GROUP_A_ZU_NA': 1001,
+   'GROUP_QU4RTZ': 1002,
+
+   'NOTE_TYPE_NORMAL': 1,
+   'NOTE_TYPE_EVENT': 2,
+   'NOTE_TYPE_HOLD': 3,
+   'NOTE_TYPE_BOMB_1': 4,
+   'NOTE_TYPE_BOMB_3': 5,
+   'NOTE_TYPE_BOMB_5': 6,
+   'NOTE_TYPE_BOMB_9': 7,
+   'NOTE_TYPE_SWING': 11,
+   'NOTE_TYPE_SWING_EVENT': 12,
+   'NOTE_TYPE_SWING_HOLD': 13,
+
+   'NOTE_WEIGHT_HOLD_FACTOR': 1.25,
+   'NOTE_WEIGHT_SWING_FACTOR': 0.5,
+   'NOTE_WEIGHT_PERFECT_FACTOR': 1.25,
+   'NOTE_WEIGHT_GREAT_FACTOR': 1.1,
+   'NOTE_WEIGHT_GOOD_FACTOR': 1,
+   'NOTE_WEIGHT_BAD_FACTOR': 0.5,
+   'NOTE_WEIGHT_MISS_FACTOR': 0,
+   'NOTE_WEIGHT_ACC_PERFECT_FACTOR': 1.35,
+
+   'SKILL_TRIGGER_TIME': 1,
+   'SKILL_TRIGGER_NOTE': 3,
+   'SKILL_TRIGGER_COMBO': 4,
+   'SKILL_TRIGGER_SCORE': 5,
+   'SKILL_TRIGGER_PERFECT': 6,
+   'SKILL_TRIGGER_STAR_PERFECT': 12,
+   'SKILL_TRIGGER_MEMBERS': 100,
+   'SKILL_TRIGGER_SKILL_ACTIVATE_COUNT': 201,
+
+   'SKILL_EFFECT_ACCURACY_SMALL': 4,
+   'SKILL_EFFECT_ACCURACY_NORMAL': 5,
+   'SKILL_EFFECT_HEAL': 9,
+   'SKILL_EFFECT_SCORE': 11,
+   'SKILL_EFFECT_POSSIBILITY_UP': 2000,
+   'SKILL_EFFECT_REPEAT': 2100,
+   'SKILL_EFFECT_PERFECT_SCORE_UP': 2201,
+   'SKILL_EFFECT_COMBO_FEVER': 2300,
+   'SKILL_EFFECT_SYNC': 2400,
+   'SKILL_EFFECT_LEVEL_UP': 2500,
+   'SKILL_EFFECT_ATTRIBUTE_UP': 2600,
+   'SKILL_EFFECT_CHARGED_SPARK': 2800,
+
+   'SKILL_LIMIT_PERFECT_SCORE_UP': 100000,
+   'SKILL_LIMIT_COMBO_FEVER': 1000,
+   'SKILL_LIMIT_COMBO_FEVER_2': 2147483647,
+   'SKILL_LIMIT_HEAL_BONUS': 200,
+
+   'SONG_GROUP_MUSE': 1,
+   'SONG_GROUP_AQOURS': 2,
+   'SONG_GROUP_NIJIGASAKI': 3,
+   'SONG_GROUP_LIELLA': 4,
+
+   'SONG_DIFFICULTY_EASY': 1,
+   'SONG_DIFFICULTY_NORMAL': 2,
+   'SONG_DIFFICULTY_HARD': 3,
+   'SONG_DIFFICULTY_EXPERT': 4,
+   'SONG_DIFFICULTY_RANDOM': 5,
+   'SONG_DIFFICULTY_MASTER': 6,
+
+   'SONG_DEFAULT_SET_1': 1,
+   'SONG_DEFAULT_SET_2': 2,
+
+   'BACKGROUND_COLOR_DEFAULT': '#dcdbe3',
+
+   'SIS_TYPE_NORMAL': 1,
+   'SIS_TYPE_LIVE_ARENA': 2,
+
+   /** @type {LLH.Internal.NormalGemCategoryEffectRangeType} */
+   'SIS_RANGE_SELF': 1,
+   /** @type {LLH.Internal.NormalGemCategoryEffectRangeType} */
+   'SIS_RANGE_TEAM': 2,
+
+   'SIS_EFFECT_TYPE_SMILE': 1,
+   'SIS_EFFECT_TYPE_PURE': 2,
+   'SIS_EFFECT_TYPE_COOL': 3,
+   'SIS_EFFECT_TYPE_SCORE_BOOST': 11,
+   'SIS_EFFECT_TYPE_HEAL_SCORE': 12,
+   'SIS_EFFECT_TYPE_ACCURACY_SMILE': 13,
+   'SIS_EFFECT_TYPE_ACCURACY_PURE': 14,
+   'SIS_EFFECT_TYPE_ACCURACY_COOL': 15,
+   'SIS_EFFECT_TYPE_LA_SCORE': 24,
+   'SIS_EFFECT_TYPE_LA_DEBUFF': 25,
+
+   'SIS_TRIGGER_REF_HP_PERCENT': 9,
+   'SIS_TRIGGER_REF_FULL_COMBO': 11,
+   'SIS_TRIGGER_REF_OVERHEAL': 12,
+   'SIS_TRIGGER_REF_ALL_SMILE': 13,
+   'SIS_TRIGGER_REF_ALL_COOL': 14,
+   'SIS_TRIGGER_REF_ALL_PURE': 15,
+   'SIS_TRIGGER_REF_PERFECT_COUNT': 20,
+
+   'SIS_LIVE_EFFECT_TYPE_DAMAGE': 1,
+   'SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN': 2,
+
+   /** @type {LLH.Core.LanguageType} */
+   'LANGUAGE_CN': 0,
+   /** @type {LLH.Core.LanguageType} */
+   'LANGUAGE_JP': 1
+};
+
 /** @type {LLH.LLConst} */
 var LLConst = (function () {
-   var KEYS = {
-      '高坂穂乃果': 1,
-      '絢瀬絵里': 2,
-      '南ことり': 3,
-      '園田海未': 4,
-      '星空凛': 5,
-      '西木野真姫': 6,
-      '東條希': 7,
-      '小泉花陽': 8,
-      '矢澤にこ': 9,
-      'MEMBER_HONOKA': 1,
-      'MEMBER_ELI': 2,
-      'MEMBER_KOTORI': 3,
-      'MEMBER_UMI': 4,
-      'MEMBER_RIN': 5,
-      'MEMBER_MAKI': 6,
-      'MEMBER_NOZOMI': 7,
-      'MEMBER_HANAYO': 8,
-      'MEMBER_NICO': 9,
-
-      '綺羅ツバサ': 80,
-      '優木あんじゅ': 81,
-      '統堂英玲奈': 82,
-      'MEMBER_TSUBASA': 80,
-      'MEMBER_ANJU': 81,
-      'MEMBER_ERENA': 82,
-
-      '高海千歌': 101,
-      '桜内梨子': 102,
-      '松浦果南': 103,
-      '黒澤ダイヤ': 104,
-      '渡辺曜': 105,
-      '津島善子': 106,
-      '国木田花丸': 107,
-      '小原鞠莉': 108,
-      '黒澤ルビィ': 109,
-      'MEMBER_CHIKA': 101,
-      'MEMBER_RIKO': 102,
-      'MEMBER_KANAN': 103,
-      'MEMBER_DIA': 104,
-      'MEMBER_YOU': 105,
-      'MEMBER_YOSHIKO': 106,
-      'MEMBER_HANAMARU': 107,
-      'MEMBER_MARI': 108,
-      'MEMBER_RUBY': 109,
-
-      '鹿角理亞': 112,
-      '鹿角聖良': 113,
-      'MEMBER_LEAH': 112,
-      'MEMBER_SARAH': 113,
-
-      '上原歩夢': 201,
-      '中須かすみ': 202,
-      '桜坂しずく': 203,
-      '朝香果林':  204,
-      '宮下愛': 205,
-      '近江彼方': 206,
-      '優木せつ菜': 207,
-      'エマ・ヴェルデ': 208,
-      '天王寺璃奈': 209,
-      '三船栞子': 212,
-      '鐘嵐珠': 213,
-      'ショウ・ランジュ': 213,
-      'ミア・テイラー': 214,
-      'MEMBER_AYUMU': 201,
-      'MEMBER_KASUMI': 202,
-      'MEMBER_SHIZUKU': 203,
-      'MEMBER_KARIN': 204,
-      'MEMBER_AI': 205,
-      'MEMBER_KANATA': 206,
-      'MEMBER_SETSUNA': 207,
-      'MEMBER_EMMA': 208,
-      'MEMBER_RINA': 209,
-      'MEMBER_SHIORIKO': 212,
-      'MEMBER_LANZHU': 213,
-      'MEMBER_MIA': 214,
-
-      '澁谷かのん': 301,
-      '唐可可': 302,
-      '嵐千砂都': 303,
-      '平安名すみれ': 304,
-      '葉月恋': 305,
-      '桜小路きな子': 306,
-      '米女メイ': 307,
-      '若菜四季': 308,
-      '鬼塚夏美': 309,
-      'MEMBER_KANON': 301,
-      'MEMBER_KEKE': 302,
-      'MEMBER_CHISATO': 303,
-      'MEMBER_SUMIRE': 304,
-      'MEMBER_REN': 305,
-      'MEMBER_KINAKO': 306,
-      'MEMBER_MEI': 307,
-      'MEMBER_SHIKI': 308,
-      'MEMBER_NATUMI': 309,
-
-      '聖澤悠奈': 311,
-      '柊摩央': 312,
-      'MEMBER_YUUNA': 311,
-      'MEMBER_MAO': 312,
-
-      'GROUP_UNKNOWN': 0,
-      'GROUP_GRADE1': 1,
-      'GROUP_GRADE2': 2,
-      'GROUP_GRADE3': 3,
-      'GROUP_MUSE': 4,
-      'GROUP_AQOURS': 5,
-      'GROUP_PRINTEMPS': 6,
-      'GROUP_LILYWHITE': 7,
-      'GROUP_BIBI': 8,
-      'GROUP_CYARON': 9,
-      'GROUP_AZALEA': 10,
-      'GROUP_GUILTYKISS': 11,
-      'GROUP_ARISE': 12,
-      'GROUP_SAINTSNOW': 13,
-      'GROUP_HONOKA_RIN': 23,
-      'GROUP_NOZOMI_NICO': 24,
-      'GROUP_KOTORI_HANAYO': 25,
-      'GROUP_KOTORI_UMI': 26,
-      'GROUP_RIN_MAKI': 27,
-      'GROUP_MAKI_NICO': 28,
-      'GROUP_ELI_UMI': 29,
-      'GROUP_ELI_NOZOMI': 30,
-      'GROUP_MUSE_COOL': 31,
-      'GROUP_MUSE_GRADE2': 32,
-      'GROUP_NICORINHANA': 33,
-      'GROUP_AQOURS_GRADE2': 34,
-      'GROUP_MUSE_GRADE1': 35,
-      'GROUP_MUSE_GRADE3': 36,
-      'GROUP_SOMEDAY': 37,
-      'GROUP_AQOURS_GRADE1': 38,
-      'GROUP_LOVE_WING_BELL':  39,
-      'GROUP_AQOURS_GRADE3': 40,
-      'GROUP_TRANSFER_STUDENT': 50,
-      'GROUP_RIVAL': 51,
-      'GROUP_SUPPORT': 52,
-      'GROUP_RIKO_HANAMARU_MARI': 53,
-      'GROUP_KUROSAWA_SISTERS': 54,
-      'GROUP_YOU_YOSHIKO': 55,
-      'GROUP_CHIKA_KANAN': 56,
-      'GROUP_SAINT_AQOURS_SNOW': 57,
-      'GROUP_NIJIGASAKI': 60,
-      'GROUP_ELI_NOZOMI2': 83,
-      'GROUP_RIN_HANAYO': 99,
-      'GROUP_YOSHIKO_HANAMARU': 137,
-      'GROUP_LIELLA': 143,
-      'GROUP_DIVER_DIVA': 1000,
-      'GROUP_A_ZU_NA': 1001,
-      'GROUP_QU4RTZ': 1002,
-
-      'NOTE_TYPE_NORMAL': 1,
-      'NOTE_TYPE_EVENT': 2,
-      'NOTE_TYPE_HOLD': 3,
-      'NOTE_TYPE_BOMB_1': 4,
-      'NOTE_TYPE_BOMB_3': 5,
-      'NOTE_TYPE_BOMB_5': 6,
-      'NOTE_TYPE_BOMB_9': 7,
-      'NOTE_TYPE_SWING': 11,
-      'NOTE_TYPE_SWING_EVENT': 12,
-      'NOTE_TYPE_SWING_HOLD': 13,
-
-      'NOTE_WEIGHT_HOLD_FACTOR': 1.25,
-      'NOTE_WEIGHT_SWING_FACTOR': 0.5,
-      'NOTE_WEIGHT_PERFECT_FACTOR': 1.25,
-      'NOTE_WEIGHT_GREAT_FACTOR': 1.1,
-      'NOTE_WEIGHT_GOOD_FACTOR': 1,
-      'NOTE_WEIGHT_BAD_FACTOR': 0.5,
-      'NOTE_WEIGHT_MISS_FACTOR': 0,
-      'NOTE_WEIGHT_ACC_PERFECT_FACTOR': 1.35,
-
-      'SKILL_TRIGGER_TIME': 1,
-      'SKILL_TRIGGER_NOTE': 3,
-      'SKILL_TRIGGER_COMBO': 4,
-      'SKILL_TRIGGER_SCORE': 5,
-      'SKILL_TRIGGER_PERFECT': 6,
-      'SKILL_TRIGGER_STAR_PERFECT': 12,
-      'SKILL_TRIGGER_MEMBERS': 100,
-      'SKILL_TRIGGER_SKILL_ACTIVATE_COUNT': 201,
-
-      'SKILL_EFFECT_ACCURACY_SMALL': 4,
-      'SKILL_EFFECT_ACCURACY_NORMAL': 5,
-      'SKILL_EFFECT_HEAL': 9,
-      'SKILL_EFFECT_SCORE': 11,
-      'SKILL_EFFECT_POSSIBILITY_UP': 2000,
-      'SKILL_EFFECT_REPEAT': 2100,
-      'SKILL_EFFECT_PERFECT_SCORE_UP': 2201,
-      'SKILL_EFFECT_COMBO_FEVER': 2300,
-      'SKILL_EFFECT_SYNC': 2400,
-      'SKILL_EFFECT_LEVEL_UP': 2500,
-      'SKILL_EFFECT_ATTRIBUTE_UP': 2600,
-      'SKILL_EFFECT_CHARGED_SPARK': 2800,
-
-      'SKILL_LIMIT_PERFECT_SCORE_UP': 100000,
-      'SKILL_LIMIT_COMBO_FEVER': 1000,
-      'SKILL_LIMIT_COMBO_FEVER_2': 2147483647,
-      'SKILL_LIMIT_HEAL_BONUS': 200,
-
-      'SONG_GROUP_MUSE': 1,
-      'SONG_GROUP_AQOURS': 2,
-      'SONG_GROUP_NIJIGASAKI': 3,
-      'SONG_GROUP_LIELLA': 4,
-
-      'SONG_DIFFICULTY_EASY': 1,
-      'SONG_DIFFICULTY_NORMAL': 2,
-      'SONG_DIFFICULTY_HARD': 3,
-      'SONG_DIFFICULTY_EXPERT': 4,
-      'SONG_DIFFICULTY_RANDOM': 5,
-      'SONG_DIFFICULTY_MASTER': 6,
-
-      'SONG_DEFAULT_SET_1': 1,
-      'SONG_DEFAULT_SET_2': 2,
-
-      'BACKGROUND_COLOR_DEFAULT': '#dcdbe3',
-
-      'SIS_TYPE_NORMAL': 1,
-      'SIS_TYPE_LIVE_ARENA': 2,
-
-      'SIS_RANGE_SELF': 1,
-      'SIS_RANGE_TEAM': 2,
-
-      'SIS_EFFECT_TYPE_SMILE': 1,
-      'SIS_EFFECT_TYPE_PURE': 2,
-      'SIS_EFFECT_TYPE_COOL': 3,
-      'SIS_EFFECT_TYPE_SCORE_BOOST': 11,
-      'SIS_EFFECT_TYPE_HEAL_SCORE': 12,
-      'SIS_EFFECT_TYPE_ACCURACY_SMILE': 13,
-      'SIS_EFFECT_TYPE_ACCURACY_PURE': 14,
-      'SIS_EFFECT_TYPE_ACCURACY_COOL': 15,
-      'SIS_EFFECT_TYPE_LA_SCORE': 24,
-      'SIS_EFFECT_TYPE_LA_DEBUFF': 25,
-
-      'SIS_TRIGGER_REF_HP_PERCENT': 9,
-      'SIS_TRIGGER_REF_FULL_COMBO': 11,
-      'SIS_TRIGGER_REF_OVERHEAL': 12,
-      'SIS_TRIGGER_REF_ALL_SMILE': 13,
-      'SIS_TRIGGER_REF_ALL_COOL': 14,
-      'SIS_TRIGGER_REF_ALL_PURE': 15,
-      'SIS_TRIGGER_REF_PERFECT_COUNT': 20,
-
-      'SIS_LIVE_EFFECT_TYPE_DAMAGE': 1,
-      'SIS_LIVE_EFFECT_TYPE_POSSIBILITY_DOWN': 2,
-
-      'LANGUAGE_CN': 0,
-      'LANGUAGE_JP': 1
-   };
+   const KEYS = LLConstValue;
    var COLOR_ID_TO_NAME = ['', 'smile', 'pure', 'cool'];
    var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple'};
    /**
@@ -1642,13 +1645,13 @@ var LLConst = (function () {
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_MASTER] = 9;
 
    /** @type {LLH.LLConst} */
-   var ret = KEYS;
-   ret.getMemberColor = function (member) {
+   var constUtil = {};
+   constUtil.getMemberColor = function (member) {
       var memberData = mGetMemberData(member);
       if (!memberData) return undefined;
       return memberData.color;
    };
-   ret.getMemberBackgroundColor = function (member) {
+   constUtil.getMemberBackgroundColor = function (member) {
       var memberData = mGetMemberData(member);
       if (!memberData) return KEYS.BACKGROUND_COLOR_DEFAULT;
       return memberData.background_color;
@@ -1689,7 +1692,7 @@ var LLConst = (function () {
          return 1 + bonus/100;
       }
    };
-   ret.Common = CommonUtils;
+   constUtil.Common = CommonUtils;
 
    /** @type {LLH.ConstUtil.Attributes} */
    var AttributesUtils = {
@@ -1715,7 +1718,7 @@ var LLConst = (function () {
          return baseAttr;
       }
    };
-   ret.Attributes = AttributesUtils;
+   constUtil.Attributes = AttributesUtils;
 
    /** @type {LLH.ConstUtil.Member} */
    var MemberUtils = {
@@ -1739,10 +1742,10 @@ var LLConst = (function () {
          return memberData.name;
       },
       getBigGroupId: function (memberId) {
-         var bigGroups = ret.Group.getBigGroupIds();
+         var bigGroups = constUtil.Group.getBigGroupIds();
          for (var i = 0; i < bigGroups.length; i++) {
             var groupId = bigGroups[i];
-            if (ret.Member.isMemberInGroup(memberId, groupId)) {
+            if (constUtil.Member.isMemberInGroup(memberId, groupId)) {
                return groupId;
             }
          }
@@ -1760,11 +1763,11 @@ var LLConst = (function () {
          memberFlag[curMemberName] = 1;
          for (var i = 1; i < members.length; i++) {
             curMemberName = members[i].card.jpname;
-            if (!ret.Member.isMemberInGroup(curMemberName, bigGroup)) return undefined;
+            if (!constUtil.Member.isMemberInGroup(curMemberName, bigGroup)) return undefined;
             memberFlag[curMemberName] = 1;
          }
          var distinctMemberCount = Object.keys(memberFlag).length;
-         if (bigGroup == ret.GROUP_LIELLA) {
+         if (bigGroup == KEYS.GROUP_LIELLA) {
             return (distinctMemberCount == 5 ? bigGroup : undefined);
          } else {
             return (distinctMemberCount == 9 ? bigGroup : undefined);
@@ -1827,7 +1830,7 @@ var LLConst = (function () {
          return ret;
       }
    };
-   ret.Member = MemberUtils;
+   constUtil.Member = MemberUtils;
 
    /** @type {LLH.ConstUtil.Group} */
    var GroupUtils = {
@@ -1841,7 +1844,7 @@ var LLConst = (function () {
          return [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
       }
    };
-   ret.Group = GroupUtils;
+   constUtil.Group = GroupUtils;
 
    /** @type {LLH.ConstUtil.Gem} */
    var GemUtils = {
@@ -1964,7 +1967,7 @@ var LLConst = (function () {
          }
          desc += gemData.size + ' ' + GemUtils.getGemBriefDescription(gemData, iscn);
          if (gemData.member) {
-            desc += '[' + ret.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP) + ']';
+            desc += '[' + constUtil.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP) + ']';
          }
          return desc;
       },
@@ -1976,7 +1979,7 @@ var LLConst = (function () {
             || effect_type == KEYS.SIS_EFFECT_TYPE_COOL);
          // 限制可装备的成员
          if (gemData.member) {
-            var memberName = ret.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP);
+            var memberName = constUtil.Member.getMemberName(gemData.member, iscn ? KEYS.LANGUAGE_CN : KEYS.LANGUAGE_JP);
             desc += '仅限' + memberName + '装备，';
          }
          if (gemData.grade) {
@@ -1987,7 +1990,7 @@ var LLConst = (function () {
          }
          // 发动条件
          if (gemData.group) {
-            var groupName = ret.Group.getGroupName(gemData.group);
+            var groupName = constUtil.Group.getGroupName(gemData.group);
             if (gemData.group == KEYS.GROUP_NIJIGASAKI) {
                desc += '不同的9名' + groupName + '成员参加时，';
             } else if (gemData.group == KEYS.GROUP_LIELLA) {
@@ -2047,7 +2050,7 @@ var LLConst = (function () {
          }
          // sub skill
          if (gemData.sub_skill_data) {
-            desc += '；' + ret.Gem.getGemFullDescription(gemData.sub_skill_data, iscn);
+            desc += '；' + constUtil.Gem.getGemFullDescription(gemData.sub_skill_data, iscn);
          } else if (gemData.sub_skill) {
             desc += '；<未知子效果(' + gemData.sub_skill + ')>';
          }
@@ -2095,8 +2098,8 @@ var LLConst = (function () {
          }
       }
    };
-   ret.Gem = GemUtils;
-   ret.GemType = (function (arr) {
+   constUtil.Gem = GemUtils;
+   constUtil.GemType = (function (arr) {
       /** @type {{[key: string]: number}} */
       var indexMap = {};
       for (var i = 0; i < arr.length; i++) {
@@ -2105,19 +2108,19 @@ var LLConst = (function () {
       return indexMap;
    })(GEM_NORMAL_TYPE_DATA);
 
-   ret.getNoteAppearTime = function(noteTimeSec, speed) {
+   constUtil.getNoteAppearTime = function(noteTimeSec, speed) {
       return noteTimeSec - NOTE_APPEAR_OFFSET_S[speed - 1];
    };
-   ret.getDefaultSpeed = function (difficulty) {
+   constUtil.getDefaultSpeed = function (difficulty) {
       return DEFAULT_SPEED[difficulty] || 8;
    };
-   ret.isHoldNote = function(note_effect) {
+   constUtil.isHoldNote = function(note_effect) {
       return (note_effect == KEYS.NOTE_TYPE_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_HOLD);
    };
-   ret.isSwingNote = function(note_effect) {
+   constUtil.isSwingNote = function(note_effect) {
       return (note_effect == KEYS.NOTE_TYPE_SWING || note_effect == KEYS.NOTE_TYPE_SWING_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_EVENT);
    };
-   ret.getComboScoreFactor = function (combo) {
+   constUtil.getComboScoreFactor = function (combo) {
       if (combo <= 50) return 1;
       else if (combo <= 100) return 1.1;
       else if (combo <= 200) return 1.15;
@@ -2127,7 +2130,7 @@ var LLConst = (function () {
       else return 1.35;
    };
    var COMBO_FEVER_PATTERN_2 = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 5, 6, 7, 8, 9, 10]
-   ret.getComboFeverBonus = function(combo, pattern) {
+   constUtil.getComboFeverBonus = function(combo, pattern) {
       if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
       return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
    };
@@ -2161,7 +2164,7 @@ var LLConst = (function () {
          if (!targets) return '(数据缺失)';
          var desc = '';
          for (var i = 0; i < targets.length; i++) {
-            desc += ret.Group.getGroupName(parseInt(targets[i]));
+            desc += constUtil.Group.getGroupName(parseInt(targets[i]));
          }
          return desc;
       },
@@ -2170,7 +2173,7 @@ var LLConst = (function () {
          var desc = '';
          for (var i = 0; i < targets.length; i++) {
             if (i > 0) desc += '、';
-            desc += ret.Member.getMemberName(targets[i], KEYS.LANGUAGE_CN);
+            desc += constUtil.Member.getMemberName(targets[i], KEYS.LANGUAGE_CN);
          }
          return desc;
       },
@@ -2284,14 +2287,14 @@ var LLConst = (function () {
          return SKILL_EFFECT_TEXT[effectType] || '未知';
       }
    };
-   ret.Skill = SkillUtils;
-   ret.getSkillTriggerText = function(skill_trigger) {
+   constUtil.Skill = SkillUtils;
+   constUtil.getSkillTriggerText = function(skill_trigger) {
       if (!skill_trigger) return '无';
       var t = SKILL_TRIGGER_TEXT[skill_trigger];
       if (!t) return '未知';
       return t.name;
    };
-   ret.getSkillTriggerUnit = function(skill_trigger) {
+   constUtil.getSkillTriggerUnit = function(skill_trigger) {
       if (!skill_trigger) return '';
       var t = SKILL_TRIGGER_TEXT[skill_trigger];
       if (!t) return '';
@@ -2300,10 +2303,10 @@ var LLConst = (function () {
 
    var DEFAULT_MAX_SLOT = {'UR': 8, 'SSR': 6, 'SR': 4, 'R': 2, 'N': 1};
    var DEFAULT_MIN_SLOT = {'UR': 4, 'SSR': 3, 'SR': 2, 'R': 1, 'N': 0};
-   ret.getDefaultMaxSlot = function(rarity) {
+   constUtil.getDefaultMaxSlot = function(rarity) {
       return (DEFAULT_MAX_SLOT[rarity] || 0);
    };
-   ret.getDefaultMinSlot = function(rarity) {
+   constUtil.getDefaultMinSlot = function(rarity) {
       return (DEFAULT_MIN_SLOT[rarity] || 0);
    };
 
@@ -2337,8 +2340,8 @@ var LLConst = (function () {
          return ALBUM_DATA[album_id].albumGroupId === group_id;
       }
    };
-   ret.Album = AlbumUtils;
-   ret.isAlbumInAlbumGroup = function (album_id, group_id) {
+   constUtil.Album = AlbumUtils;
+   constUtil.isAlbumInAlbumGroup = function (album_id, group_id) {
       mCheckInited('album');
       if (album_id === undefined || album_id == '') return false;
       if (!ALBUM_DATA[parseInt(album_id)]) {
@@ -2356,12 +2359,12 @@ var LLConst = (function () {
          }
          var desc = accessoryData.id;
          while (desc.length < 3) desc = '0' + desc;
-         var rarityStr = ret.Common.getRarityString(accessoryData.rarity);
+         var rarityStr = constUtil.Common.getRarityString(accessoryData.rarity);
          var name = accessoryData.jpname;
          if (language == KEYS.LANGUAGE_CN && accessoryData.cnname) name = accessoryData.cnname;
          var type = AccessoryUtils.getAccessoryType(accessoryData);
          if (accessoryData.unit_id && accessoryData.card && accessoryData.card.typeid) {
-            type = ret.Member.getMemberName(accessoryData.card.typeid, language);
+            type = constUtil.Member.getMemberName(accessoryData.card.typeid, language);
          }
          return desc + ' [' + rarityStr + '][' + type + '] ' + name;
       },
@@ -2455,15 +2458,15 @@ var LLConst = (function () {
          return (cardBrief && accessoryCardBrief && cardBrief.typeid == accessoryCardBrief.typeid);
       }
    };
-   ret.Accessory = AccessoryUtils;
+   constUtil.Accessory = AccessoryUtils;
 
    var CSKILL_GROUPS = [];
-   ret.getCSkillGroups = function () {
+   constUtil.getCSkillGroups = function () {
       mCheckInited('cskill_groups');
       return CSKILL_GROUPS;
    };
 
-   ret.initMetadata = function(metadata) {
+   constUtil.initMetadata = function(metadata) {
       if (metadata['album']) {
          mInitAlbumData(metadata['album']);
          metaDataInited['album'] = 1;
@@ -2502,25 +2505,25 @@ var LLConst = (function () {
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_NIJIGASAKI] = KEYS.GROUP_NIJIGASAKI;
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_LIELLA] = KEYS.GROUP_LIELLA;
 
-   ret.getSongGroupShortName = function (song_group) {
+   constUtil.getSongGroupShortName = function (song_group) {
       return SONG_GROUP_NAME[parseInt(song_group)] || '?';
    };
-   ret.getSongGroupIds = function () {
+   constUtil.getSongGroupIds = function () {
       return [KEYS.SONG_GROUP_MUSE, KEYS.SONG_GROUP_AQOURS, KEYS.SONG_GROUP_NIJIGASAKI, KEYS.SONG_GROUP_LIELLA];
    };
-   ret.getGroupForSongGroup = function (song_group) {
+   constUtil.getGroupForSongGroup = function (song_group) {
       if (SONG_GROUP_TO_GROUP[parseInt(song_group)] !== undefined) {
          return SONG_GROUP_TO_GROUP[parseInt(song_group)];
       }
       return KEYS.GROUP_UNKNOWN;
    };
-   ret.getDefaultSongSetIds = function () {
+   constUtil.getDefaultSongSetIds = function () {
       return [KEYS.SONG_DEFAULT_SET_1, KEYS.SONG_DEFAULT_SET_2];
    };
-   ret.getSongDifficultyName = function (diff, cn) {
+   constUtil.getSongDifficultyName = function (diff, cn) {
       return SONG_DIFFICULTY_NAME[parseInt(diff)][cn ? 'cn' : 'en'];
    };
-   ret.getDefaultSong = function (song_group, default_set) {
+   constUtil.getDefaultSong = function (song_group, default_set) {
       song_group = parseInt(song_group);
       default_set = parseInt(default_set);
       var expert_default = {
@@ -2560,7 +2563,7 @@ var LLConst = (function () {
          master2_default.combo = 904;
       }
       var default_song = {'group': song_group, 'bpm': 200, 'attribute': '', 'settings': {}};
-      default_song.name = '默认曲目' + default_set + '（' + ret.getSongGroupShortName(song_group) + '）';
+      default_song.name = '默认曲目' + default_set + '（' + constUtil.getSongGroupShortName(song_group) + '）';
       default_song.jpname = default_song.name;
       default_song.settings[expert_default.liveid] = expert_default;
       default_song.settings[master_default.liveid] = master_default;
@@ -2568,9 +2571,9 @@ var LLConst = (function () {
       return default_song;
    };
 
-   ret.getCardDescription = function (card, isJp, mezame) {
+   constUtil.getCardDescription = function (card, isJp, mezame) {
       var desc = String(card.id);
-      var albumGroup = ret.Album.getAlbumGroupByAlbumId(card.album) || {};
+      var albumGroup = constUtil.Album.getAlbumGroupByAlbumId(card.album) || {};
       var curTypeId = (card.typeid ? parseInt(card.typeid) : -1);
       while (desc.length < 3) desc = '0' + desc;
       desc += ' ' + (card.rarity || '?') + ' ';
@@ -2579,14 +2582,14 @@ var LLConst = (function () {
       }
       var albumGroupJpName = (albumGroup.name ? "("+albumGroup.name+")" : '');
       if (isJp) {
-         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
+         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
       } else {
-         desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + ret.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
+         desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
       }
       return desc;
    };
 
-   return ret;
+   return constUtil;
 })();
 
 /*
@@ -3222,7 +3225,7 @@ var LLCardSelectorComponent = (function() {
          me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (parseInt(d.special) == parseInt(v)));
          me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
-         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConst[opt.value] !== undefined));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
    
          var generalFilters = [selRarity, selChara, selUnitGrade, selAttribute, selSpecial];
          if (!options.noShowN) {
@@ -3331,8 +3334,8 @@ var LLCardSelectorComponent = (function() {
             // some member has more than 1 id, we need normalize the ids using LLConst
             var jpName = LLConst.Member.getMemberName(curTypeId);
             if (typeNameId[jpName] === undefined) {
-               if (LLConst[jpName] !== undefined) {
-                  curTypeId = LLConst[jpName];
+               if (LLConstValue[jpName] !== undefined) {
+                  curTypeId = LLConstValue[jpName];
                } 
                typeNameId[jpName] = curTypeId;
                normalizedTypeIds.push(curTypeId);
@@ -3342,7 +3345,7 @@ var LLCardSelectorComponent = (function() {
          for (i = 0; i < normalizedTypeIds.length; i++) {
             var curTypeId = normalizedTypeIds[i];
             var jpName = LLConst.Member.getMemberName(curTypeId);
-            var cnName = LLConst.Member.getMemberName(curTypeId, LLConst.LANGUAGE_CN);
+            var cnName = LLConst.Member.getMemberName(curTypeId, LLConstValue.LANGUAGE_CN);
             var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
             charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
             charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
@@ -3374,22 +3377,22 @@ var LLCardSelectorComponent = (function() {
          ]);
          me.setFilterOptions(SEL_ID_UNIT_GRADE, [
             {'value': '', 'text': '年级小队'},
-            {'value': LLConst.GROUP_MUSE,   'text': "μ's"},
-            {'value': LLConst.GROUP_AQOURS, 'text': 'Aqours'},
-            {'value': LLConst.GROUP_NIJIGASAKI, 'text': '虹咲'},
-            {'value': LLConst.GROUP_LIELLA, 'text': 'Liella!'},
-            {'value': LLConst.GROUP_GRADE1, 'text': '一年级'},
-            {'value': LLConst.GROUP_GRADE2, 'text': '二年级'},
-            {'value': LLConst.GROUP_GRADE3, 'text': '三年级'},
-            {'value': LLConst.GROUP_PRINTEMPS, 'text': 'Printemps'},
-            {'value': LLConst.GROUP_LILYWHITE, 'text': 'lilywhite'},
-            {'value': LLConst.GROUP_BIBI,   'text': 'BiBi'},
-            {'value': LLConst.GROUP_CYARON, 'text': 'CYaRon!'},
-            {'value': LLConst.GROUP_AZALEA, 'text': 'AZALEA'},
-            {'value': LLConst.GROUP_GUILTYKISS, 'text': 'Guilty Kiss'},
-            {'value': LLConst.GROUP_DIVER_DIVA, 'text': 'DiverDiva'},
-            {'value': LLConst.GROUP_A_ZU_NA, 'text': 'A・ZU・NA'},
-            {'value': LLConst.GROUP_QU4RTZ, 'text': 'QU4RTZ'}
+            {'value': '' + LLConstValue.GROUP_MUSE,       'text': "μ's"},
+            {'value': '' + LLConstValue.GROUP_AQOURS,     'text': 'Aqours'},
+            {'value': '' + LLConstValue.GROUP_NIJIGASAKI, 'text': '虹咲'},
+            {'value': '' + LLConstValue.GROUP_LIELLA,     'text': 'Liella!'},
+            {'value': '' + LLConstValue.GROUP_GRADE1,     'text': '一年级'},
+            {'value': '' + LLConstValue.GROUP_GRADE2,     'text': '二年级'},
+            {'value': '' + LLConstValue.GROUP_GRADE3,     'text': '三年级'},
+            {'value': '' + LLConstValue.GROUP_PRINTEMPS,  'text': 'Printemps'},
+            {'value': '' + LLConstValue.GROUP_LILYWHITE,  'text': 'lilywhite'},
+            {'value': '' + LLConstValue.GROUP_BIBI,       'text': 'BiBi'},
+            {'value': '' + LLConstValue.GROUP_CYARON,     'text': 'CYaRon!'},
+            {'value': '' + LLConstValue.GROUP_AZALEA,     'text': 'AZALEA'},
+            {'value': '' + LLConstValue.GROUP_GUILTYKISS, 'text': 'Guilty Kiss'},
+            {'value': '' + LLConstValue.GROUP_DIVER_DIVA, 'text': 'DiverDiva'},
+            {'value': '' + LLConstValue.GROUP_A_ZU_NA,    'text': 'A・ZU・NA'},
+            {'value': '' + LLConstValue.GROUP_QU4RTZ,     'text': 'QU4RTZ'}
          ]);
          me.setFilterOptions(SEL_ID_ATTRIBUTE, [
             {'value': '',      'text': '属性',  'color': 'black'},
@@ -3399,28 +3402,28 @@ var LLCardSelectorComponent = (function() {
          ]);
          me.setFilterOptions(SEL_ID_TRIGGER_TYPE, [
             {'value': '', 'text': '触发类型'},
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_TIME),
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_NOTE),
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_COMBO),
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_SCORE),
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_PERFECT),
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_STAR_PERFECT),
-            makeTriggerTypeOption(LLConst.SKILL_TRIGGER_MEMBERS)
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_TIME),
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_NOTE),
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_COMBO),
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_SCORE),
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_PERFECT),
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_STAR_PERFECT),
+            makeTriggerTypeOption(LLConstValue.SKILL_TRIGGER_MEMBERS)
          ]);
          me.setFilterOptions(SEL_ID_SKILL_TYPE, [
             {'value': '', 'text': '技能类型'},
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_ACCURACY_SMALL),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_ACCURACY_NORMAL),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_HEAL),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_SCORE),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_POSSIBILITY_UP),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_REPEAT),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_PERFECT_SCORE_UP),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_COMBO_FEVER),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_SYNC),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_LEVEL_UP),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_ATTRIBUTE_UP),
-            makeEffectTypeOption(LLConst.SKILL_EFFECT_CHARGED_SPARK)
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_ACCURACY_SMALL),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_HEAL),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_SCORE),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_POSSIBILITY_UP),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_REPEAT),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_COMBO_FEVER),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_SYNC),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_LEVEL_UP),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP),
+            makeEffectTypeOption(LLConstValue.SKILL_EFFECT_CHARGED_SPARK)
          ]);
          me.setFilterOptions(SEL_ID_SPECIAL, [
             {'value': '', 'text': '是否特典卡'},
@@ -3885,10 +3888,10 @@ var LLSaveLoadJsonHelper = {
  *   LLTeam
  */
 var LLMap = (function () {
-   var DEFAULT_SONG_MUSE = LLConst.getDefaultSong(LLConst.SONG_GROUP_MUSE, LLConst.SONG_DEFAULT_SET_1);
+   var DEFAULT_SONG_MUSE = LLConst.getDefaultSong(LLConstValue.SONG_GROUP_MUSE, LLConstValue.SONG_DEFAULT_SET_1);
    var DEFAULT_SONG_SETTING = (function (s) {
       for (var k in s.settings) {
-         if (s.settings[k].difficulty == LLConst.SONG_DIFFICULTY_EXPERT) {
+         if (s.settings[k].difficulty == LLConstValue.SONG_DIFFICULTY_EXPERT) {
             return s.settings[k];
          }
       }
@@ -3914,7 +3917,7 @@ var LLMap = (function () {
          me.data.friendCSkill = options.friendCSkill;
       } else {
          // no friend cskill
-         me.setFriendCSkill('smile', 'smile', 0, LLConst.GROUP_MUSE, 0);
+         me.setFriendCSkill('smile', 'smile', 0, LLConstValue.GROUP_MUSE, 0);
       }
       me.setMapBuff();
       me.setLADebuff();
@@ -3957,7 +3960,7 @@ var LLMap = (function () {
          'attribute': addToAttribute,
          'Cskillattribute': addFromAttribute,
          'Cskillpercentage': parseInt(percentage || 0),
-         'Csecondskilllimit': parseInt(groupLimit || LLConst.GROUP_UNKNOWN),
+         'Csecondskilllimit': parseInt(groupLimit || LLConstValue.GROUP_UNKNOWN),
          'Csecondskillattribute': parseInt(groupPercentage || 0)
       };
    };
@@ -4042,8 +4045,8 @@ var LLSisGem = (function () {
       return cur;
    };
    var proto = cls.prototype;
-   proto.isEffectRangeSelf = function () { return this.meta.effect_range == LLConst.SIS_RANGE_SELF; };
-   proto.isEffectRangeAll = function () { return this.meta.effect_range == LLConst.SIS_RANGE_TEAM; };
+   proto.isEffectRangeSelf = function () { return this.meta.effect_range == LLConstValue.SIS_RANGE_SELF; };
+   proto.isEffectRangeAll = function () { return this.meta.effect_range == LLConstValue.SIS_RANGE_TEAM; };
    proto.isSkillGem = function () { return this.meta.skill_mul || this.meta.heal_mul; };
    proto.isAccuracyGem = function () { return this.meta.ease_attr_mul; };
    proto.isValid = function () {
@@ -4139,13 +4142,13 @@ var LLSkill = (function () {
    };
    var cls = LLSkill_cls;
    var eTriggerType = {
-      'TIME': LLConst.SKILL_TRIGGER_TIME,
-      'NOTE': LLConst.SKILL_TRIGGER_NOTE,
-      'COMBO': LLConst.SKILL_TRIGGER_COMBO,
-      'SCORE': LLConst.SKILL_TRIGGER_SCORE,
-      'PERFECT': LLConst.SKILL_TRIGGER_PERFECT,
-      'STAR_PERFECT': LLConst.SKILL_TRIGGER_STAR_PERFECT,
-      'MEMBERS': LLConst.SKILL_TRIGGER_MEMBERS
+      'TIME': LLConstValue.SKILL_TRIGGER_TIME,
+      'NOTE': LLConstValue.SKILL_TRIGGER_NOTE,
+      'COMBO': LLConstValue.SKILL_TRIGGER_COMBO,
+      'SCORE': LLConstValue.SKILL_TRIGGER_SCORE,
+      'PERFECT': LLConstValue.SKILL_TRIGGER_PERFECT,
+      'STAR_PERFECT': LLConstValue.SKILL_TRIGGER_STAR_PERFECT,
+      'MEMBERS': LLConstValue.SKILL_TRIGGER_MEMBERS
    };
    var calcBiDist = function (n, p) {
       // time: O(n^2), space: O(n)
@@ -4169,14 +4172,14 @@ var LLSkill = (function () {
    proto.setScoreGem = function (has) {
       this.actualScore = 0;
       if (parseInt(has || 0)) {
-         if (this.effectType == LLConst.SKILL_EFFECT_HEAL) {
+         if (this.effectType == LLConstValue.SKILL_EFFECT_HEAL) {
             // 日服4.1版本前是270, 4.1版本后是480; 国服没有270
             this.actualScore = this.score * 480;
-         } else if (this.effectType == LLConst.SKILL_EFFECT_SCORE) {
+         } else if (this.effectType == LLConstValue.SKILL_EFFECT_SCORE) {
             this.actualScore = Math.ceil(this.score * 2.5);
          }
       } else {
-         if (this.effectType == LLConst.SKILL_EFFECT_SCORE) {
+         if (this.effectType == LLConstValue.SKILL_EFFECT_SCORE) {
             this.actualScore = this.score;
          }
       }
@@ -4229,7 +4232,7 @@ var LLSkill = (function () {
    proto.calcSkillEffect = function (env) {
       if (!this.hasSkill) return false;
       this.maxScore = this.skillChance * this.actualScore;
-      if (this.effectType == LLConst.SKILL_EFFECT_HEAL) {
+      if (this.effectType == LLConstValue.SKILL_EFFECT_HEAL) {
          this.maxHeal = this.skillChance * this.score;
       } else {
          this.maxHeal = 0;
@@ -4267,8 +4270,8 @@ var LLSkill = (function () {
       this.skillDist = calcBiDist(this.skillChance, this.actualPossibility/100);
       return this.skillDist;
    };
-   proto.isEffectHeal = function () { return this.effectType == LLConst.SKILL_EFFECT_HEAL; }
-   proto.isEffectScore = function () { return this.effectType == LLConst.SKILL_EFFECT_SCORE; }
+   proto.isEffectHeal = function () { return this.effectType == LLConstValue.SKILL_EFFECT_HEAL; }
+   proto.isEffectScore = function () { return this.effectType == LLConstValue.SKILL_EFFECT_SCORE; }
    return cls;
 })();
 
@@ -4531,7 +4534,7 @@ var LLSimulateContextStatic = (function () {
       this.mapSkillPossibilityUp = (isLA ? 1 : (1 + parseInt(mapdata.skillup || 0)/100));
       this.mapTapScoreUp = (isLA ? 1 : (1 + parseInt(mapdata.tapup || 0)/100));
       this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
-      this.comboFeverLimit = parseInt(mapdata.combo_fever_limit || LLConst.SKILL_LIMIT_COMBO_FEVER);
+      this.comboFeverLimit = parseInt(mapdata.combo_fever_limit || LLConstValue.SKILL_LIMIT_COMBO_FEVER);
       this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
       this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
       this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
@@ -4543,8 +4546,8 @@ var LLSimulateContextStatic = (function () {
       this.sameColorTeam = LLConst.Member.isSameColorTeam(members);
 
       for (var i = 0; i < 9; i++) {
-         if ((members[i].card.skilleffect == LLConst.SKILL_EFFECT_REPEAT)
-            || (members[i].accessory && members[i].accessory.effect_type == LLConst.SKILL_EFFECT_REPEAT)) {
+         if ((members[i].card.skilleffect == LLConstValue.SKILL_EFFECT_REPEAT)
+            || (members[i].accessory && members[i].accessory.effect_type == LLConstValue.SKILL_EFFECT_REPEAT)) {
             this.hasRepeatSkill = true;
             break;
          }
@@ -4617,7 +4620,7 @@ var LLSimulateContextStatic = (function () {
          ret.accessoryEffect = this.makeEffectStaticInfo(index, true);
       }
       // 连锁发动条件
-      if (triggerType == LLConst.SKILL_TRIGGER_MEMBERS) {
+      if (triggerType == LLConstValue.SKILL_TRIGGER_MEMBERS) {
          // 连锁条件是看要求的人物(例如要求μ's二年级的穗乃果的连锁卡, 要求人物为小鸟和海未)都发动过技能
          // 而不是所有是要求的人物的卡都发动过技能
          // 上面的例子中, 只要有任何一张鸟的卡和一张海的卡发动过技能(包括饰品技能)就能触发果的连锁
@@ -4634,7 +4637,7 @@ var LLSimulateContextStatic = (function () {
          }
          for (var i = 0; i < this.members.length; i++) {
             // 持有连锁技能的卡牌不计入连锁发动条件
-            if (this.members[i].card.triggertype == LLConst.SKILL_TRIGGER_MEMBERS) continue;
+            if (this.members[i].card.triggertype == LLConstValue.SKILL_TRIGGER_MEMBERS) continue;
             var curBit = typeIdBits[this.members[i].card.typeid];
             if (curBit !== undefined) {
                possibleBitset |= curBit;
@@ -4669,7 +4672,7 @@ var LLSimulateContextStatic = (function () {
       var effectTarget = (isAccessory ? curMember.accessory.effect_target : curMember.card.effecttarget);
       ret.effectType = effectType;
       // init sync target
-      if (effectType == LLConst.SKILL_EFFECT_SYNC) {
+      if (effectType == LLConstValue.SKILL_EFFECT_SYNC) {
          // include self
          ret.syncTargets = getTargetMembers(this.members, effectTarget, isAccessory);
          // exclude one
@@ -4679,7 +4682,7 @@ var LLSimulateContextStatic = (function () {
          }
       }
       // attribute up target
-      else if (effectType == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
+      else if (effectType == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
          ret.attributeUpTargets = getTargetMembers(this.members, effectTarget, isAccessory);
       }
       return ret;
@@ -4763,11 +4766,11 @@ var LLSimulateContext = (function() {
             }
             skillDynamic.trigger = triggerData;
             var skillPriority; // lower value for higher priority
-            if (triggerType == LLConst.SKILL_TRIGGER_MEMBERS) {
+            if (triggerType == LLConstValue.SKILL_TRIGGER_MEMBERS) {
                skillPriority = 9;
-            } else if (effectType == LLConst.SKILL_EFFECT_LEVEL_UP) {
+            } else if (effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
                skillPriority = lvupSkillPriority;
-            } else if (effectType == LLConst.SKILL_EFFECT_REPEAT) {
+            } else if (effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
                skillPriority = 3;
             } else {
                skillPriority = otherSkillPriority;
@@ -4789,13 +4792,13 @@ var LLSimulateContext = (function() {
       this.lastActiveSkill = undefined;
       // effect_type: effect_value
       var eff = {};
-      eff[LLConst.SKILL_EFFECT_ACCURACY_SMALL] = 0; // active count
-      eff[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] = 0; // active count
-      eff[LLConst.SKILL_EFFECT_POSSIBILITY_UP] = 1.0; // possibility *x, no stack
-      eff[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP] = 0; // total bonus
-      eff[LLConst.SKILL_EFFECT_COMBO_FEVER] = 0; // score +(x*combo_factor), need cap at SKILL_LIMIT_COMBO_FEVER
-      eff[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] = 0; // total attribute +x, including sync and attribute up
-      eff[LLConst.SKILL_EFFECT_LEVEL_UP] = 0; // level boost
+      eff[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] = 0; // active count
+      eff[LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL] = 0; // active count
+      eff[LLConstValue.SKILL_EFFECT_POSSIBILITY_UP] = 1.0; // possibility *x, no stack
+      eff[LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP] = 0; // total bonus
+      eff[LLConstValue.SKILL_EFFECT_COMBO_FEVER] = 0; // score +(x*combo_factor), need cap at SKILL_LIMIT_COMBO_FEVER
+      eff[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP] = 0; // total attribute +x, including sync and attribute up
+      eff[LLConstValue.SKILL_EFFECT_LEVEL_UP] = 0; // level boost
       this.effects = eff;
       this.isAccuracyState = false;
    };
@@ -4831,7 +4834,7 @@ var LLSimulateContext = (function() {
             var deactivedSkillEffect = effectStaticInfo.effectType;
             this.markTriggerActive(deactivedMemberId, false);
             this.activeSkills.splice(activeIndex, 1);
-            if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
+            if (deactivedSkillEffect == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
                var totalUp = 0;
                for (var i = 0; i < effectStaticInfo.attributeUpTargets.length; i++) {
                   var targetMemberId = effectStaticInfo.attributeUpTargets[i];
@@ -4839,17 +4842,17 @@ var LLSimulateContext = (function() {
                   this.skillsDynamic[targetMemberId].attributeUp = undefined;
                }
                this.effects[deactivedSkillEffect] -= totalUp;
-            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_SYNC) {
-               this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] -= this.skillsDynamic[deactivedMemberId].attributeSync || 0;
+            } else if (deactivedSkillEffect == LLConstValue.SKILL_EFFECT_SYNC) {
+               this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP] -= this.skillsDynamic[deactivedMemberId].attributeSync || 0;
                this.skillsDynamic[deactivedMemberId].attributeSync = undefined;
-            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_SMALL
-               || deactivedSkillEffect == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
+            } else if (deactivedSkillEffect == LLConstValue.SKILL_EFFECT_ACCURACY_SMALL
+               || deactivedSkillEffect == LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL) {
                this.effects[deactivedSkillEffect] -= 1;
                checkAccuracy = true;
-            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
+            } else if (deactivedSkillEffect == LLConstValue.SKILL_EFFECT_POSSIBILITY_UP) {
                this.effects[deactivedSkillEffect] = 1.0;
-            } else if (deactivedSkillEffect == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP
-               || deactivedSkillEffect == LLConst.SKILL_EFFECT_COMBO_FEVER) {
+            } else if (deactivedSkillEffect == LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP
+               || deactivedSkillEffect == LLConstValue.SKILL_EFFECT_COMBO_FEVER) {
                this.effects[deactivedSkillEffect] -= curActiveSkill.v;
             }
             activeIndex--;
@@ -4860,7 +4863,7 @@ var LLSimulateContext = (function() {
       }
    };
    proto.updateAccuracyState = function () {
-      this.isAccuracyState = (this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] > 0) || (this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] > 0);
+      this.isAccuracyState = (this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] > 0) || (this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL] > 0);
    };
    proto.getMinDeactiveTime = function() {
       var minNextTime = undefined;
@@ -4879,14 +4882,14 @@ var LLSimulateContext = (function() {
       curTriggerData.a = bActive;
       curTriggerData.ae = effectInfo;
       // special case
-      if ((!bActive) && this.members[memberId].card.triggertype == LLConst.SKILL_TRIGGER_TIME) {
+      if ((!bActive) && this.members[memberId].card.triggertype == LLConstValue.SKILL_TRIGGER_TIME) {
          curTriggerData.s = this.currentTime;
       }
    };
    proto.isSkillNoEffect = function (memberId, effectInfo) {
       var skillEffect = effectInfo.effectType;
       // 在一些情况下技能会无效化
-      if (skillEffect == LLConst.SKILL_EFFECT_REPEAT) {
+      if (skillEffect == LLConstValue.SKILL_EFFECT_REPEAT) {
          // 没技能发动时,repeat不能发动
          if (this.lastActiveSkill === undefined) return true;
          // 被非同帧复读过了, 对以后帧就会失效
@@ -4900,19 +4903,19 @@ var LLSimulateContext = (function() {
             var realMemberId = this.lastActiveSkill.m;
             var realSkillStatic = this.skillsDynamic[realMemberId].staticInfo;
             var realSkillEffect = (this.lastActiveSkill.a ? realSkillStatic.accessoryEffect : realSkillStatic.skillEffect);
-            if (realSkillEffect.effectType == LLConst.SKILL_EFFECT_LEVEL_UP) {
+            if (realSkillEffect.effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
                return true;
             }
          }
-      } else if (skillEffect == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
+      } else if (skillEffect == LLConstValue.SKILL_EFFECT_POSSIBILITY_UP) {
          // 已经有技能发动率上升的话不能发动的技能发动率上升
-         if (this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP] > 1+EPSILON) return true;
-      } else if (skillEffect == LLConst.SKILL_EFFECT_LEVEL_UP) {
+         if (this.effects[LLConstValue.SKILL_EFFECT_POSSIBILITY_UP] > 1+EPSILON) return true;
+      } else if (skillEffect == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
          // 若在同一帧中如果有另一个技能等级提升已经发动了, 则无法发动
-         if (this.effects[LLConst.SKILL_EFFECT_LEVEL_UP] && this.lastFrameForLevelUp == this.currentFrame) {
+         if (this.effects[LLConstValue.SKILL_EFFECT_LEVEL_UP] && this.lastFrameForLevelUp == this.currentFrame) {
             return true;
          }
-      } else if (skillEffect == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
+      } else if (skillEffect == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
          // 若队伍中所有满足条件的卡都已经在属性提升状态, 则无法发动
          for (var i = 0; i < effectInfo.attributeUpTargets.length; i++) {
             var targetMemberId = effectInfo.attributeUpTargets[i];
@@ -4921,7 +4924,7 @@ var LLSimulateContext = (function() {
             }
          }
          return true;
-      } else if (skillEffect == LLConst.SKILL_EFFECT_SYNC) {
+      } else if (skillEffect == LLConstValue.SKILL_EFFECT_SYNC) {
          // 若队伍中没有同步对象，则无法发动
          if (effectInfo.syncTargetsBy[memberId].length < 1) return true;
       }
@@ -4933,7 +4936,7 @@ var LLSimulateContext = (function() {
       if (triggerData) {
          possibility = (isAccessory ? triggerData.st.accessoryPosibility : triggerData.st.triggerPossibility) || 0;
       }
-      return possibility * this.staticData.mapSkillPossibilityUp * this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP];
+      return possibility * this.staticData.mapSkillPossibilityUp * this.effects[LLConstValue.SKILL_EFFECT_POSSIBILITY_UP];
    };
    proto.setLastActiveSkill = function (memberId, levelBoost, activateFrame, isAccessory) {
       this.lastActiveSkill = {'m': memberId, 'b': levelBoost, 'af': activateFrame, 'rf': -1, 'a': isAccessory};
@@ -4958,14 +4961,14 @@ var LLSimulateContext = (function() {
       return ret;
    };
    proto.onSkillActive = function(memberId, isAccessory) {
-      var levelBoost = this.effects[LLConst.SKILL_EFFECT_LEVEL_UP];
+      var levelBoost = this.effects[LLConstValue.SKILL_EFFECT_LEVEL_UP];
       var triggerType = this.members[memberId].card.triggertype;
       if (levelBoost) {
          // 连锁技能可以吃到同一帧中发动的技能等级提升的效果, 而其它技能则只能吃到之前帧发动的技能等级提升
-         if (this.lastFrameForLevelUp == this.currentFrame && triggerType != LLConst.SKILL_TRIGGER_MEMBERS) {
+         if (this.lastFrameForLevelUp == this.currentFrame && triggerType != LLConstValue.SKILL_TRIGGER_MEMBERS) {
             levelBoost = 0;
          } else {
-            this.effects[LLConst.SKILL_EFFECT_LEVEL_UP] = 0;
+            this.effects[LLConstValue.SKILL_EFFECT_LEVEL_UP] = 0;
          }
       }
       var skillDynamic = this.skillsDynamic[memberId];
@@ -4974,8 +4977,8 @@ var LLSimulateContext = (function() {
       var realMemberId = memberId;
       var realAccessory = isAccessory;
       // update chain trigger
-      var chainTriggers = this.triggers[LLConst.SKILL_TRIGGER_MEMBERS];
-      if (chainTriggers && triggerType != LLConst.SKILL_TRIGGER_MEMBERS) {
+      var chainTriggers = this.triggers[LLConstValue.SKILL_TRIGGER_MEMBERS];
+      if (chainTriggers && triggerType != LLConstValue.SKILL_TRIGGER_MEMBERS) {
          for (var i = 0; i < chainTriggers.length; i++) {
             var thisBit = chainTriggers[i].st.chainTypeIdBits[this.members[memberId].card.typeid];
             if (thisBit !== undefined) {
@@ -4984,7 +4987,7 @@ var LLSimulateContext = (function() {
          }
       }
       // set last active skill
-      if (effectType == LLConst.SKILL_EFFECT_REPEAT) {
+      if (effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
          if (this.lastActiveSkill !== undefined) {
             realMemberId = this.lastActiveSkill.m;
             levelBoost = this.lastActiveSkill.b;
@@ -5031,33 +5034,33 @@ var LLSimulateContext = (function() {
          effectTime = skillDetail.time;
          effectValue = skillDetail.score;
       }
-      if (effectType == LLConst.SKILL_EFFECT_ACCURACY_SMALL) {
-         this.effects[LLConst.SKILL_EFFECT_ACCURACY_SMALL] += 1;
+      if (effectType == LLConstValue.SKILL_EFFECT_ACCURACY_SMALL) {
+         this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] += 1;
          if (effectTime === undefined) effectTime = effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
-      } else if (effectType == LLConst.SKILL_EFFECT_ACCURACY_NORMAL) {
-         this.effects[LLConst.SKILL_EFFECT_ACCURACY_NORMAL] += 1;
+      } else if (effectType == LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL) {
+         this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL] += 1;
          if (effectTime === undefined) effectTime = effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId);
          this.updateAccuracyState();
-      } else if (effectType == LLConst.SKILL_EFFECT_HEAL) {
+      } else if (effectType == LLConstValue.SKILL_EFFECT_HEAL) {
          this.updateHP(effectValue);
          // 奶转分
          if (this.isFullHP() && this.members[realMemberId].hasSkillGem()) this.currentScore += effectValue * 480;
-      } else if (effectType == LLConst.SKILL_EFFECT_SCORE) {
+      } else if (effectType == LLConstValue.SKILL_EFFECT_SCORE) {
          if (this.members[realMemberId].hasSkillGem()) this.currentScore += Math.ceil(effectValue * 2.5);
          else this.currentScore += effectValue;
-      } else if (effectType == LLConst.SKILL_EFFECT_POSSIBILITY_UP) {
+      } else if (effectType == LLConstValue.SKILL_EFFECT_POSSIBILITY_UP) {
          // 不可叠加
-         this.effects[LLConst.SKILL_EFFECT_POSSIBILITY_UP] = effectValue;
+         this.effects[LLConstValue.SKILL_EFFECT_POSSIBILITY_UP] = effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
-      } else if (effectType == LLConst.SKILL_EFFECT_PERFECT_SCORE_UP) {
-         this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP] += effectValue;
+      } else if (effectType == LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP) {
+         this.effects[LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP] += effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
-      } else if (effectType == LLConst.SKILL_EFFECT_COMBO_FEVER) {
-         this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] += effectValue;
+      } else if (effectType == LLConstValue.SKILL_EFFECT_COMBO_FEVER) {
+         this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER] += effectValue;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
-      } else if (effectType == LLConst.SKILL_EFFECT_SYNC) {
+      } else if (effectType == LLConstValue.SKILL_EFFECT_SYNC) {
          // exclude the member that activate the skill, not the one owning the skill
          var syncTargets = skillEffect.syncTargetsBy[memberId];
          var syncTarget = syncTargets[Math.floor(Math.random() * syncTargets.length)];
@@ -5070,13 +5073,13 @@ var LLSimulateContext = (function() {
          } else {
             attrDiff = this.members[syncTarget].attrStrength - this.members[memberId].attrStrength;
          }
-         this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] += attrDiff;
+         this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP] += attrDiff;
          skillDynamic.attributeSync = attrDiff;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, attrDiff, syncTarget);
-      } else if (effectType == LLConst.SKILL_EFFECT_LEVEL_UP) {
-         this.effects[LLConst.SKILL_EFFECT_LEVEL_UP] = effectValue;
+      } else if (effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
+         this.effects[LLConstValue.SKILL_EFFECT_LEVEL_UP] = effectValue;
          this.setLastFrameForLevelUp();
-      } else if (effectType == LLConst.SKILL_EFFECT_ATTRIBUTE_UP) {
+      } else if (effectType == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
          var attrBuff = 0;
          for (var i = 0; i < skillEffect.attributeUpTargets.length; i++) {
             var targetMemberId = skillEffect.attributeUpTargets[i];
@@ -5086,7 +5089,7 @@ var LLSimulateContext = (function() {
                attrBuff += targetDynamic.attributeUp;
             }
          }
-         this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP] += attrBuff;
+         this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP] += attrBuff;
          this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, attrBuff);
       } else {
          console.warn('Unknown skill effect ' + effectType);
@@ -5157,13 +5160,13 @@ var LLSimulateContext = (function() {
    var triggerChecks = (function() {
       /** @type {{[type: number]: (context: LLH.Model.LLSimulateContext, data: LLH.Model.LLSimulateContext_Trigger) => boolean}} */
       var ret = {};
-      ret[LLConst.SKILL_TRIGGER_TIME] = makeDeltaTriggerCheck('currentTime');
-      ret[LLConst.SKILL_TRIGGER_NOTE] = makeDeltaTriggerCheck('currentNote');
-      ret[LLConst.SKILL_TRIGGER_COMBO] = makeDeltaTriggerCheck('currentCombo');
-      ret[LLConst.SKILL_TRIGGER_SCORE] = makeDeltaTriggerCheck('currentScore');
-      ret[LLConst.SKILL_TRIGGER_PERFECT] = makeDeltaTriggerCheck('currentPerfect');
-      ret[LLConst.SKILL_TRIGGER_STAR_PERFECT] = makeDeltaTriggerCheck('currentStarPerfect');
-      ret[LLConst.SKILL_TRIGGER_MEMBERS] = function(context, data) {
+      ret[LLConstValue.SKILL_TRIGGER_TIME] = makeDeltaTriggerCheck('currentTime');
+      ret[LLConstValue.SKILL_TRIGGER_NOTE] = makeDeltaTriggerCheck('currentNote');
+      ret[LLConstValue.SKILL_TRIGGER_COMBO] = makeDeltaTriggerCheck('currentCombo');
+      ret[LLConstValue.SKILL_TRIGGER_SCORE] = makeDeltaTriggerCheck('currentScore');
+      ret[LLConstValue.SKILL_TRIGGER_PERFECT] = makeDeltaTriggerCheck('currentPerfect');
+      ret[LLConstValue.SKILL_TRIGGER_STAR_PERFECT] = makeDeltaTriggerCheck('currentStarPerfect');
+      ret[LLConstValue.SKILL_TRIGGER_MEMBERS] = function(context, data) {
          var requireBits = data.st.triggerRequire;
          var curBits = data.s;
          if (requireBits && ((curBits & requireBits) == requireBits)) {
@@ -5183,7 +5186,7 @@ var LLSimulateContext = (function() {
          // active skill
          if (curTrigger.a) {
             // 复读到持续性技能的话不会保留机会到持续性技能结束
-            if (curTrigger.ae.effectType == LLConst.SKILL_EFFECT_REPEAT) {
+            if (curTrigger.ae.effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
                triggerChecks[curTriggerType](this, curTrigger);
             }
             continue;
@@ -5202,7 +5205,7 @@ var LLSimulateContext = (function() {
    proto.getMinTriggerChanceTime = function() {
       // 时间系
       var minNextTime = undefined;
-      var curTriggerList = this.triggers[LLConst.SKILL_TRIGGER_TIME];
+      var curTriggerList = this.triggers[LLConstValue.SKILL_TRIGGER_TIME];
       if ((!curTriggerList) || curTriggerList.length == 0) return minNextTime;
       for (var i = 0; i < curTriggerList.length; i++) {
          var curNextTime = curTriggerList[i].s + curTriggerList[i].st.triggerRequire;
@@ -5238,7 +5241,7 @@ var LLSimulateContext = (function() {
             var gemData = member.laGems[j].gemData;
             while (gemData) {
                if (this.isLAGemTakeEffect(gemData)) {
-                  if (gemData.effect_type == LLConst.SIS_EFFECT_TYPE_LA_SCORE) {
+                  if (gemData.effect_type == LLConstValue.SIS_EFFECT_TYPE_LA_SCORE) {
                      totalBonus = totalBonus * (1 + gemData.effect_value / 100);
                   }
                }
@@ -5249,22 +5252,22 @@ var LLSimulateContext = (function() {
       return totalBonus;
    };
    proto.isLAGemTakeEffect = function (laGem) {
-      if (laGem.type != LLConst.SIS_TYPE_LIVE_ARENA) return false;
+      if (laGem.type != LLConstValue.SIS_TYPE_LIVE_ARENA) return false;
       if (laGem.group) {
          return (laGem.group == this.staticData.nonetTeam);
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_HP_PERCENT) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_HP_PERCENT) {
          return ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_FULL_COMBO) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_FULL_COMBO) {
          return this.isFullCombo;
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_OVERHEAL) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_OVERHEAL) {
          return (this.currentHPData.overHealLevel >= laGem.trigger_value);
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_SMILE) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_SMILE) {
          return (this.staticData.sameColorTeam == 'smile');
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_PURE) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_PURE) {
          return (this.staticData.sameColorTeam == 'pure');
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_ALL_COOL) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_COOL) {
          return (this.staticData.sameColorTeam == 'cool');
-      } else if (laGem.trigger_ref == LLConst.SIS_TRIGGER_REF_PERFECT_COUNT) {
+      } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_PERFECT_COUNT) {
          return (this.currentPerfect >= laGem.trigger_value);
       } else if (!laGem.trigger_ref) {
          return true;
@@ -5379,7 +5382,7 @@ var LLSimulateContext = (function() {
                this.currentNote++;
             } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
                var isPerfect = (Math.random() * (this.staticData.totalNote - this.currentCombo) < this.remainingPerfect);
-               var accuracyBonus = LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
+               var accuracyBonus = LLConstValue.NOTE_WEIGHT_PERFECT_FACTOR;
                var isAccuracyState = this.isAccuracyState;
                var comboFeverScore = 0;
                var perfectScoreUp = 0;
@@ -5387,36 +5390,36 @@ var LLSimulateContext = (function() {
                if (isPerfect) {
                   this.currentPerfect++;
                   this.remainingPerfect--;
-                  perfectScoreUp = this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
+                  perfectScoreUp = this.effects[LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP];
                   if (isAccuracyState && this.staticData.perfectAccuracyPattern) {
-                     accuracyBonus = LLConst.NOTE_WEIGHT_ACC_PERFECT_FACTOR;
+                     accuracyBonus = LLConstValue.NOTE_WEIGHT_ACC_PERFECT_FACTOR;
                   }
                } else {
                   if (isAccuracyState) {
                      this.currentPerfect++;
-                     perfectScoreUp = this.effects[LLConst.SKILL_EFFECT_PERFECT_SCORE_UP];
+                     perfectScoreUp = this.effects[LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP];
                   } else {
-                     accuracyBonus = LLConst.NOTE_WEIGHT_GREAT_FACTOR;
+                     accuracyBonus = LLConstValue.NOTE_WEIGHT_GREAT_FACTOR;
                   }
                }
                if (isAccuracyState) {
                   this.currentAccuracyCoverNote++;
                }
                if (curNote.type == SIM_NOTE_RELEASE) {
-                  accuracyBonus *= LLConst.NOTE_WEIGHT_PERFECT_FACTOR;
+                  accuracyBonus *= LLConstValue.NOTE_WEIGHT_PERFECT_FACTOR;
                   //TODO: 如果被完美判覆盖到长条开头呢?
                }
-               if (this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER] > 0) {
-                  comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.staticData.comboFeverPattern) * this.effects[LLConst.SKILL_EFFECT_COMBO_FEVER]);
+               if (this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER] > 0) {
+                  comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.staticData.comboFeverPattern) * this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER]);
                   if (comboFeverScore > this.staticData.comboFeverLimit) {
                      comboFeverScore = this.staticData.comboFeverLimit;
                   }
                }
                // seems not really take effect
-               //if (perfectScoreUp + this.totalPerfectScoreUp > LLConst.SKILL_LIMIT_PERFECT_SCORE_UP) {
-               //   perfectScoreUp = LLConst.SKILL_LIMIT_PERFECT_SCORE_UP - this.totalPerfectScoreUp;
+               //if (perfectScoreUp + this.totalPerfectScoreUp > LLConstValue.SKILL_LIMIT_PERFECT_SCORE_UP) {
+               //   perfectScoreUp = LLConstValue.SKILL_LIMIT_PERFECT_SCORE_UP - this.totalPerfectScoreUp;
                //}
-               var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConst.SKILL_EFFECT_ATTRIBUTE_UP];
+               var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP];
                // note position 数值1~9, 从右往左数
                var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHPData.overHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
@@ -5961,7 +5964,7 @@ var LLTeam = (function() {
       for (i = 0; i < 9; i++) {
          var curMember = this.members[i];
          var curPowerUps = {};
-         var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': LLConst[curMember.card.jpname], 'unit': unitInfo[i]};
+         var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': LLConstValue[curMember.card.jpname], 'unit': unitInfo[i]};
          for (j = 0; j < gemTypes.length; j++) {
             var curGem = new LLSisGem(j, gemOption);
             if (!curGem.isValid()) continue;
@@ -6462,7 +6465,7 @@ var LLSaveData = (function () {
             var isHeal = false;
             if (member.cardid && LLCardData) {
                var cardbrief = (LLCardData.getAllCachedBriefData() || {})[member.cardid];
-               if (cardbrief && cardbrief.skilleffect == LLConst.SKILL_EFFECT_HEAL) {
+               if (cardbrief && cardbrief.skilleffect == LLConstValue.SKILL_EFFECT_HEAL) {
                   isHeal = true;
                }
             }
@@ -6509,10 +6512,10 @@ var LLSaveData = (function () {
             if (n42['ALL'] === undefined) {
                var newN42 = {};
                if (n42['muse'] !== undefined) {
-                  newN42[LLConst.GROUP_MUSE.toFixed()] = n42['muse'];
+                  newN42[LLConstValue.GROUP_MUSE.toFixed()] = n42['muse'];
                }
                if (n42['aqours'] !== undefined) {
-                  newN42[LLConst.GROUP_AQOURS.toFixed()] = n42['aqours'];
+                  newN42[LLConstValue.GROUP_AQOURS.toFixed()] = n42['aqours'];
                }
                var units = LLConst.Gem.getUnitGemList();
                for (i = 0; i < units.length; i++) {
@@ -6694,7 +6697,7 @@ var LLGemStockComponent = (function () {
       } else if (curSubType == STOCK_SUB_TYPE_GRADE) {
          return LLConst.Group.getGroupName(parseInt(curKey));
       } else if (curSubType == STOCK_SUB_TYPE_MEMBER) {
-         return LLConst.Member.getMemberName(parseInt(curKey), LLConst.LANGUAGE_CN);
+         return LLConst.Member.getMemberName(parseInt(curKey), LLConstValue.LANGUAGE_CN);
       } else if (curSubType == STOCK_SUB_TYPE_UNIT) {
          return LLConst.Group.getGroupName(parseInt(curKey));
       }
@@ -7491,8 +7494,8 @@ var LLScoreDistributionParameter = (function () {
       {'value': '2', 'text': '技能加强后（220 combo达到最大加成）'}
    ];
    var comboFeverLimitOptions = [
-      {'value': LLConst.SKILL_LIMIT_COMBO_FEVER + '', 'text': '上限解除前（单键加成上限1000）'},
-      {'value': LLConst.SKILL_LIMIT_COMBO_FEVER_2 + '', 'text': '上限解除后（单键加成上限21亿）'}
+      {'value': LLConstValue.SKILL_LIMIT_COMBO_FEVER + '', 'text': '上限解除前（单键加成上限1000）'},
+      {'value': LLConstValue.SKILL_LIMIT_COMBO_FEVER_2 + '', 'text': '上限解除后（单键加成上限21亿）'}
    ];
    var enableDisableSelectOptions = [
       {'value': '0', 'text': '关闭'},
@@ -7554,7 +7557,7 @@ var LLScoreDistributionParameter = (function () {
       var simParamPerfectPercent = createElement('input', {'className': 'form-control num-size-3', 'type': 'number', 'size': 3, 'value': 90});
       var simParamSpeedComponent = createSelectComponent(speedSelectOptions, '8');
       var simParamComboFeverPatternComponent = createSelectComponent(comboFeverPatternSelectOptions, '2');
-      var simParamComboFeverLimitComponent = createSelectComponent(comboFeverLimitOptions, LLConst.SKILL_LIMIT_COMBO_FEVER_2 + '');
+      var simParamComboFeverLimitComponent = createSelectComponent(comboFeverLimitOptions, LLConstValue.SKILL_LIMIT_COMBO_FEVER_2 + '');
       var simParamOverHealComponent = createEnableDisableComponent(true);
       var simParamPerfectAccuracyComponent = createEnableDisableComponent(true);
       var simParamTriggerLimitComponent = createEnableDisableComponent(true);
@@ -8677,7 +8680,7 @@ var LLTeamComponent = (function () {
          cardsBrief[i] = cardbrief;
          if (cardbrief) {
             controllers.info.cells[i].set(cardbrief.attribute);
-            controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, LLConst.LANGUAGE_CN));
+            controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, LLConstValue.LANGUAGE_CN));
             controllers.skill_trigger.cells[i].set(LLConst.getSkillTriggerText(cardbrief.triggertype));
             controllers.skill_effect.cells[i].set(LLConst.Skill.getEffectBrief(cardbrief.skilleffect));
             if (member.hp === undefined) {
@@ -8859,7 +8862,7 @@ var LLCSkillComponent = (function () {
       'attribute': 'smile',
       'Cskillattribute': 'smile',
       'Cskillpercentage': 0,
-      'Csecondskilllimit': LLConst.GROUP_UNKNOWN,
+      'Csecondskilllimit': LLConstValue.GROUP_UNKNOWN,
       'Csecondskillattribute': 0
    };
    var majorPercentageSelectOptions = [
@@ -9440,14 +9443,14 @@ var LLGemSelectorComponent = (function () {
             for (i = 0; i < gemDataKeys.length; i++) {
                var curKey = gemDataKeys[i];
                var curGemData = gemData[curKey];
-               if (curGemData.type == LLConst.SIS_TYPE_NORMAL) {
+               if (curGemData.type == LLConstValue.SIS_TYPE_NORMAL) {
                   if (this.includeNormalGem) {
                      var curColor = LLConst.Gem.getGemColor(curGemData);
                      gemNormalOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
                      gemNormalOptionsJp.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, false), 'color': curColor});
                      gemNormalSizeCollection[curGemData.size.toFixed()] = 1;
                   }
-               } else if (curGemData.type == LLConst.SIS_TYPE_LIVE_ARENA) {
+               } else if (curGemData.type == LLConstValue.SIS_TYPE_LIVE_ARENA) {
                   if (this.includeLAGem) {
                      var curColor = LLConst.Gem.getGemColor(curGemData);
                      gemLAOptions.push({'value': curKey, 'text': LLConst.Gem.getGemDescription(curGemData, true), 'color': curColor});
@@ -9887,8 +9890,8 @@ var LLAccessorySelectorComponent = (function () {
             var curKey = accessoryDataKeys[i];
             var curAccessoryData = this.accessoryData[curKey];
             var curColor = LLConst.Common.getAttributeColor(LLConst.Accessory.getAccessoryMainAttribute(curAccessoryData));
-            accessoryOptions.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_CN), 'color': curColor});
-            accessoryOptionsJp.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConst.LANGUAGE_JP), 'color': curColor});
+            accessoryOptions.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConstValue.LANGUAGE_CN), 'color': curColor});
+            accessoryOptionsJp.push({'value': curKey, 'text': LLConst.Accessory.getAccessoryDescription(curAccessoryData, LLConstValue.LANGUAGE_JP), 'color': curColor});
             if (curAccessoryData.effect_type) effectTypeCollector[curAccessoryData.effect_type] = 1;
          }
    

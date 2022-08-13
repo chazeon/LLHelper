@@ -269,6 +269,8 @@ declare namespace LLH {
 
         type NormalGemCategoryIdType = number;
         type NormalGemCategoryKeyType = string;
+        /** 1 for self, 2 for team */
+        type NormalGemCategoryEffectRangeType = 1 | 2;
         interface NormalGemMetaType {
             /** en name */
             name: string;
@@ -276,8 +278,7 @@ declare namespace LLH {
             cnname: string;
             key: NormalGemCategoryKeyType;
             slot: number;
-            /** 1 for self, 2 for team */
-            effect_range: 1 | 2;
+            effect_range: NormalGemCategoryEffectRangeType;
             effect_value: number;
             /** 1 means exist gem for 3 kinds of color */
             per_color?: 0 | 1;
