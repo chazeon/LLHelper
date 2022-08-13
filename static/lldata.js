@@ -577,19 +577,22 @@ var LLMapNoteData = (function () {
 var LLComponentBase = (function () {
    /**
     * @implements {LLH.Mixin.SaveLoadJson}
+    * @template {HTMLElement} [ElementType = HTMLElement]
     */
    class LLComponentBase_cls {
       /**
-       * @param {LLH.Component.HTMLElementOrId} [id] 
+       * @param {ElementType | string} [id] 
        * @param {LLH.Component.LLComponentBase_Options} [options] 
        */
       constructor(id, options) {
          this.id = undefined;
          this.exist = false;
          this.visible = false;
+         /** @type {ElementType | undefined} */
+         this.element = undefined;
          if (id) {
             if (typeof(id) == 'string') this.id = id;
-            this.element = LLUnit.getElement(id);
+            this.element = /** @type {ElementType} */ (LLUnit.getElement(id));
             if (this.element) {
                this.exist = true;
                if (this.element.style.display != 'none') {
@@ -667,9 +670,13 @@ var LLComponentBase = (function () {
 })();
 
 var LLValuedComponent = (function() {
+   /**
+    * @template {HTMLElement} [ElementType = HTMLElement]
+    * @extends {LLComponentBase<ElementType>}
+    */
    class LLValuedComponent_cls extends LLComponentBase {
       /**
-       * @param {LLH.Component.HTMLElementOrId} [id] 
+       * @param {ElementType | string} [id] 
        * @param {LLH.Component.LLValuedComponent_Options} [options] 
        */
       constructor(id, options) {
@@ -678,7 +685,7 @@ var LLValuedComponent = (function() {
          this.onValueChange = undefined;
          if (!this.element) {
             this.value = undefined;
-            this.valueKey = 'value';
+            this.valueKey = 'innerHTML';
             return this;
          }
          var vk = (options && options.valueKey ? options.valueKey : '');
@@ -749,9 +756,12 @@ var LLValuedMemoryComponent = (function() {
 })();
 
 var LLSelectComponent = (function() {
+   /**
+    * @extends {LLValuedComponent<HTMLSelectElement>}
+    */
    class LLSelectComponent_cls extends LLValuedComponent {
       /**
-       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {HTMLSelectElement | string} id 
        * @param {LLH.Component.LLValuedComponent_Options} [options] 
        */
       constructor(id, options) {
@@ -829,9 +839,12 @@ var LLSelectComponent = (function() {
 })();
 
 var LLImageComponent = (function() {
+   /**
+    * @extends {LLComponentBase<HTMLImageElement>}
+    */
    class LLImageComponent_cls extends LLComponentBase {
       /**
-       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {HTMLImageElement | string} id 
        * @param {LLH.Component.LLImageComponent_Options} [options] 
        */
       constructor(id, options) {
@@ -1058,9 +1071,12 @@ var LLFiltersComponent = (function() {
       setFilterOptions(name, options) {
          var curFilter = this.getFilter(name, true);
          curFilter.optionGroups = undefined;
-         /** @type {LLH.Component.LLSelectComponent} */
-         var curComp = this.getComponent(name);
-         curComp.setOptions(options);
+         var curComp = /** @type {LLH.Component.LLSelectComponent | undefined} */ (this.getComponent(name));
+         if (curComp) {
+            curComp.setOptions(options);
+         } else {
+            console.error('Not found component for name: ' + name);
+         }
       }
       /**
        * Handle changes when specified component's value change.
@@ -1150,8 +1166,7 @@ var LLFiltersComponent = (function() {
          }
       }
       if (newFilter || newOptions) {
-         /** @type {LLH.Component.LLSelectComponent} */
-         var selComp = me.getComponent(targetName);
+         var selComp = /** @type {LLH.Component.LLSelectComponent | undefined} */ (me.getComponent(targetName));
          if (!selComp) {
             console.error('Not found select component for ' + targetName, me);
             return;
@@ -1273,7 +1288,9 @@ const LLConstValue = {
    'GROUP_GRADE1': 1,
    'GROUP_GRADE2': 2,
    'GROUP_GRADE3': 3,
+   /** @type {LLH.Core.BigGroupIdType} */
    'GROUP_MUSE': 4,
+   /** @type {LLH.Core.BigGroupIdType} */
    'GROUP_AQOURS': 5,
    'GROUP_PRINTEMPS': 6,
    'GROUP_LILYWHITE': 7,
@@ -1309,10 +1326,12 @@ const LLConstValue = {
    'GROUP_YOU_YOSHIKO': 55,
    'GROUP_CHIKA_KANAN': 56,
    'GROUP_SAINT_AQOURS_SNOW': 57,
+   /** @type {LLH.Core.BigGroupIdType} */
    'GROUP_NIJIGASAKI': 60,
    'GROUP_ELI_NOZOMI2': 83,
    'GROUP_RIN_HANAYO': 99,
    'GROUP_YOSHIKO_HANAMARU': 137,
+   /** @type {LLH.Core.BigGroupIdType} */
    'GROUP_LIELLA': 143,
    'GROUP_DIVER_DIVA': 1000,
    'GROUP_A_ZU_NA': 1001,
@@ -1421,18 +1440,12 @@ const LLConstValue = {
 /** @type {LLH.LLConst} */
 var LLConst = (function () {
    const KEYS = LLConstValue;
+
+   /** @type {LLH.Core.AttributeType[]} */
    var COLOR_ID_TO_NAME = ['', 'smile', 'pure', 'cool'];
    var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple'};
-   /**
-    * @typedef MemberDataType
-    * @property {'smile'|'pure'|'cool'} color
-    * @property {string} name
-    * @property {string} cnname
-    * @property {string} background_color
-    * @property {LLH.Core.GradeType} [grade]
-    * @property {0|1} [member_gem]
-    */
-   /** @type {{[id: number]: MemberDataType}} */
+
+   /** @type {{[id: number]: LLH.Internal.MemberMetaDataType}} */
    var MEMBER_DATA = {};
 
    /** @type {LLH.Internal.NormalGemMetaType[]} */
@@ -1477,6 +1490,7 @@ var LLConst = (function () {
 
    var UNIT_GEM_LIST = [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
 
+   /** @type {LLH.API.MemberTagDictDataType} */
    var GROUP_DATA = {};
    var NOT_FOUND_MEMBER = {};
 
@@ -1497,9 +1511,8 @@ var LLConst = (function () {
     * @returns {number | undefined}
     */
    var mGetMemberId = function (member) {
-      var memberid = member;
-      if (typeof(memberid) != 'number') {
-         memberid = KEYS[memberid];
+      if (typeof(member) != 'number') {
+         var memberid = KEYS[member];
          if (memberid === undefined) {
             //e.g. N card
             if (!NOT_FOUND_MEMBER[member]) {
@@ -1508,12 +1521,14 @@ var LLConst = (function () {
             }
             return undefined;
          }
+         return memberid;
+      } else {
+         return member;
       }
-      return memberid;
    };
    /**
     * @param {LLH.Core.MemberIdType} member 
-    * @returns {MemberDataType | undefined}
+    * @returns {LLH.Internal.MemberMetaDataType | undefined}
     */
    var mGetMemberData = function (member) {
       mCheckInited('unit_type');
@@ -1544,7 +1559,13 @@ var LLConst = (function () {
       return undefined;
    };
 
+   /**
+    * @template T
+    * @param {{[id: string]: T}} d 
+    * @returns {{[id: number]: T}}
+    */
    var mConvertIntId = function (d) {
+      /** @type {{[id: number]: T}} */
       var ret = {};
       for (var k in d) {
          ret[parseInt(k)] = d[k];
@@ -1552,6 +1573,7 @@ var LLConst = (function () {
       return ret;
    };
 
+   /** @param {LLH.API.UnitTypeDictDataType} members */
    var mInitMemberData = function (members) {
       for (var k in members) {
          var id = parseInt(k);
@@ -1586,7 +1608,7 @@ var LLConst = (function () {
                console.warn('Not found member ' + curMemberId + ' for grade ' + grade);
                continue;
             }
-            MEMBER_DATA[curMemberId].grade = grade;
+            MEMBER_DATA[curMemberId].grade = /** @type {LLH.Core.GradeType} */ (grade);
          }
       }
       for (var i = 0; i < MEMBER_GEM_LIST.length; i++) {
@@ -1595,7 +1617,7 @@ var LLConst = (function () {
             console.warn('Not found member ' + id + ' for member gem');
             continue;
          }
-         MEMBER_DATA[id].member_gem = 1;
+         MEMBER_DATA[id].member_gem = true;
       }
    };
 
@@ -1606,6 +1628,7 @@ var LLConst = (function () {
       return name;
    };
 
+   /** @param {LLH.API.AlbumDictDataType} albumMeta */
    var mInitAlbumData = function (albumMeta) {
       ALBUM_DATA = mConvertIntId(albumMeta);
       var albumGroupNames = {};
@@ -1673,6 +1696,7 @@ var LLConst = (function () {
    /** @type {LLH.ConstUtil.Common} */
    var CommonUtils = {
       getRarityString: (function () {
+         /** @type {LLH.Core.RarityStringType[]} */
          var rarityMap = ['', 'N', 'R', 'SR', 'UR', 'SSR'];
          return function (rarity) {
             return rarityMap[rarity || 0];
@@ -1739,6 +1763,7 @@ var LLConst = (function () {
          var memberData = mGetMemberData(member);
          if (!memberData) return '<未知成员(' + member + ')>';
          if (language !== undefined && language == KEYS.LANGUAGE_CN && memberData.cnname) return memberData.cnname;
+         if (!memberData.name) return '<未知名字(' + member + ')>';
          return memberData.name;
       },
       getBigGroupId: function (memberId) {
@@ -1816,16 +1841,8 @@ var LLConst = (function () {
          var ret = [];
          for (i in memberInGroupCount) {
             if (memberInGroupCount[i] == expectedCount) {
-               ret.push(i);
+               ret.push(parseInt(i));
             }
-         }
-         return ret;
-      },
-      getMemberNamesInGroups: function (groups) {
-         var typeIds = MemberUtils.getMemberTypeIdsInGroups(groups);
-         var ret = [];
-         for (var i = 0; i < typeIds.length; i++) {
-            ret.push(MEMBER_DATA[typeids[i]].name);
          }
          return ret;
       }
@@ -1836,9 +1853,10 @@ var LLConst = (function () {
    var GroupUtils = {
       getGroupName: function (groupid) {
          mCheckInited('member_tag');
-         if (!GROUP_DATA[groupid]) return '<Unknown(' + groupid + ')>';
-         if (GROUP_DATA[groupid].cnname) return GROUP_DATA[groupid].cnname;
-         return GROUP_DATA[groupid].name;
+         var groupData = GROUP_DATA[groupid];
+         if (!groupData) return '<Unknown(' + groupid + ')>';
+         if (groupData.cnname) return groupData.cnname;
+         return groupData.name;
       },
       getBigGroupIds: function () {
          return [KEYS.GROUP_MUSE, KEYS.GROUP_AQOURS, KEYS.GROUP_NIJIGASAKI, KEYS.GROUP_LIELLA];
@@ -1897,9 +1915,12 @@ var LLConst = (function () {
       },
       getNormalGemNameAndDescription: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
-         var gemName = GemUtils.getNormalGemName(meta)
-         var gemDesc = GemUtils.getNormalGemBriefDescription(meta);
-         return gemName + ' （' + gemDesc + '）';
+         var gemName, gemDesc;
+         if (meta) {
+            gemName = GemUtils.getNormalGemName(meta)
+            gemDesc = GemUtils.getNormalGemBriefDescription(meta);
+         }
+         return (gemName || '未知宝石') + ' （' + (gemDesc || '未知宝石') + '）';
       },
       isGemFollowMemberAttribute: function (typeOrMeta) {
          var meta = GemUtils.getNormalGemMeta(typeOrMeta);
@@ -1932,7 +1953,7 @@ var LLConst = (function () {
             var sub_skill = gemData.sub_skill_data;
             while (sub_skill) {
                desc += '+' + sub_skill.effect_value + '%';
-               sub_skill = sub_skill.sub_skill;
+               sub_skill = sub_skill.sub_skill_data;
             }
             desc += ']';
          } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
@@ -2023,7 +2044,7 @@ var LLConst = (function () {
             } else if (gemData.range == KEYS.SIS_RANGE_TEAM) {
                desc += '队伍中的所有社员的'
             }
-            desc += COLOR_ID_TO_NAME[gemData.color] + '提升'
+            desc += COLOR_ID_TO_NAME[gemData.color || 0] + '提升'
             if (gemData.fixed) {
                desc += gemData.effect_value;
             } else {
@@ -2058,7 +2079,7 @@ var LLConst = (function () {
       },
       getGemColor: function (gemData) {
          if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
-            return COLOR_NAME_TO_COLOR[COLOR_ID_TO_NAME[gemData.color]];
+            return COLOR_NAME_TO_COLOR[COLOR_ID_TO_NAME[gemData.color || 0]];
          } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
             var trigger_ref = gemData.trigger_ref;
             if (trigger_ref == KEYS.SIS_TRIGGER_REF_HP_PERCENT
@@ -2080,6 +2101,8 @@ var LLConst = (function () {
             } else {
                return '#fa0';
             }
+         } else {
+            return '';
          }
       },
       postProcessGemData: function (gemData) {
@@ -2100,7 +2123,7 @@ var LLConst = (function () {
    };
    constUtil.Gem = GemUtils;
    constUtil.GemType = (function (arr) {
-      /** @type {{[key: string]: number}} */
+      /** @type {LLH.ConstUtil.GemType} */
       var indexMap = {};
       for (var i = 0; i < arr.length; i++) {
          indexMap[arr[i].key] = i;
@@ -2270,13 +2293,13 @@ var LLConst = (function () {
          return '就有' + rate + '%的概率';
       },
       getAccessorySkillDescription: function (accessory, levelIndex) {
-         var level_detail = accessory.levels[levelIndex];
-         if (!level_detail) {
+         if ((!accessory.levels) || (!accessory.levels[levelIndex])) {
             return '';
          }
+         var level_detail = accessory.levels[levelIndex];
          var trigger_text = '特技未发动时，';
          if (accessory.trigger_type) {
-            trigger_text += SkillUtils.getTriggerDescription(accessory.trigger_type, level_detail.trigger_value, undefined, accessory.trigger_effect_type);
+            trigger_text += SkillUtils.getTriggerDescription(accessory.trigger_type, level_detail.trigger_value || 0, undefined, accessory.trigger_effect_type);
          }
          var rate_text = SkillUtils.getRateDescription(level_detail.rate);
          var effect_text = SkillUtils.getEffectDescription(accessory.effect_type, level_detail.effect_value, level_detail.time, undefined, accessory.effect_target);
@@ -2467,20 +2490,20 @@ var LLConst = (function () {
    };
 
    constUtil.initMetadata = function(metadata) {
-      if (metadata['album']) {
-         mInitAlbumData(metadata['album']);
+      if (metadata.album) {
+         mInitAlbumData(metadata.album);
          metaDataInited['album'] = 1;
       }
-      if (metadata['member_tag']) {
-         GROUP_DATA = mConvertIntId(metadata['member_tag']);
+      if (metadata.member_tag) {
+         GROUP_DATA = metadata.member_tag;
          metaDataInited['member_tag'] = 1;
       }
-      if (metadata['unit_type']) {
-         mInitMemberData(metadata['unit_type']);
+      if (metadata.unit_type) {
+         mInitMemberData(metadata.unit_type);
          metaDataInited['unit_type'] = 1;
       }
-      if (metadata['cskill_groups']) {
-         CSKILL_GROUPS = metadata['cskill_groups'];
+      if (metadata.cskill_groups) {
+         CSKILL_GROUPS = metadata.cskill_groups;
          metaDataInited['cskill_groups'] = 1;
       }
    };
@@ -2863,6 +2886,16 @@ var LLUnit = {
    },
 
    /**
+    * @param {*} options 
+    * @param {LLH.Component.SubElements} [subElements] 
+    * @param {{[x: string] : Function}} [eventHandlers]
+    * @returns {HTMLSelectElement} 
+    */
+   createSelectElement: function (options, subElements, eventHandlers) {
+      return /** @type {HTMLSelectElement} */ (LLUnit.createElement('select', options, subElements, eventHandlers));
+   },
+
+   /**
     * @param {string | HTMLElement} id 
     * @returns {HTMLElement}
     */
@@ -2887,9 +2920,9 @@ var LLUnit = {
       return LLUnit.createElement('div', {'className': 'form-inline'}, group);
    },
 
-   /** @returns {HTMLElement} */
+   /** @returns {HTMLSelectElement} */
    createFormSelect: function () {
-      return LLUnit.createElement('select', {'className': 'form-control no-padding'});
+      return LLUnit.createSelectElement({'className': 'form-control no-padding'});
    },
 
    createSimpleTable: function (data) {
@@ -2922,15 +2955,16 @@ var LLUnit = {
    },
 
    createColorSelectComponent: function (emptyName, options) {
-      var selectComponent = new LLSelectComponent(LLUnit.createElement('select', options));
-      var options = [];
+      var selectComponent = new LLSelectComponent(LLUnit.createSelectElement(options));
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      var selOptions = [];
       if (emptyName !== undefined) {
-         options.push({'value': '', 'text': emptyName});
+         selOptions.push({'value': '', 'text': emptyName});
       }
-      options.push({'value': 'smile', 'text': 'Smile', 'color': 'red'});
-      options.push({'value': 'pure',  'text': 'Pure',  'color': 'green'});
-      options.push({'value': 'cool',  'text': 'Cool',  'color': 'blue'});
-      selectComponent.setOptions(options);
+      selOptions.push({'value': 'smile', 'text': 'Smile', 'color': 'red'});
+      selOptions.push({'value': 'pure',  'text': 'Pure',  'color': 'green'});
+      selOptions.push({'value': 'cool',  'text': 'Cool',  'color': 'blue'});
+      selectComponent.setOptions(selOptions);
       return selectComponent;
    },
 

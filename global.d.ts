@@ -189,7 +189,7 @@ declare namespace LLH {
             album: AlbumDictDataType;
             member_tag: MemberTagDictDataType;
             unit_type: UnitTypeDictDataType;
-            cskill_groups: Core.MemberTagIdType;
+            cskill_groups: Core.MemberTagIdType[];
         }
 
         interface AccessoryLevelDataType {
@@ -326,6 +326,15 @@ declare namespace LLH {
             accessory?: AccessorySaveDataType;
         }
 
+        interface MemberMetaDataType {
+            color?: Core.AttributeType;
+            name?: string;
+            cnname?: string;
+            background_color?: string;
+            grade?: Core.GradeType;
+            member_gem?: boolean;
+        }
+
         interface UnitSaveDataTypeV104 {
             version: 104;
             team: MemberSaveDataType[];
@@ -443,13 +452,13 @@ declare namespace LLH {
         interface LLComponentBase_Options {
             listen?: {[e: string]: (event: Event) => void};
         }
-        class LLComponentBase implements Mixin.SaveLoadJson {
-            constructor(id?: HTMLElementOrId, options?: LLComponentBase_Options);
+        class LLComponentBase<ElementType extends HTMLElement = HTMLElement> implements Mixin.SaveLoadJson {
+            constructor(id?: ElementType | string, options?: LLComponentBase_Options);
 
             id?: string;
             exist: boolean;
             visible: boolean;
-            element?: HTMLElement;
+            element?: ElementType;
 
             show(): void;
             hide(): void;
@@ -467,8 +476,8 @@ declare namespace LLH {
         interface LLValuedComponent_Options extends LLComponentBase_Options {
             valueKey?: string;
         }
-        class LLValuedComponent extends LLComponentBase {
-            constructor(id?: HTMLElementOrId, options?: LLValuedComponent_Options);
+        class LLValuedComponent<ElementType extends HTMLElement = HTMLElement> extends LLComponentBase<ElementType> {
+            constructor(id?: ElementType | string, options?: LLValuedComponent_Options);
 
             value?: string;
             valueKey: string;
@@ -491,8 +500,8 @@ declare namespace LLH {
         }
         /** returns true if keep the option, false to filter out the option */
         type LLSelectComponent_FilterCallback = (opt: LLSelectComponent_OptionDef) => boolean;
-        class LLSelectComponent extends LLValuedComponent {
-            constructor(id: HTMLElementOrId, options?: LLValuedComponent_Options);
+        class LLSelectComponent extends LLValuedComponent<HTMLSelectElement> {
+            constructor(id: HTMLSelectElement | string, options?: LLValuedComponent_Options);
 
             options: LLSelectComponent_OptionDef[];
             filter?: LLSelectComponent_FilterCallback;
@@ -505,8 +514,8 @@ declare namespace LLH {
         interface LLImageComponent_Options extends LLComponentBase_Options {
             srcList?: string[];
         }
-        class LLImageComponent extends LLComponentBase {
-            constructor(id: HTMLElementOrId, options?: LLImageComponent_Options);
+        class LLImageComponent extends LLComponentBase<HTMLImageElement> {
+            constructor(id: HTMLImageElement | string, options?: LLImageComponent_Options);
             
             srcList: string[];
             curSrcIndex?: number;
@@ -551,7 +560,7 @@ declare namespace LLH {
 
             optionGroups?: LLFiltersComponent_OptionGroupType;
             groupGetter?: () => string;
-            currentOptionGroup?: number;
+            currentOptionGroup?: string;
             affectOptionGroupFilters?: string[];
         }
         class LLFiltersComponent extends LLComponentCollection {
@@ -732,27 +741,46 @@ declare namespace LLH {
             /** group can be the id in number or string form */
             isMemberInGroup(memberId: Core.MemberIdType, groupId: Core.MemberTagIdType | string): boolean
             getMemberName(memberId: Core.MemberIdType, language?: Core.LanguageType): string;
-            getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType;
+            getBigGroupId(memberId: Core.MemberIdType): Core.BigGroupIdType | undefined;
             /** return undefined if not nonet team, or big group id of the nonet team */
-            isNonetTeam(members: Model.LLMember[]): Core.BigGroupIdType;
+            isNonetTeam(members: Model.LLMember[]): Core.BigGroupIdType | undefined;
             /** return undefined if not same color team, or color of the team */
-            isSameColorTeam(members: Model.LLMember[]): Core.AttributeType;
-            getMemberGrade(memberId: Core.MemberIdType): Core.GradeType;
+            isSameColorTeam(members: Model.LLMember[]): Core.AttributeAllType | undefined;
+            getMemberGrade(memberId: Core.MemberIdType): Core.GradeType | undefined;
             getMemberTypeIdsInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
-            getMemberNamesInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): string[];
         }
         interface Group {
             getBigGroupIds(): Core.BigGroupIdType[];
             getGroupName(groupId: Core.MemberTagIdType): string;
         }
+        interface GemType {
+            SADD_200: number;
+            SADD_450: number;
+            SMUL_10: number;
+            SMUL_16: number;
+            AMUL_18: number;
+            AMUL_24: number;
+            SCORE_250: number;
+            HEAL_480: number;
+            EMUL_33: number;
+            SADD_1400: number;
+            SMUL_28: number;
+            AMUL_40: number;
+            MEMBER_29: number;
+            NONET_42: number;
+            MEMBER_13: number;
+            MEMBER_21: number;
+            MEMBER_53: number;
+            NONET_15: number;
+        }
         interface Gem {
             getMemberGemList(): Core.UnitTypeIdType[];
             getUnitGemList(): Core.MemberTagIdType[];
             isMemberGemExist(memberId: Core.MemberIdType): boolean;
-            getNormalGemMeta(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): Internal.NormalGemMetaType;
+            getNormalGemMeta(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): Internal.NormalGemMetaType | undefined;
             getNormalGemTypeKeys(): Internal.NormalGemCategoryKeyType[];
-            getNormalGemName(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string;
-            getNormalGemBriefDescription(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string;
+            getNormalGemName(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string | undefined;
+            getNormalGemBriefDescription(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string | undefined;
             getNormalGemNameAndDescription(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): string;
             /** true if gem color should follow member attribute, false if follow map attribute */
             isGemFollowMemberAttribute(typeOrMeta: Internal.NormalGemCategoryIdOrMetaType): boolean;
@@ -1565,6 +1593,7 @@ declare namespace LLH {
         Member: ConstUtil.Member;
         Group: ConstUtil.Group;
         Gem: ConstUtil.Gem;
+        GemType: ConstUtil.GemType;
         Accessory: ConstUtil.Accessory;
         Album: ConstUtil.Album;
         Common: ConstUtil.Common;
