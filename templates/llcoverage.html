@@ -9,7 +9,7 @@
    <script type="text/javascript" src="{{ url_for('static', filename='lldata.js', v=config.SITE_VERSION) }}"></script>
    <script type="text/javascript" src="/static/js/highcharts/highstock.js"></script>
    <script type="text/javascript" src="/static/js/highcharts/exporting.js"></script>
-   <script type="text/javascript" src="{{ url_for('static', filename='CoverageCalculator.js') }}"></script>
+   <script type="text/javascript" src="{{ url_for('static', filename='CoverageCalculator.js', v=2) }}"></script>
    <link rel="shortcut icon" href="/static/shortcuticon.png" />
    <style type="text/css">
    	table {position:relative;}
@@ -136,7 +136,7 @@
 
    function applysongdata(songSettingId, songSetting) {
       if (!songSettingId) return;
-      document.getElementById('speeds').value = LLConst.getDefaultSpeed(songSetting.difficulty);;
+      document.getElementById('speeds').value = LLConst.Live.getDefaultSpeed(songSetting.difficulty);
    }
 
    function copyTo(n){

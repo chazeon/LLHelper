@@ -411,7 +411,7 @@ function renderPage(loadDeferred) {
         var member_29 = {};
         for (var i = 0; i < names.length; i++) {
             var per_color = {'smile': 0, 'pure': 0, 'cool': 0}
-            per_color[LLConst.getMemberColor(names[i])] = 9;
+            per_color[LLConst.Member.getMemberColor(names[i])] = 9;
             member_29[LLConstValue[names[i]]] = per_color;
         }
         return {

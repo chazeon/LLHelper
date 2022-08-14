@@ -521,9 +521,14 @@ var LLMapNoteData = (function () {
       }
       return false;
    }
+   /**
+    * @param {LLH.API.SongDataType} song 
+    * @param {LLH.API.SongSettingDataType} songSetting 
+    * @returns {LLH.Depends.Promise<LLH.API.NoteDataType[], void>}
+    */
    LLMapNoteData_cls.prototype.getMapNoteData = function (song, songSetting) {
       var defer = LLDepends.createDeferred();
-      if (song.attribute == '') {
+      if (song.attribute == 'all') {
          // 默认曲目
          defer.resolve(createMapData(songSetting.combo, songSetting.time));
          return defer;
@@ -555,10 +560,15 @@ var LLMapNoteData = (function () {
       });
       return defer;
    };
+   /**
+    * @param {LLH.API.SongDataType} song 
+    * @param {LLH.API.SongSettingDataType} songSetting 
+    * @returns {LLH.Depends.Promise<LLH.API.NoteDataType[], void>}
+    */
    LLMapNoteData_cls.prototype.getLocalMapNoteData = function (song, songSetting) {
       var me = this;
       var defer = LLDepends.createDeferred();
-      if (song.attribute == '') {
+      if (song.attribute == 'all') {
          // 默认曲目
          defer.resolve(createMapData(songSetting.combo, songSetting.time));
          return defer;
@@ -688,11 +698,13 @@ var LLValuedComponent = (function() {
             this.valueKey = 'innerHTML';
             return this;
          }
+         /** @type {HTMLElement} */
+         var element = this.element;
          var vk = (options && options.valueKey ? options.valueKey : '');
          if (!vk) {
-            var tag = this.element.tagName.toUpperCase();
+            var tag = element.tagName.toUpperCase();
             if (tag == 'INPUT') {
-               if (this.element.type.toUpperCase() == 'CHECKBOX') {
+               if ((/** @type {HTMLInputElement} */ (element)).type.toUpperCase() == 'CHECKBOX') {
                   vk = 'checked';
                } else {
                   vk = 'value';
@@ -704,12 +716,10 @@ var LLValuedComponent = (function() {
             }
          }
          this.valueKey = vk;
-         this.value = this.element[vk];
+         this.value = element[vk];
          var me = this;
          this.on('change', function (e) {
-            if (me.element) {
-               me.set(me.element[me.valueKey]);
-            }
+            me.set(element[me.valueKey]);
          });
       }
       get() {
@@ -1384,9 +1394,13 @@ const LLConstValue = {
    'SKILL_LIMIT_COMBO_FEVER_2': 2147483647,
    'SKILL_LIMIT_HEAL_BONUS': 200,
 
+   /** @type {LLH.Core.SongGroupIdType} */
    'SONG_GROUP_MUSE': 1,
+   /** @type {LLH.Core.SongGroupIdType} */
    'SONG_GROUP_AQOURS': 2,
+   /** @type {LLH.Core.SongGroupIdType} */
    'SONG_GROUP_NIJIGASAKI': 3,
+   /** @type {LLH.Core.SongGroupIdType} */
    'SONG_GROUP_LIELLA': 4,
 
    'SONG_DIFFICULTY_EASY': 1,
@@ -1441,9 +1455,9 @@ const LLConstValue = {
 var LLConst = (function () {
    const KEYS = LLConstValue;
 
-   /** @type {LLH.Core.AttributeType[]} */
-   var COLOR_ID_TO_NAME = ['', 'smile', 'pure', 'cool'];
-   var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple'};
+   /** @type {{[id: number]: LLH.Core.AttributeAllType}} */
+   var COLOR_ID_TO_NAME = {1: 'smile', 2: 'pure', 3: 'cool', 5: 'all'};
+   var COLOR_NAME_TO_COLOR = {'smile': 'red', 'pure': 'green', 'cool': 'blue', '': 'purple', 'all': 'purple'};
 
    /** @type {{[id: number]: LLH.Internal.MemberMetaDataType}} */
    var MEMBER_DATA = {};
@@ -1559,20 +1573,6 @@ var LLConst = (function () {
       return undefined;
    };
 
-   /**
-    * @template T
-    * @param {{[id: string]: T}} d 
-    * @returns {{[id: number]: T}}
-    */
-   var mConvertIntId = function (d) {
-      /** @type {{[id: number]: T}} */
-      var ret = {};
-      for (var k in d) {
-         ret[parseInt(k)] = d[k];
-      }
-      return ret;
-   };
-
    /** @param {LLH.API.UnitTypeDictDataType} members */
    var mInitMemberData = function (members) {
       for (var k in members) {
@@ -1630,11 +1630,10 @@ var LLConst = (function () {
 
    /** @param {LLH.API.AlbumDictDataType} albumMeta */
    var mInitAlbumData = function (albumMeta) {
-      ALBUM_DATA = mConvertIntId(albumMeta);
       var albumGroupNames = {};
       var i, k;
-      for (k in ALBUM_DATA) {
-         var album = ALBUM_DATA[k];
+      for (k in albumMeta) {
+         let album = albumMeta[k];
          var jpname = normalizeAlbumName(album.name);
          if (!albumGroupNames[jpname]) {
             albumGroupNames[jpname] = {'albums': [k], 'name': jpname};
@@ -1646,19 +1645,26 @@ var LLConst = (function () {
          }
       }
       var groupData = [];
+      ALBUM_DATA = {};
       for (k in albumGroupNames) {
          var groupId = groupData.length;
          groupData.push(albumGroupNames[k]);
          albumGroupNames[k].id = groupId;
          var albums = albumGroupNames[k].albums;
          for (i = 0; i < albums.length; i++) {
-            ALBUM_DATA[albums[i]].albumGroupId = groupId;
+            let album = albumMeta[albums[i]];
+            ALBUM_DATA[albums[i]] = {
+               'albumGroupId': groupId,
+               'cnname': album.cnname,
+               'name': album.name
+            };
          }
       }
       ALBUM_GROUP = groupData;
    };
 
    var NOTE_APPEAR_OFFSET_S = [1.8, 1.6, 1.45, 1.3, 1.15, 1, 0.9, 0.8, 0.7, 0.6];
+   /** @type {{[id: LLH.Core.SongDifficultyType]: LLH.Core.NoteSpeedType}} */
    var DEFAULT_SPEED = {};
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_EASY] = 2;
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_NORMAL] = 4;
@@ -1669,16 +1675,6 @@ var LLConst = (function () {
 
    /** @type {LLH.LLConst} */
    var constUtil = {};
-   constUtil.getMemberColor = function (member) {
-      var memberData = mGetMemberData(member);
-      if (!memberData) return undefined;
-      return memberData.color;
-   };
-   constUtil.getMemberBackgroundColor = function (member) {
-      var memberData = mGetMemberData(member);
-      if (!memberData) return KEYS.BACKGROUND_COLOR_DEFAULT;
-      return memberData.background_color;
-   };
 
    var HEAL_BONUS = [0.26,  // 9
       0.29, 0.31, 0.34, 0.37, 0.4,  // 10~14
@@ -1692,14 +1688,19 @@ var LLConst = (function () {
       3,    3.09, 3.19, 3.28, 3.38, // 50~54
       3.47, 3.57, 3.67, 3.77, 3.87, // 55~59
       3.98, 4.08, 4.19, 4.29]; // 60~63
+   var DEFAULT_MAX_SLOT = {'UR': 8, 'SSR': 6, 'SR': 4, 'R': 2, 'N': 1};
+   var DEFAULT_MIN_SLOT = {'UR': 4, 'SSR': 3, 'SR': 2, 'R': 1, 'N': 0};
+
+   /** @type {LLH.Core.MemberTagIdType[]} */
+   var CSKILL_GROUPS = [];
 
    /** @type {LLH.ConstUtil.Common} */
    var CommonUtils = {
       getRarityString: (function () {
-         /** @type {LLH.Core.RarityStringType[]} */
-         var rarityMap = ['', 'N', 'R', 'SR', 'UR', 'SSR'];
+         /** @type {{[id: number]: LLH.Core.RarityStringType}} */
+         var rarityMap = {1: 'N', 2: 'R', 3: 'SR', 4: 'UR', 5: 'SSR'};
          return function (rarity) {
-            return rarityMap[rarity || 0];
+            return rarityMap[rarity];
          };
       })(),
       getAttributeColor: function (attribute) {
@@ -1714,6 +1715,40 @@ var LLConst = (function () {
          var bonus = overHealLevel * HEAL_BONUS[maxHP-9];
          if (bonus > KEYS.SKILL_LIMIT_HEAL_BONUS) bonus = KEYS.SKILL_LIMIT_HEAL_BONUS;
          return 1 + bonus/100;
+      },
+      getDefaultMaxSlot: function(rarity) {
+         return (DEFAULT_MAX_SLOT[rarity] || 0);
+      },
+      getDefaultMinSlot: function(rarity) {
+         return (DEFAULT_MIN_SLOT[rarity] || 0);
+      },
+      getCSkillGroups: function () {
+         mCheckInited('cskill_groups');
+         return CSKILL_GROUPS;
+      },
+      getCardDescription: function (card, language, mezame) {
+         var desc = String(card.id);
+         var albumGroup = constUtil.Album.getAlbumGroupByAlbumId(card.album);
+         if (!albumGroup) {
+            albumGroup = {
+               'albums': [],
+               'id': -1,
+               'name': '未知相册'
+            };
+         }
+         var curTypeId = (card.typeid ? card.typeid : -1);
+         while (desc.length < 3) desc = '0' + desc;
+         desc += ' ' + (card.rarity || '?') + ' ';
+         if (mezame !== undefined) {
+            desc += (mezame ? '觉醒' : '未觉') + ' ';
+         }
+         var albumGroupJpName = (albumGroup.name ? "("+albumGroup.name+")" : '');
+         if (language == KEYS.LANGUAGE_JP) {
+            desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
+         } else {
+            desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
+         }
+         return desc;
       }
    };
    constUtil.Common = CommonUtils;
@@ -1845,6 +1880,16 @@ var LLConst = (function () {
             }
          }
          return ret;
+      },
+      getMemberColor: function (member) {
+         var memberData = mGetMemberData(member);
+         if (!memberData) return undefined;
+         return memberData.color;
+      },
+      getMemberBackgroundColor: function (member) {
+         var memberData = mGetMemberData(member);
+         if ((!memberData) || (!memberData.background_color)) return KEYS.BACKGROUND_COLOR_DEFAULT;
+         return memberData.background_color;
       }
    };
    constUtil.Member = MemberUtils;
@@ -2057,7 +2102,8 @@ var LLConst = (function () {
          } else if (effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_SMILE
             || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_PURE
             || effect_type == KEYS.SIS_EFFECT_TYPE_ACCURACY_COOL) {
-            desc += '判定强化技能发动时，装备此技能的社员的' + COLOR_ID_TO_NAME[gemData.color] + '变为' + (gemData.effect_value + 100)/100 + '倍';
+            let colorName = (gemData.color && COLOR_ID_TO_NAME[gemData.color]) || '<未知属性>';
+            desc += '判定强化技能发动时，装备此技能的社员的' + colorName + '变为' + (gemData.effect_value + 100)/100 + '倍';
          } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_SCORE) {
             desc += '得分增加' + gemData.effect_value + '%';
          } else if (effect_type == KEYS.SIS_EFFECT_TYPE_LA_DEBUFF) {
@@ -2079,7 +2125,7 @@ var LLConst = (function () {
       },
       getGemColor: function (gemData) {
          if (gemData.type == KEYS.SIS_TYPE_NORMAL) {
-            return COLOR_NAME_TO_COLOR[COLOR_ID_TO_NAME[gemData.color || 0]];
+            return COLOR_NAME_TO_COLOR[COLOR_ID_TO_NAME[gemData.color || 5]];
          } else if (gemData.type == KEYS.SIS_TYPE_LIVE_ARENA) {
             var trigger_ref = gemData.trigger_ref;
             if (trigger_ref == KEYS.SIS_TRIGGER_REF_HP_PERCENT
@@ -2124,6 +2170,7 @@ var LLConst = (function () {
    constUtil.Gem = GemUtils;
    constUtil.GemType = (function (arr) {
       /** @type {LLH.ConstUtil.GemType} */
+      // @ts-ignore
       var indexMap = {};
       for (var i = 0; i < arr.length; i++) {
          indexMap[arr[i].key] = i;
@@ -2131,32 +2178,37 @@ var LLConst = (function () {
       return indexMap;
    })(GEM_NORMAL_TYPE_DATA);
 
-   constUtil.getNoteAppearTime = function(noteTimeSec, speed) {
-      return noteTimeSec - NOTE_APPEAR_OFFSET_S[speed - 1];
-   };
-   constUtil.getDefaultSpeed = function (difficulty) {
-      return DEFAULT_SPEED[difficulty] || 8;
-   };
-   constUtil.isHoldNote = function(note_effect) {
-      return (note_effect == KEYS.NOTE_TYPE_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_HOLD);
-   };
-   constUtil.isSwingNote = function(note_effect) {
-      return (note_effect == KEYS.NOTE_TYPE_SWING || note_effect == KEYS.NOTE_TYPE_SWING_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_EVENT);
-   };
-   constUtil.getComboScoreFactor = function (combo) {
-      if (combo <= 50) return 1;
-      else if (combo <= 100) return 1.1;
-      else if (combo <= 200) return 1.15;
-      else if (combo <= 400) return 1.2;
-      else if (combo <= 600) return 1.25;
-      else if (combo <= 800) return 1.3;
-      else return 1.35;
-   };
    var COMBO_FEVER_PATTERN_2 = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 5, 6, 7, 8, 9, 10]
-   constUtil.getComboFeverBonus = function(combo, pattern) {
-      if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
-      return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
+
+   /** @type {LLH.ConstUtil.Live} */
+   var LiveUtils = {
+      getNoteAppearTime: function(noteTimeSec, speed) {
+         return noteTimeSec - NOTE_APPEAR_OFFSET_S[speed - 1];
+      },
+      getDefaultSpeed: function (difficulty) {
+         return DEFAULT_SPEED[difficulty] || 8;
+      },
+      isHoldNote: function(note_effect) {
+         return (note_effect == KEYS.NOTE_TYPE_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_HOLD);
+      },
+      isSwingNote: function(note_effect) {
+         return (note_effect == KEYS.NOTE_TYPE_SWING || note_effect == KEYS.NOTE_TYPE_SWING_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_EVENT);
+      },
+      getComboScoreFactor: function (combo) {
+         if (combo <= 50) return 1;
+         else if (combo <= 100) return 1.1;
+         else if (combo <= 200) return 1.15;
+         else if (combo <= 400) return 1.2;
+         else if (combo <= 600) return 1.25;
+         else if (combo <= 800) return 1.3;
+         else return 1.35;
+      },
+      getComboFeverBonus: function(combo, pattern) {
+         if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
+         return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
+      }
    };
+   constUtil.Live = LiveUtils;
 
    var SKILL_TRIGGER_TEXT = {};
    SKILL_TRIGGER_TEXT[KEYS.SKILL_TRIGGER_TIME] = {'name': '时间', 'unit': '秒'};
@@ -2187,7 +2239,7 @@ var LLConst = (function () {
          if (!targets) return '(数据缺失)';
          var desc = '';
          for (var i = 0; i < targets.length; i++) {
-            desc += constUtil.Group.getGroupName(parseInt(targets[i]));
+            desc += constUtil.Group.getGroupName(targets[i]);
          }
          return desc;
       },
@@ -2273,12 +2325,11 @@ var LLConst = (function () {
          var effect_type = card.skilleffect;
          var effect_value = level_detail.score;
          var discharge_time = level_detail.time;
+         // cover the legacy case
          if (discharge_time === undefined) {
             if (effect_type == 4 || effect_type == 5) {
                discharge_time = effect_value;
                effect_value = 0;
-            } else {
-               discharge_time = '(数据缺失)';
             }
          }
          var trigger_text = SkillUtils.getTriggerDescription(card.triggertype, level_detail.require, card.triggertarget);
@@ -2308,30 +2359,21 @@ var LLConst = (function () {
       getEffectBrief: function (effectType) {
          if (!effectType) return '无';
          return SKILL_EFFECT_TEXT[effectType] || '未知';
+      },
+      getSkillTriggerText: function(skill_trigger) {
+         if (!skill_trigger) return '无';
+         var t = SKILL_TRIGGER_TEXT[skill_trigger];
+         if (!t) return '未知';
+         return t.name;
+      },
+      getSkillTriggerUnit: function(skill_trigger) {
+         if (!skill_trigger) return '';
+         var t = SKILL_TRIGGER_TEXT[skill_trigger];
+         if (!t) return '';
+         return t.unit;
       }
    };
    constUtil.Skill = SkillUtils;
-   constUtil.getSkillTriggerText = function(skill_trigger) {
-      if (!skill_trigger) return '无';
-      var t = SKILL_TRIGGER_TEXT[skill_trigger];
-      if (!t) return '未知';
-      return t.name;
-   };
-   constUtil.getSkillTriggerUnit = function(skill_trigger) {
-      if (!skill_trigger) return '';
-      var t = SKILL_TRIGGER_TEXT[skill_trigger];
-      if (!t) return '';
-      return t.unit;
-   };
-
-   var DEFAULT_MAX_SLOT = {'UR': 8, 'SSR': 6, 'SR': 4, 'R': 2, 'N': 1};
-   var DEFAULT_MIN_SLOT = {'UR': 4, 'SSR': 3, 'SR': 2, 'R': 1, 'N': 0};
-   constUtil.getDefaultMaxSlot = function(rarity) {
-      return (DEFAULT_MAX_SLOT[rarity] || 0);
-   };
-   constUtil.getDefaultMinSlot = function(rarity) {
-      return (DEFAULT_MIN_SLOT[rarity] || 0);
-   };
 
    /** @type {LLH.ConstUtil.Album} */
    var AlbumUtils = {
@@ -2364,15 +2406,6 @@ var LLConst = (function () {
       }
    };
    constUtil.Album = AlbumUtils;
-   constUtil.isAlbumInAlbumGroup = function (album_id, group_id) {
-      mCheckInited('album');
-      if (album_id === undefined || album_id == '') return false;
-      if (!ALBUM_DATA[parseInt(album_id)]) {
-         console.error('not found album ' + album_id);
-         return false;
-      }
-      return ALBUM_DATA[parseInt(album_id)].albumGroupId === parseInt(group_id);
-   };
 
    /** @type {LLH.ConstUtil.Accessory} */
    var AccessoryUtils = {
@@ -2395,11 +2428,10 @@ var LLConst = (function () {
          for (var i in accessoryData) {
             AccessoryUtils.postProcessSingleAccessoryData(accessoryData[i], cardData);
          }
-         return accessoryData;
+         return /** @type {LLH.Internal.ProcessedAccessoryDictDataType} */ (accessoryData);
       },
       postProcessSingleAccessoryData: function (accessoryData, cardData) {
-         /** @type {LLH.Internal.ProcessedAccessoryDataType} */
-         var retAccessory = accessoryData;
+         var retAccessory = /** @type {LLH.Internal.ProcessedAccessoryDataType} */ (accessoryData);
          if (retAccessory.unit_id) {
             var cardId = retAccessory.unit_id;
             if (cardData[cardId]) {
@@ -2415,6 +2447,7 @@ var LLConst = (function () {
       },
       getAccessoryMainAttribute: function (accessory) {
          var maxValue = accessory.smile;
+         /** @type {LLH.Core.AttributeAllType} */
          var mainAttribute = 'smile';
          var maxCount = 1;
          if (accessory.pure > maxValue) {
@@ -2434,7 +2467,7 @@ var LLConst = (function () {
          if (maxCount == 1) {
             return mainAttribute;
          } else {
-            return '';
+            return 'all';
          }
       },
       getAccessoryType: function (accessory) {
@@ -2483,12 +2516,6 @@ var LLConst = (function () {
    };
    constUtil.Accessory = AccessoryUtils;
 
-   var CSKILL_GROUPS = [];
-   constUtil.getCSkillGroups = function () {
-      mCheckInited('cskill_groups');
-      return CSKILL_GROUPS;
-   };
-
    constUtil.initMetadata = function(metadata) {
       if (metadata.album) {
          mInitAlbumData(metadata.album);
@@ -2522,95 +2549,109 @@ var LLConst = (function () {
    SONG_DIFFICULTY_NAME[KEYS.SONG_DIFFICULTY_RANDOM] = {'cn': '随机', 'en': 'Random'};
    SONG_DIFFICULTY_NAME[KEYS.SONG_DIFFICULTY_MASTER] = {'cn': '大师', 'en': 'Master'};
 
+   /** @type {{[id: number]: LLH.Core.BigGroupIdType}} */
    var SONG_GROUP_TO_GROUP = {};
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_MUSE] = KEYS.GROUP_MUSE;
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_AQOURS] = KEYS.GROUP_AQOURS;
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_NIJIGASAKI] = KEYS.GROUP_NIJIGASAKI;
    SONG_GROUP_TO_GROUP[KEYS.SONG_GROUP_LIELLA] = KEYS.GROUP_LIELLA;
 
-   constUtil.getSongGroupShortName = function (song_group) {
-      return SONG_GROUP_NAME[parseInt(song_group)] || '?';
-   };
-   constUtil.getSongGroupIds = function () {
-      return [KEYS.SONG_GROUP_MUSE, KEYS.SONG_GROUP_AQOURS, KEYS.SONG_GROUP_NIJIGASAKI, KEYS.SONG_GROUP_LIELLA];
-   };
-   constUtil.getGroupForSongGroup = function (song_group) {
-      if (SONG_GROUP_TO_GROUP[parseInt(song_group)] !== undefined) {
-         return SONG_GROUP_TO_GROUP[parseInt(song_group)];
-      }
-      return KEYS.GROUP_UNKNOWN;
-   };
-   constUtil.getDefaultSongSetIds = function () {
-      return [KEYS.SONG_DEFAULT_SET_1, KEYS.SONG_DEFAULT_SET_2];
-   };
-   constUtil.getSongDifficultyName = function (diff, cn) {
-      return SONG_DIFFICULTY_NAME[parseInt(diff)][cn ? 'cn' : 'en'];
-   };
-   constUtil.getDefaultSong = function (song_group, default_set) {
-      song_group = parseInt(song_group);
-      default_set = parseInt(default_set);
-      var expert_default = {
-         'time': 110,
-         'star': 65,
-         'difficulty': KEYS.SONG_DIFFICULTY_EXPERT,
-         'stardifficulty': 9,
-         'liveid': String(-(song_group*100+default_set*10+KEYS.SONG_DIFFICULTY_EXPERT))
-      };
-      var master_default = {
-         'time': 110,
-         'star': 65,
-         'difficulty': KEYS.SONG_DIFFICULTY_MASTER,
-         'stardifficulty': 11,
-         'liveid': String(-(song_group*100+default_set*10+KEYS.SONG_DIFFICULTY_MASTER))
-      };
-      var master2_default ={
-         'time': 110,
-         'star': 65,
-         'difficulty': KEYS.SONG_DIFFICULTY_MASTER,
-         'stardifficulty': 12,
-         'liveid': String(-(song_group*100+default_set*10+KEYS.SONG_DIFFICULTY_MASTER+1))
-      };
-      if (default_set == KEYS.SONG_DEFAULT_SET_1) {
-         expert_default.positionweight = [63.75,63.75,63.75,63.75,0,63.75,63.75,63.75,63.75];
-         expert_default.combo = 500;
-         master_default.positionweight = [87.5,87.5,87.5,87.5,0,87.5,87.5,87.5,87.5];
-         master_default.combo = 700;
-         master2_default.positionweight = [112.5,112.5,112.5,112.5,0,112.5,112.5,112.5,112.5];
-         master2_default.combo = 900;
-      } else if (default_set == KEYS.SONG_DEFAULT_SET_2) {
-         expert_default.positionweight = [63,63,63,63,0,63,63,63,63];
-         expert_default.combo = 504;
-         master_default.positionweight = [88,88,88,88,0,88,88,88,88];
-         master_default.combo = 704;
-         master2_default.positionweight = [113,113,113,113,0,113,113,113,113];
-         master2_default.combo = 904;
-      }
-      var default_song = {'group': song_group, 'bpm': 200, 'attribute': '', 'settings': {}};
-      default_song.name = '默认曲目' + default_set + '（' + constUtil.getSongGroupShortName(song_group) + '）';
-      default_song.jpname = default_song.name;
-      default_song.settings[expert_default.liveid] = expert_default;
-      default_song.settings[master_default.liveid] = master_default;
-      default_song.settings[master2_default.liveid] = master2_default;
-      return default_song;
-   };
+   /** @type {LLH.ConstUtil.Song} */
+   var SongUtil = {
+      getSongGroupShortName: function (song_group) {
+         return SONG_GROUP_NAME[song_group] || '?';
+      },
+      getSongGroupIds: function () {
+         return [KEYS.SONG_GROUP_MUSE, KEYS.SONG_GROUP_AQOURS, KEYS.SONG_GROUP_NIJIGASAKI, KEYS.SONG_GROUP_LIELLA];
+      },
+      getGroupForSongGroup: function (song_group) {
+         if (SONG_GROUP_TO_GROUP[song_group] !== undefined) {
+            return SONG_GROUP_TO_GROUP[song_group];
+         }
+         return KEYS.GROUP_UNKNOWN;
+      },
+      getDefaultSongSetIds: function () {
+         return [KEYS.SONG_DEFAULT_SET_1, KEYS.SONG_DEFAULT_SET_2];
+      },
+      getSongDifficultyName: function (diff, language) {
+         return SONG_DIFFICULTY_NAME[diff][language == KEYS.LANGUAGE_CN ? 'cn' : 'en'];
+      },
+      getDefaultSong: function (song_group, default_set) {
+         var songIdBase = -(song_group*100+default_set*10);
+         /** @type {LLH.Core.PositionWeightType} */
+         var exWeight, maWeight, ma2Weight;
+         /** @type {number} */
+         var exCombo, maCombo, ma2Combo;
+         if (default_set == KEYS.SONG_DEFAULT_SET_1) {
+            exWeight = [63.75,63.75,63.75,63.75,0,63.75,63.75,63.75,63.75];
+            exCombo = 500;
+            maWeight = [87.5,87.5,87.5,87.5,0,87.5,87.5,87.5,87.5];
+            maCombo = 700;
+            ma2Weight = [112.5,112.5,112.5,112.5,0,112.5,112.5,112.5,112.5];
+            ma2Combo = 900;
+         } else {
+            exWeight = [63,63,63,63,0,63,63,63,63];
+            exCombo = 504;
+            maWeight = [88,88,88,88,0,88,88,88,88];
+            maCombo = 704;
+            ma2Weight = [113,113,113,113,0,113,113,113,113];
+            ma2Combo = 904;
+         }
+         /** @type {LLH.API.SongSettingDataType} */
+         var expert_default = {
+            'time': '110',
+            'star': '65',
+            'difficulty': KEYS.SONG_DIFFICULTY_EXPERT,
+            'stardifficulty': 9,
+            'liveid': (songIdBase-KEYS.SONG_DIFFICULTY_EXPERT).toFixed(),
+            'positionweight': exWeight,
+            'combo': exCombo,
+            'isac': 0,
+            'isswing': 0
+         };
+         /** @type {LLH.API.SongSettingDataType} */
+         var master_default = {
+            'time': '110',
+            'star': '65',
+            'difficulty': KEYS.SONG_DIFFICULTY_MASTER,
+            'stardifficulty': 11,
+            'liveid': (songIdBase-KEYS.SONG_DIFFICULTY_MASTER).toFixed(),
+            'positionweight': maWeight,
+            'combo': maCombo,
+            'isac': 0,
+            'isswing': 0
+         };
+         /** @type {LLH.API.SongSettingDataType} */
+         var master2_default ={
+            'time': '110',
+            'star': '65',
+            'difficulty': KEYS.SONG_DIFFICULTY_MASTER,
+            'stardifficulty': 12,
+            'liveid': (songIdBase-KEYS.SONG_DIFFICULTY_MASTER-1).toFixed(),
+            'positionweight': ma2Weight,
+            'combo': ma2Combo,
+            'isac': 0,
+            'isswing': 0
+         };
 
-   constUtil.getCardDescription = function (card, isJp, mezame) {
-      var desc = String(card.id);
-      var albumGroup = constUtil.Album.getAlbumGroupByAlbumId(card.album) || {};
-      var curTypeId = (card.typeid ? parseInt(card.typeid) : -1);
-      while (desc.length < 3) desc = '0' + desc;
-      desc += ' ' + (card.rarity || '?') + ' ';
-      if (mezame !== undefined) {
-         desc += (mezame ? '觉醒' : '未觉') + ' ';
+         var songName = '默认曲目' + default_set + '（' + SongUtil.getSongGroupShortName(song_group) + '）';
+         /** @type {LLH.API.SongDataType} */
+         var default_song = {
+            'id': songIdBase.toFixed(),
+            'name': songName,
+            'jpname': songName,
+            'group': song_group,
+            'bpm': '200',
+            'attribute': 'all',
+            'settings': {}
+         };
+         default_song.settings[expert_default.liveid] = expert_default;
+         default_song.settings[master_default.liveid] = master_default;
+         default_song.settings[master2_default.liveid] = master2_default;
+         return default_song;
       }
-      var albumGroupJpName = (albumGroup.name ? "("+albumGroup.name+")" : '');
-      if (isJp) {
-         desc += (card.jpeponym ? "【"+card.jpeponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId) + ' ' + albumGroupJpName;
-      } else {
-         desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
-      }
-      return desc;
    };
+   constUtil.Song = SongUtil;
 
    return constUtil;
 })();
@@ -2779,7 +2820,12 @@ var LLUnit = {
          else if (index < additionalBegin) accessoryResults[data.id] = data;
          else extraResults[index-additionalBegin] = data;
       }).then(function (cards) {
-         docalculate(cards, accessoryResults, extraResults);
+         try {
+            docalculate(cards, accessoryResults, extraResults);
+         } catch (e) {
+            console.error('calculate fail');
+            console.error(e);
+         }
       }, defaultHandleFailedRequest);
    },
 
@@ -2971,7 +3017,7 @@ var LLUnit = {
    setAvatarSrcList: function (imgComp, cardid, mezame) {
       imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
       if (cardid) {
-         imgComp.setAltText(LLConst.getCardDescription((LLCardData.getAllCachedBriefData() || {'id': cardid})[cardid], false, mezame));
+         imgComp.setAltText(LLConst.Common.getCardDescription((LLCardData.getAllCachedBriefData() || {'id': cardid})[cardid], LLConstValue.LANGUAGE_CN, mezame));
       } else {
          imgComp.setAltText('');
       }
@@ -3168,7 +3214,7 @@ var LLCardSelectorComponent = (function() {
    var MEM_ID_LANGUAGE = 'language';
 
    var makeTriggerTypeOption = function (triggerId) {
-      return {'value': triggerId, 'text': LLConst.getSkillTriggerText(parseInt(triggerId))};
+      return {'value': triggerId, 'text': LLConst.Skill.getSkillTriggerText(parseInt(triggerId))};
    };
    var makeEffectTypeOption = function (effectId) {
       return {'value': effectId, 'text': LLConst.Skill.getEffectBrief(parseInt(effectId))};
@@ -3316,8 +3362,8 @@ var LLCardSelectorComponent = (function() {
             if (curCard.support == 1) continue;
    
             var curTypeId = (curCard.typeid ? curCard.typeid : -1);
-            var cnName = LLConst.getCardDescription(curCard, false);
-            var jpName = LLConst.getCardDescription(curCard, true);
+            var cnName = LLConst.Common.getCardDescription(curCard, LLConstValue.LANGUAGE_CN);
+            var jpName = LLConst.Common.getCardDescription(curCard, LLConstValue.LANGUAGE_JP);
             var color = LLConst.Common.getAttributeColor(curCard.attribute);
             cardOptionsCN.push({'value': index, 'text': cnName, 'color': color});
             cardOptionsJP.push({'value': index, 'text': jpName, 'color': color});
@@ -3380,7 +3426,7 @@ var LLCardSelectorComponent = (function() {
             var curTypeId = normalizedTypeIds[i];
             var jpName = LLConst.Member.getMemberName(curTypeId);
             var cnName = LLConst.Member.getMemberName(curTypeId, LLConstValue.LANGUAGE_CN);
-            var bkColor = LLConst.getMemberBackgroundColor(curTypeId);
+            var bkColor = LLConst.Member.getMemberBackgroundColor(curTypeId);
             charaNameOptionsCN.push({'value': jpName, 'text': cnName, 'background': bkColor});
             charaNameOptionsJP.push({'value': jpName, 'text': jpName, 'background': bkColor});
          }
@@ -3392,7 +3438,7 @@ var LLCardSelectorComponent = (function() {
          for (i in foundTriggerRequires) {
             var triggerRequires = Object.keys(foundTriggerRequires[i]).sort(function (a, b){return parseInt(a) - parseInt(b)});
             var options = [{'value': '', 'text': '触发条件'}];
-            var unitText = LLConst.getSkillTriggerUnit(parseInt(i));
+            var unitText = LLConst.Skill.getSkillTriggerUnit(parseInt(i));
             for (var j = 0; j < triggerRequires.length; j++) {
                options.push({'value': triggerRequires[j], 'text': triggerRequires[j] + unitText});
             }
@@ -3522,7 +3568,7 @@ var LLSongSelectorComponent = (function() {
       me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
          if (v == '') return true;
          var songData = me.songs[v];
-         if ((!songData) || songData.attribute == '') return true;
+         if ((!songData) || songData.attribute == 'all') return true;
          return (opt.value == songData.attribute);
       });
       me.addFilterCallback(SEL_ID_DIFF_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
@@ -3530,7 +3576,7 @@ var LLSongSelectorComponent = (function() {
          var songSetting = me.songSettings[v];
          if (!songSetting) return true;
          var songData = me.songs[songSetting.song];
-         if ((!songData) || songData.attribute == '') return true;
+         if ((!songData) || songData.attribute == 'all') return true;
          return (opt.value == songData.attribute);
       });
       updateSubElements(container, [
@@ -3569,7 +3615,7 @@ var LLSongSelectorComponent = (function() {
             'songSetting': songSetting,
             'friendCSkill': (me.friendCSkill ? me.friendCSkill.getCSkill() : undefined)
          });
-         llmap.attribute = me.getSongAttribute();
+         llmap.setAttribute(me.getSongAttribute());
          llmap.setSongDifficultyData(parseInt(numMapCombo.value), parseInt(numMapStarPerfect.value), parseInt(numMapTime.value), parseInt(numMapPerfect.value), parseInt(numMapStarPerfect.value));
          if (isLAMode) {
             llmap.setLADebuff(parseFloat(numDebuffSkillRateDown.value), parseInt(numDebuffHpDownValue.value), parseFloat(numDebuffHpDownInterval.value));
@@ -3654,7 +3700,7 @@ var LLSongSelectorComponent = (function() {
             me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songSettingChecker(opt, v, d));
          };
          me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.song == v));
-         addSongAndSettingFilterBySong(SEL_ID_SONG_ATT, (opt, v, d) => (d.attribute == '' || (d.attribute == v)));
+         addSongAndSettingFilterBySong(SEL_ID_SONG_ATT, (opt, v, d) => (d.attribute == 'all' || (d.attribute == v)));
          addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => (d.group == v));
          addSongAndSettingFilterBySong(TEXT_ID_SONG_SEARCH, function (opt, v, d) {
             v = v.toLowerCase();
@@ -3698,12 +3744,12 @@ var LLSongSelectorComponent = (function() {
          var i, j;
    
          if (!excludeDefaultSong) {
-            var songGroups = LLConst.getSongGroupIds();
-            var songDefaultSets = LLConst.getDefaultSongSetIds();
+            var songGroups = LLConst.Song.getSongGroupIds();
+            var songDefaultSets = LLConst.Song.getDefaultSongSetIds();
             for (i = 0; i < songGroups.length; i++) {
                for (j = 0; j < songDefaultSets.length; j++) {
-                  var defaultSong = LLConst.getDefaultSong(songGroups[i], songDefaultSets[j]);
-                  songs[String(-((i+1)*100 + j))] = defaultSong;
+                  var defaultSong = LLConst.Song.getDefaultSong(songGroups[i], songDefaultSets[j]);
+                  songs[defaultSong.id] = defaultSong;
                }
             }
          }
@@ -3741,8 +3787,8 @@ var LLSongSelectorComponent = (function() {
                while (fullname.length < 3) fullname = '0' + fullname;
             }
             fullname += ' ★ ' + curSongSetting.stardifficulty + ' [';
-            var cnName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 1) + (curSongSetting.isac ? ' 街机' : '') + (curSongSetting.isswing ? ' 滑键' : '') + '][' + curSongSetting.combo + ' 连击] ' + curSong.name;
-            var jpName = fullname + LLConst.getSongDifficultyName(curSongSetting.difficulty, 0) + (curSongSetting.isac ? ' Arcade' : '') + (curSongSetting.isswing ? ' Swing' : '') + '][' + curSongSetting.combo + ' COMBO] ' + curSong.jpname;
+            var cnName = fullname + LLConst.Song.getSongDifficultyName(curSongSetting.difficulty, LLConstValue.LANGUAGE_CN) + (curSongSetting.isac ? ' 街机' : '') + (curSongSetting.isswing ? ' 滑键' : '') + '][' + curSongSetting.combo + ' 连击] ' + curSong.name;
+            var jpName = fullname + LLConst.Song.getSongDifficultyName(curSongSetting.difficulty, LLConstValue.LANGUAGE_JP) + (curSongSetting.isac ? ' Arcade' : '') + (curSongSetting.isswing ? ' Swing' : '') + '][' + curSongSetting.combo + ' COMBO] ' + curSong.jpname;
             var color = LLConst.Common.getAttributeColor(curSong.attribute);
             songSettingOptionsCN.push({'value': liveId, 'text': cnName, 'color': color});
             songSettingOptionsJP.push({'value': liveId, 'text': jpName, 'color': color});
@@ -3850,7 +3896,7 @@ var LLSongSelectorComponent = (function() {
          if (!me.includeMapInfo) {
             var curSong = me.getSelectedSong();
             if (curSong) return curSong.attribute;
-            return '';
+            return 'all';
          } else {
             return me.getComponent(SEL_ID_MAP_ATT).get();
          }
@@ -3922,7 +3968,7 @@ var LLSaveLoadJsonHelper = {
  *   LLTeam
  */
 var LLMap = (function () {
-   var DEFAULT_SONG_MUSE = LLConst.getDefaultSong(LLConstValue.SONG_GROUP_MUSE, LLConstValue.SONG_DEFAULT_SET_1);
+   var DEFAULT_SONG_MUSE = LLConst.Song.getDefaultSong(LLConstValue.SONG_GROUP_MUSE, LLConstValue.SONG_DEFAULT_SET_1);
    var DEFAULT_SONG_SETTING = (function (s) {
       for (var k in s.settings) {
          if (s.settings[k].difficulty == LLConstValue.SONG_DIFFICULTY_EXPERT) {
@@ -3956,21 +4002,22 @@ var LLMap = (function () {
       me.setMapBuff();
       me.setLADebuff();
    };
-   /** @type {typeof LLH.Model.LLMap} */
-   var cls = LLMap_cls;
-   var proto = cls.prototype;
-   proto.setSong = function (song, songSetting) {
+
+   LLMap_cls.prototype.setAttribute = function (attribute) {
+      this.data.attribute = attribute;
+   };
+   LLMap_cls.prototype.setSong = function (song, songSetting) {
       if ((!song) || (!songSetting)) {
          console.error('No song data');
          return;
       }
-      this.data.attribute = song.attribute || '';
-      this.data.songUnit = LLConst.getGroupForSongGroup(song.group);
+      this.data.attribute = song.attribute;
+      this.data.songUnit = LLConst.Song.getGroupForSongGroup(song.group);
       // when difficulty is not given, use 0 for difficulty-specific data
       this.setSongDifficultyData(songSetting.combo, songSetting.star, songSetting.time);
       this.setWeights(songSetting.positionweight || [0, 0, 0, 0, 0, 0, 0, 0, 0]);
    };
-   proto.setWeights = function (weights) {
+   LLMap_cls.prototype.setWeights = function (weights) {
       var w = [];
       var total = 0;
       if (weights && weights.length == 9) {
@@ -3989,7 +4036,7 @@ var LLMap = (function () {
       this.data.weights = w;
       this.data.totalWeight = total;
    };
-   proto.setFriendCSkill = function (addToAttribute, addFromAttribute, percentage, groupLimit, groupPercentage) {
+   LLMap_cls.prototype.setFriendCSkill = function (addToAttribute, addFromAttribute, percentage, groupLimit, groupPercentage) {
       this.data.friendCSkill = {
          'attribute': addToAttribute,
          'Cskillattribute': addFromAttribute,
@@ -3998,7 +4045,7 @@ var LLMap = (function () {
          'Csecondskillattribute': parseInt(groupPercentage || 0)
       };
    };
-   proto.setSongDifficultyData = function (combo, star, time, perfect, starPerfect) {
+   LLMap_cls.prototype.setSongDifficultyData = function (combo, star, time, perfect, starPerfect) {
       this.data.combo = parseInt(combo || 0);
       this.data.star = parseInt(star || 0);
       this.data.time = parseFloat(time || 0);
@@ -4006,16 +4053,16 @@ var LLMap = (function () {
       this.data.perfect = parseInt(perfect === undefined ? (this.data.combo * 19 / 20) : perfect || 0);
       this.data.starPerfect = parseInt(starPerfect || 0);
    };
-   proto.setMapBuff = function (tapup, skillup) {
+   LLMap_cls.prototype.setMapBuff = function (tapup, skillup) {
       this.data.tapup = parseFloat(tapup || 0);
       this.data.skillup = parseFloat(skillup || 0);
    };
-   proto.setLADebuff = function (skillRateDown, hpDownValue, hpDownInterval) {
+   LLMap_cls.prototype.setLADebuff = function (skillRateDown, hpDownValue, hpDownInterval) {
       this.data.debuff_skill_rate_down = parseFloat(skillRateDown || 0);
       this.data.debuff_hp_down_value = parseInt(hpDownValue || 0);
       this.data.debuff_hp_down_interval = parseInt(hpDownInterval || 0);
    };
-   proto.setDistParam = function (distParam) {
+   LLMap_cls.prototype.setDistParam = function (distParam) {
       this.data.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.data.combo);
       this.data.speed = distParam.speed;
       this.data.combo_fever_pattern = distParam.combo_fever_pattern;
@@ -4027,14 +4074,14 @@ var LLMap = (function () {
          this.data.simMode = distParam.type;
       }
    };
-   proto.saveData = function () {
+   LLMap_cls.prototype.saveData = function () {
       return this.data;
    };
-   proto.loadData = function (data) {
+   LLMap_cls.prototype.loadData = function (data) {
       this.data = data;
    };
-   LLSaveLoadJsonMixin(proto);
-   return cls;
+   LLSaveLoadJsonMixin(LLMap_cls.prototype);
+   return LLMap_cls;
 })();
 
 var LLSisGem = (function () {
@@ -4054,7 +4101,7 @@ var LLSisGem = (function () {
       if (meta.per_grade && options.grade) this.grade = options.grade;
       if (meta.per_member && options.member) {
          this.member = options.member;
-         this.color = LLConst.getMemberColor(options.member);
+         this.color = LLConst.Member.getMemberColor(options.member);
       }
       if (meta.per_color && options.color) this.color = options.color;
       if (meta.per_unit && options.unit) this.unit = options.unit;
@@ -5444,7 +5491,7 @@ var LLSimulateContext = (function() {
                   //TODO: 如果被完美判覆盖到长条开头呢?
                }
                if (this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER] > 0) {
-                  comboFeverScore = Math.ceil(LLConst.getComboFeverBonus(this.currentCombo, this.staticData.comboFeverPattern) * this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER]);
+                  comboFeverScore = Math.ceil(LLConst.Live.getComboFeverBonus(this.currentCombo, this.staticData.comboFeverPattern) * this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER]);
                   if (comboFeverScore > this.staticData.comboFeverLimit) {
                      comboFeverScore = this.staticData.comboFeverLimit;
                   }
@@ -5455,7 +5502,7 @@ var LLSimulateContext = (function() {
                //}
                var baseAttribute = (isAccuracyState ? teamData.totalAttrWithAccuracy : teamData.totalAttrNoAccuracy) + this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP];
                // note position 数值1~9, 从右往左数
-               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHPData.overHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
+               var baseNoteScore = baseAttribute/100 * curNote.factor * accuracyBonus * this.currentHPData.overHealBonus * this.staticData.memberBonusFactor[9-curNote.note.position] * LLConst.Live.getComboScoreFactor(this.currentCombo) + comboFeverScore + perfectScoreUp;
                // 点击得分加成对PP分也有加成效果
                // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
                this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
@@ -5766,10 +5813,10 @@ var LLTeam = (function() {
       for (i = 0; i < noteData.length; i++) {
          noteTriggerData.push({
             'type': SIM_NOTE_ENTER,
-            'time': LLConst.getNoteAppearTime(noteData[i].timing_sec, speed),
+            'time': LLConst.Live.getNoteAppearTime(noteData[i].timing_sec, speed),
             'note': noteData[i]
          });
-         if (LLConst.isHoldNote(noteData[i].effect)) {
+         if (LLConst.Live.isHoldNote(noteData[i].effect)) {
             noteTriggerData.push({
                'type': SIM_NOTE_HOLD,
                'time': noteData[i].timing_sec,
@@ -5778,14 +5825,14 @@ var LLTeam = (function() {
             noteTriggerData.push({
                'type': SIM_NOTE_RELEASE,
                'time': noteData[i].timing_sec + noteData[i].effect_value,
-               'factor': LLConst.isSwingNote(noteData[i].effect) ? 0.5 : 1,
+               'factor': LLConst.Live.isSwingNote(noteData[i].effect) ? 0.5 : 1,
                'note': noteData[i]
             });
          } else {
             noteTriggerData.push({
                'type': SIM_NOTE_HIT,
                'time': noteData[i].timing_sec,
-               'factor': LLConst.isSwingNote(noteData[i].effect) ? 0.5 : 1,
+               'factor': LLConst.Live.isSwingNote(noteData[i].effect) ? 0.5 : 1,
                'note': noteData[i]
             });
          }
@@ -6428,7 +6475,7 @@ var LLSaveData = (function () {
                            'pure': 0,
                            'cool': 0
                         };
-                        memberGemPerColor[LLConst.getMemberColor(curMemberName)] = memberGemCount;
+                        memberGemPerColor[LLConst.Member.getMemberColor(curMemberName)] = memberGemCount;
                         m29[curMemberName] = memberGemPerColor;
                      } else {
                         m29[curMemberName] = {'ALL': 0};
@@ -6450,7 +6497,7 @@ var LLSaveData = (function () {
          for (var i = 0; i < teamMember.length; i++) {
             var curMember = teamMember[i];
             if (curMember.gemmember && parseInt(curMember.gemmember) == 1) {
-               var memberColor = LLConst.getMemberColor(parseInt(LLCardData.getAllCachedBriefData()[curMember.cardid].typeid));
+               var memberColor = LLConst.Member.getMemberColor(parseInt(LLCardData.getAllCachedBriefData()[curMember.cardid].typeid));
                curMember.gemmember = GEM_MEMBER_COLOR_102_TO_103[memberColor];
             } else if (!curMember.gemmember) {
                curMember.gemmember = 0;
@@ -8715,7 +8762,7 @@ var LLTeamComponent = (function () {
          if (cardbrief) {
             controllers.info.cells[i].set(cardbrief.attribute);
             controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, LLConstValue.LANGUAGE_CN));
-            controllers.skill_trigger.cells[i].set(LLConst.getSkillTriggerText(cardbrief.triggertype));
+            controllers.skill_trigger.cells[i].set(LLConst.Skill.getSkillTriggerText(cardbrief.triggertype));
             controllers.skill_effect.cells[i].set(LLConst.Skill.getEffectBrief(cardbrief.skilleffect));
             if (member.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
@@ -8735,7 +8782,7 @@ var LLTeamComponent = (function () {
          if (member.maxcost !== undefined) {
             controllers.slot.cells[i].setMaxSlot(parseInt(member.maxcost));
          } else if (cardbrief && cardbrief.rarity) {
-            controllers.slot.cells[i].setMaxSlot(LLConst.getDefaultMinSlot(cardbrief.rarity));
+            controllers.slot.cells[i].setMaxSlot(LLConst.Common.getDefaultMinSlot(cardbrief.rarity));
          }
          if (member.accessory !== undefined) {
             controller.setAccessory(i, member.accessory);
@@ -8919,7 +8966,7 @@ var LLCSkillComponent = (function () {
    ];
    function getSecondLimitSelectOptions() {
       var ret = [];
-      var groups = LLConst.getCSkillGroups();
+      var groups = LLConst.Common.getCSkillGroups();
       for (var i = 0; i < groups.length; i++) {
          ret.push({'value': groups[i], 'text': LLConst.Group.getGroupName(groups[i])});
       }
@@ -9756,7 +9803,7 @@ var LLAccessorySelectorComponent = (function () {
             } else if (level == 8 && data.unit_type_id) {
                constraintElement.innerHTML = '仅限' + LLConst.Member.getMemberName(data.unit_type_id, language) + '装备';
             } else {
-               constraintElement.innerHTML = '仅限该卡装备：' + LLConst.getCardDescription(data.card, language);
+               constraintElement.innerHTML = '仅限该卡装备：' + LLConst.Common.getCardDescription(data.card, language);
             }
             briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
          }
@@ -9806,7 +9853,7 @@ var LLAccessorySelectorComponent = (function () {
          this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
          this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
          this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
-         this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && !d.main_attribute)));
+         this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && d.main_attribute == 'all')));
          this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!d) || (((!v) || (v == d.type)) && !(d.is_material && me.excludeMaterial)));
          this.addFilterCallback(SEL_ID_ACCESSORY_EFFECT_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.effect_type));
    

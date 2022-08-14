@@ -332,7 +332,7 @@ function renderPage(loadDeferred) {
             return LLUnit.createSimpleTable(table_data);
         },
         'cf_combo_factor': function (context, params) {
-            var cf_pattern = parseInt(params[0]);
+            var cf_pattern = /** @type {LLH.Core.ComboFeverPattern} */ (parseInt(params[0]));
             var table_data = [];
             var header_row = [];
             var min_combo = 0, max_combo = (cf_pattern == 1 ? 300 : 220);
@@ -352,7 +352,7 @@ function renderPage(loadDeferred) {
                     table_data[curRow].push('');
                 }
                 table_data[curRow].push(i + '~' + (i == max_combo ? '' : i + 9));
-                table_data[curRow].push(LLConst.getComboFeverBonus(i, cf_pattern).toFixed(2));
+                table_data[curRow].push(LLConst.Live.getComboFeverBonus(i, cf_pattern).toFixed(2));
             }
             return LLUnit.createSimpleTable(table_data);
         },

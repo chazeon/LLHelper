@@ -2,8 +2,8 @@ declare namespace LLH {
     namespace Core {
         type AttributeType = 'smile'|'pure'|'cool';
         type AttributeAllType = AttributeType | 'all';
-        /** 1 for smile, 2 for pure, 3 for cool */
-        type AttributeIdType = 1|2|3;
+        /** 1 for smile, 2 for pure, 3 for cool, 5 for all */
+        type AttributeIdType = 1|2|3|5;
         type GradeType = 1|2|3;
         /** 1 for muse, 2 for aqours, 3 for niji, 4 for liella */
         type SongGroupIdType = 1|2|3|4;
@@ -30,6 +30,8 @@ declare namespace LLH {
         type SongIdType = string;
         /** string of integer */
         type SongSettingIdType = string;
+        /** 1 for easy, 2 for normal, 3 for hard, 4 for expert, 5 for random, 6 for master */
+        type SongDifficultyType = number;
         /** string of integer */
         type SisIdType = string;
         /** float, length 9 */
@@ -41,6 +43,16 @@ declare namespace LLH {
         type TriggerTargetMemberType = UnitTypeIdType[];
 
         type MezameType = 0 | 1;
+        /** note speed: 1~10 */
+        type NoteSpeedType = number;
+        /** LLConstValue.NOTE_TYPE_... */
+        type NoteEffectType = number;
+        /** 1 for 300 combo, 2 for 220 combo */
+        type ComboFeverPattern = 1 | 2;
+        /** LLConstValue.SKILL_TRIGGER_... */
+        type SkillTriggerType = number;
+        /** LLConstValue.SKILL_EFFECT_... */
+        type SkillEffectType = number;
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
     }
@@ -81,8 +93,8 @@ declare namespace LLH {
             Csecondskilllimit?: number; // target
             jpskillname: string;
             skillname: string;
-            skilleffect: number;
-            triggertype: number;
+            skilleffect: Core.SkillEffectType;
+            triggertype: Core.SkillTriggerType;
             skillleveluppattern: number;
             skilldetail: SkillDetailDataType[];
             triggerrequire: number | string; // <require> | "<min>~<max>"
@@ -93,25 +105,25 @@ declare namespace LLH {
 
         interface SongSettingDataType {
             liveid: string;
-            difficulty: number;
+            difficulty: Core.SongDifficultyType;
             stardifficulty: number;
             combo: number;
-            cscore: number;
-            bscore: number;
-            ascore: number;
-            sscore: number;
-            jsonpath: string;
+            cscore?: number;
+            bscore?: number;
+            ascore?: number;
+            sscore?: number;
+            jsonpath?: string;
             isac: 0|1;
             isswing: 0|1;
             positionweight: Core.PositionWeightType
-            positionnote: string[]; // integer, length 9
-            positionslider: string[]; // integer, length 9
-            positionswing: string[]; // integer, length 9
-            positionswingslider: string[]; // integer, length 9
+            positionnote?: string[]; // integer, length 9
+            positionslider?: string[]; // integer, length 9
+            positionswing?: string[]; // integer, length 9
+            positionswingslider?: string[]; // integer, length 9
             star: string; // integer
-            slider: string; // integer
-            swing: string; // integer
-            swingslider: string; // integer
+            slider?: string; // integer
+            swing?: string; // integer
+            swingslider?: string; // integer
             time: string; // float
         }
         type SongSettingDictDataType = {[id: string]: SongSettingDataType};
@@ -122,13 +134,14 @@ declare namespace LLH {
             group: Core.SongGroupIdType;
             attribute: Core.AttributeAllType;
             settings: SongSettingDictDataType;
+            bpm?: string; // float
         }
         type SongDictDataType = {[id: string]: SongDataType};
 
         interface NoteDataType {
             timing_sec: number; // float
             notes_level: number;
-            effect: number; // LLConst.NOTE_TYPE_*
+            effect: Core.NoteEffectType;
             effect_value: number; // float, hold time
             position: number; // 1~9, 1 for right most, 9 for left most
         }
@@ -229,6 +242,9 @@ declare namespace LLH {
     }
 
     namespace Internal {
+        /** LLConstValue.SONG_DEFAULT_SET_... */
+        type DefaultSongSetIdType = number;
+
         interface CSkillDataType {
             /** add to attribute */
             attribute: Core.AttributeType;
@@ -260,7 +276,7 @@ declare namespace LLH {
 
         interface ProcessedAccessoryDataType extends API.AccessoryDataType {
             card?: API.CardDataType;
-            main_attribute?: Core.AttributeType;
+            main_attribute: Core.AttributeAllType;
             type: string;
             unit_type_id?: Core.UnitTypeIdType;
         }
@@ -327,7 +343,7 @@ declare namespace LLH {
         }
 
         interface MemberMetaDataType {
-            color?: Core.AttributeType;
+            color?: Core.AttributeAllType;
             name?: string;
             cnname?: string;
             background_color?: string;
@@ -748,6 +764,8 @@ declare namespace LLH {
             isSameColorTeam(members: Model.LLMember[]): Core.AttributeAllType | undefined;
             getMemberGrade(memberId: Core.MemberIdType): Core.GradeType | undefined;
             getMemberTypeIdsInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
+            getMemberColor(member: Core.MemberIdType): Core.AttributeAllType | undefined;
+            getMemberBackgroundColor(member: Core.MemberIdType): string;
         }
         interface Group {
             getBigGroupIds(): Core.BigGroupIdType[];
@@ -793,7 +811,7 @@ declare namespace LLH {
             postProcessGemData(gemData: API.SisDictDataType): void;
         }
         interface Album {
-            getAlbumGroupByAlbumId(albumId: Core.AlbumIdType): Internal.ProcessedAlbumGroupType;
+            getAlbumGroupByAlbumId(albumId: Core.AlbumIdType): Internal.ProcessedAlbumGroupType | undefined;
             getAlbumGroups(): Internal.ProcessedAlbumGroupType[];
             isAlbumInAlbumGroup(albumId: Core.AlbumIdType, albumGroupId: Internal.AlbumGroupIdType): boolean;
         }
@@ -802,17 +820,21 @@ declare namespace LLH {
             postProcessSingleAccessoryData(accessoryData: API.AccessoryDataType, cardData: API.CardDictDataType): Internal.ProcessedAccessoryDataType;
             
             getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType, language?: Core.LanguageType): string;
-            getAccessoryMainAttribute(accessory: API.AccessoryDataType): Core.AttributeType;
+            getAccessoryMainAttribute(accessory: API.AccessoryDataType): Core.AttributeAllType;
             getAccessoryType(accessory: API.AccessoryDataType): string;
             getAccessoryLevelAttribute(accessory: API.AccessoryDataType, level: number): Internal.AttributesValue;
 
             canEquipAccessory(accessory: API.AccessoryDataType, level: number, cardId: Core.CardIdOrStringType): boolean;
         }
         interface Common {
-            getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType;
-            getAttributeColor(attribute: Core.AttributeType): string;
+            getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType | undefined;
+            getAttributeColor(attribute: Core.AttributeAllType): string;
             /** return 1.0~3.0 */
             getOverHealLevelBonus(maxHP: number, overHealLevel: number): number;
+            getDefaultMaxSlot(rarity: Core.RarityStringType): number;
+            getDefaultMinSlot(rarity: Core.RarityStringType): number;
+            getCSkillGroups(): Core.MemberTagIdType[];
+            getCardDescription(card: API.CardDataType, language: Core.LanguageType, mezame?: boolean): string;
         }
         interface Attributes {
             makeAttributes(smile: number, pure: number, cool: number): Internal.AttributesValue;
@@ -824,14 +846,17 @@ declare namespace LLH {
             addToAttributes(baseAttribute: Internal.AttributesValue, deltaAttribute: Internal.AttributesValue): Internal.AttributesValue;
         }
         interface Skill {
-            getTriggerTargetDescription(targets: Core.TriggerTargetType): string;
+            getTriggerTargetDescription(targets?: Core.TriggerTargetType): string;
             getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
-            getTriggerLimitDescription(triggerLimit: number): string;
-            getTriggerDescription(triggerType: number, triggerValue: number, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
-            getEffectDescription(effectType: number, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
+            getTriggerLimitDescription(triggerLimit?: number): string;
+            getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue: number, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
+            getEffectDescription(effectType: Core.SkillEffectType, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
             getRateDescription(rate: number): string;
 
-            getEffectBrief(effectType: number): string;
+            getEffectBrief(effectType?: Core.SkillEffectType): string;
+
+            getSkillTriggerText(skill_trigger?: Core.SkillTriggerType): string;
+            getSkillTriggerUnit(skill_trigger?: Core.SkillTriggerType): string;
 
             /** level base 0 */
             getCardSkillDescription(card: API.CardDataType, level: number): string;
@@ -839,6 +864,22 @@ declare namespace LLH {
             getAccessorySkillDescription(accessory: API.AccessoryDataType, level: number): string;
 
             isStrengthSupported(card: API.CardDataType): boolean;
+        }
+        interface Live {
+            getNoteAppearTime(noteTimeSec: number, speed: Core.NoteSpeedType): number;
+            getDefaultSpeed(difficulty: Core.SongDifficultyType): Core.NoteSpeedType;
+            isHoldNote(note_effect: Core.NoteEffectType): boolean;
+            isSwingNote(note_effect: Core.NoteEffectType): boolean;
+            getComboScoreFactor(combo: number): number;
+            getComboFeverBonus(combo: number, pattern: Core.ComboFeverPattern): number;
+        }
+        interface Song {
+            getSongGroupShortName(song_group: Core.SongGroupIdType): string;
+            getSongGroupIds(): Core.SongGroupIdType[];
+            getGroupForSongGroup(song_group: Core.SongGroupIdType): Core.MemberTagIdType;
+            getDefaultSongSetIds(): Internal.DefaultSongSetIdType[];
+            getSongDifficultyName(diff: Core.SongDifficultyType, language: Core.LanguageType): string;
+            getDefaultSong(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongDataType;
         }
     }
 
@@ -942,6 +983,7 @@ declare namespace LLH {
         class LLMap implements Mixin.SaveLoadJson {
             constructor(options?: LLMap_Options);
             setSong(song: API.SongDataType, songSetting: API.SongSettingDataType): void;
+            setAttribute(attribute: Core.AttributeAllType): void;
             setWeights(weights: Core.PositionWeightType): void;
             setFriendCSkill(addToAttribute: Core.AttributeType, addFromAttribute: Core.AttributeType, percentage: number, groupLimit: number, groupPercentage: number): void;
             setSongDifficultyData(combo: number, star: number, time: number, perfect: number, starPerfect: number): void;
@@ -1143,7 +1185,7 @@ declare namespace LLH {
             totalPerfect: number;
             mapSkillPossibilityUp: number;
             mapTapScoreUp: number;
-            comboFeverPattern: number;
+            comboFeverPattern: Core.ComboFeverPattern;
             comboFeverLimit: number;
             perfectAccuracyPattern: number;
             overHealPattern: number;
@@ -1436,8 +1478,7 @@ declare namespace LLH {
                 perfect_percent: number;
                 /** speed int 1~10 */
                 speed: number;
-                /** 1 for 300 combo, 2 for 220 combo */
-                combo_fever_pattern: 1 | 2;
+                combo_fever_pattern: Core.ComboFeverPattern;
                 combo_fever_limit: 1000 | 2147483647;
                 /** 0 for disabled, 1 for enabled */
                 over_heal_pattern: 0 | 1;
@@ -1599,6 +1640,8 @@ declare namespace LLH {
         Common: ConstUtil.Common;
         Skill: ConstUtil.Skill;
         Attributes: ConstUtil.Attributes;
+        Live: ConstUtil.Live;
+        Song: ConstUtil.Song;
         // TODO
     }
 
@@ -1654,6 +1697,7 @@ declare var LLMetaData: LLH.LLSimpleKeyData<LLH.API.MetaDataType>;
 declare var LLDepends: LLH.Depends.Utils;
 
 type LLMapNoteData = LLH.Misc.LLMapNoteData;
+type LLMap = LLH.Model.LLMap;
 
 type LLComponentBase = LLH.Component.LLComponentBase;
 type LLValuedComponent = LLH.Component.LLValuedComponent;
