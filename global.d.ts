@@ -642,6 +642,7 @@ declare namespace LLH {
             cards: API.CardDictDataType;
             noShowN?: boolean;
         }
+        type LLCardSelectorComponent_OnCardChangeCallback = (cardId: Core.CardIdOrStringType) => void;
         class LLCardSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLCardSelectorComponent_Options);
 
@@ -654,7 +655,7 @@ declare namespace LLH {
             scrollIntoView(): void;
 
             // optional callback
-            onCardChange?: (cardId: Core.CardIdOrStringType) => void;
+            onCardChange?: LLCardSelectorComponent_OnCardChangeCallback;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -876,10 +877,11 @@ declare namespace LLH {
         interface Song {
             getSongGroupShortName(song_group: Core.SongGroupIdType): string;
             getSongGroupIds(): Core.SongGroupIdType[];
-            getGroupForSongGroup(song_group: Core.SongGroupIdType): Core.MemberTagIdType;
+            getGroupForSongGroup(song_group: Core.SongGroupIdType): Core.BigGroupIdType | undefined;
             getDefaultSongSetIds(): Internal.DefaultSongSetIdType[];
             getSongDifficultyName(diff: Core.SongDifficultyType, language: Core.LanguageType): string;
             getDefaultSong(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongDataType;
+            getDefaultSongSetting(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongSettingDataType;
         }
     }
 
@@ -960,7 +962,7 @@ declare namespace LLH {
             friendCSkill?: Internal.CSkillDataType;
         }
         interface LLMap_SaveData {
-            attribute: Core.AttributeType;
+            attribute: Core.AttributeAllType;
             weights: number[];
             /** sum(weights) */
             totalWeight: number;
@@ -975,21 +977,21 @@ declare namespace LLH {
             tapup: number;
             /** percentage */
             skillup: number;
-            songUnit: Core.SongGroupIdType;
+            songUnit?: Core.BigGroupIdType;
             /** int 1~10 */
-            speed: number;
-            combo_fever_pattern: 1 | 2;
-            combo_fever_limit: 1000 | 2147483647;
-            over_heal_pattern: 0 | 1;
-            perfect_accuracy_pattern: 0 | 1;
-            trigger_limit_pattern: 0 | 1;
+            speed?: number;
+            combo_fever_pattern?: 1 | 2;
+            combo_fever_limit?: 1000 | 2147483647;
+            over_heal_pattern?: 0 | 1;
+            perfect_accuracy_pattern?: 0 | 1;
+            trigger_limit_pattern?: 0 | 1;
 
             /** LA only, percentage */
-            debuff_skill_rate_down: number;
+            debuff_skill_rate_down?: number;
             /** LA only */
-            debuff_hp_down_value: number;
+            debuff_hp_down_value?: number;
             /** LA only, seconds */
-            debuff_hp_down_interval: number;
+            debuff_hp_down_interval?: number;
 
             simMode?: Internal.SimulateMode;
         }
@@ -998,8 +1000,7 @@ declare namespace LLH {
             setSong(song: API.SongDataType, songSetting: API.SongSettingDataType): void;
             setAttribute(attribute: Core.AttributeAllType): void;
             setWeights(weights: Core.PositionWeightType): void;
-            setFriendCSkill(addToAttribute: Core.AttributeType, addFromAttribute: Core.AttributeType, percentage: number, groupLimit: number, groupPercentage: number): void;
-            setSongDifficultyData(combo: number, star: number, time: number, perfect: number, starPerfect: number): void;
+            setSongDifficultyData(combo: number, star: number, time: number, perfect?: number, starPerfect?: number): void;
             setMapBuff(tapup: number, skillup: number): void;
             setLADebuff(skillRateDown: number, hpDownValue: number, hpDownInterval: number): void;
             setDistParam(distParam: Layout.ScoreDistParam.ScoreDistParamSaveData): void;

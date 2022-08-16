@@ -940,6 +940,10 @@ var LLComponentCollection = (function() {
       getComponent(name) {
          return this.components[name];
       }
+      /** @param {string} name */
+      getValuedComponent(name) {
+         return /** @type {LLH.Component.LLValuedComponent} */ (this.components[name]);
+      }
       serialize() {
          var ret = {};
          for (var i in this.components) {
@@ -2568,7 +2572,7 @@ var LLConst = (function () {
          if (SONG_GROUP_TO_GROUP[song_group] !== undefined) {
             return SONG_GROUP_TO_GROUP[song_group];
          }
-         return KEYS.GROUP_UNKNOWN;
+         return undefined;
       },
       getDefaultSongSetIds: function () {
          return [KEYS.SONG_DEFAULT_SET_1, KEYS.SONG_DEFAULT_SET_2];
@@ -2576,26 +2580,18 @@ var LLConst = (function () {
       getSongDifficultyName: function (diff, language) {
          return SONG_DIFFICULTY_NAME[diff][language == KEYS.LANGUAGE_CN ? 'cn' : 'en'];
       },
-      getDefaultSong: function (song_group, default_set) {
+      getDefaultSongSetting: function (song_group, default_set) {
          var songIdBase = -(song_group*100+default_set*10);
          /** @type {LLH.Core.PositionWeightType} */
-         var exWeight, maWeight, ma2Weight;
+         var exWeight;
          /** @type {number} */
-         var exCombo, maCombo, ma2Combo;
+         var exCombo;
          if (default_set == KEYS.SONG_DEFAULT_SET_1) {
             exWeight = [63.75,63.75,63.75,63.75,0,63.75,63.75,63.75,63.75];
             exCombo = 500;
-            maWeight = [87.5,87.5,87.5,87.5,0,87.5,87.5,87.5,87.5];
-            maCombo = 700;
-            ma2Weight = [112.5,112.5,112.5,112.5,0,112.5,112.5,112.5,112.5];
-            ma2Combo = 900;
          } else {
             exWeight = [63,63,63,63,0,63,63,63,63];
             exCombo = 504;
-            maWeight = [88,88,88,88,0,88,88,88,88];
-            maCombo = 704;
-            ma2Weight = [113,113,113,113,0,113,113,113,113];
-            ma2Combo = 904;
          }
          /** @type {LLH.API.SongSettingDataType} */
          var expert_default = {
@@ -2609,6 +2605,26 @@ var LLConst = (function () {
             'isac': 0,
             'isswing': 0
          };
+         return expert_default;
+      },
+      getDefaultSong: function (song_group, default_set) {
+         var songIdBase = -(song_group*100+default_set*10);
+         /** @type {LLH.Core.PositionWeightType} */
+         var maWeight, ma2Weight;
+         /** @type {number} */
+         var maCombo, ma2Combo;
+         if (default_set == KEYS.SONG_DEFAULT_SET_1) {
+            maWeight = [87.5,87.5,87.5,87.5,0,87.5,87.5,87.5,87.5];
+            maCombo = 700;
+            ma2Weight = [112.5,112.5,112.5,112.5,0,112.5,112.5,112.5,112.5];
+            ma2Combo = 900;
+         } else {
+            maWeight = [88,88,88,88,0,88,88,88,88];
+            maCombo = 704;
+            ma2Weight = [113,113,113,113,0,113,113,113,113];
+            ma2Combo = 904;
+         }
+         var expert_default = SongUtil.getDefaultSongSetting(song_group, default_set);
          /** @type {LLH.API.SongSettingDataType} */
          var master_default = {
             'time': '110',
@@ -3116,6 +3132,11 @@ var LLImageServerSwitch = (function () {
  *   LLSkillContainer (require LLUnit)
  */
 var LLSkillContainer = (function() {
+   const SEL_ID_CONTAINER = 'container';
+   const SEL_ID_LVUP = 'lvup';
+   const SEL_ID_LVDOWN = 'lvdown';
+   const SEL_ID_LEVEL = 'level';
+   const SEL_ID_TEXT = 'text';
    class LLSkillContainer_cls extends LLComponentCollection {
       /**
        * @param {LLH.Layout.Skill.LLSkillContainer_Options} [options] 
@@ -3133,17 +3154,17 @@ var LLSkillContainer = (function() {
          options.showall = options.showall || false;
          var me = this;
          this.showAll = options.showall;
-         this.add('container', new LLComponentBase(options.container));
-         this.add('lvup', new LLComponentBase(options.lvup));
-         this.getComponent('lvup').on('click', function (e) {
+         this.add(SEL_ID_CONTAINER, new LLComponentBase(options.container));
+         this.add(SEL_ID_LVUP, new LLComponentBase(options.lvup));
+         this.getComponent(SEL_ID_LVUP).on('click', function (e) {
             me.setSkillLevel(me.skillLevel+1);
          });
-         this.add('lvdown', new LLComponentBase(options.lvdown));
-         this.getComponent('lvdown').on('click', function (e) {
+         this.add(SEL_ID_LVDOWN, new LLComponentBase(options.lvdown));
+         this.getComponent(SEL_ID_LVDOWN).on('click', function (e) {
             me.setSkillLevel(me.skillLevel-1);
          });
-         this.add('level', new LLValuedComponent(options.level));
-         this.add('text', new LLValuedComponent(options.text));
+         this.add(SEL_ID_LEVEL, new LLValuedComponent(options.level));
+         this.add(SEL_ID_TEXT, new LLValuedComponent(options.text));
          this.setCardData(options.cardData, true);
          this.render();
       }
@@ -3183,11 +3204,11 @@ var LLSkillContainer = (function() {
       }
       render() {
          if ((!this.cardData) || this.cardData.skill == 0 || this.cardData.skill == null) {
-            this.getComponent('container').hide();
+            this.getComponent(SEL_ID_CONTAINER).hide();
          } else {
-            this.getComponent('container').show();
-            this.getComponent('text').set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
-            this.getComponent('level').set(this.skillLevel+1);
+            this.getComponent(SEL_ID_CONTAINER).show();
+            this.getValuedComponent(SEL_ID_TEXT).set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
+            this.getValuedComponent(SEL_ID_LEVEL).set((this.skillLevel+1).toFixed());
          }
       }
    }
@@ -3237,6 +3258,8 @@ var LLCardSelectorComponent = (function() {
          this.albumGroupMemberCache = {};
          /** @type {LLH.API.CardDictDataType} */
          this.cards = {};
+         /** @type {LLH.Selector.LLCardSelectorComponent_OnCardChangeCallback=} */
+         this.onCardChange = undefined;
 
          var me = this;
          // init components
@@ -3270,12 +3293,12 @@ var LLCardSelectorComponent = (function() {
          me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
    
          var languageGroupGetter = function () {
-            return me.getComponent(MEM_ID_LANGUAGE).get(); 
+            return me.getValuedComponent(MEM_ID_LANGUAGE).get(); 
          }
          me.setFilterOptionGroupCallback(SEL_ID_CARD_CHOICE, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_CHARA, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_SET_NAME, languageGroupGetter, [MEM_ID_LANGUAGE]);
-         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => me.getComponent(SEL_ID_TRIGGER_TYPE).get(), [SEL_ID_TRIGGER_TYPE]);
+         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => me.getValuedComponent(SEL_ID_TRIGGER_TYPE).get(), [SEL_ID_TRIGGER_TYPE]);
    
          me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.rarity == v));
          me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (LLConst.Member.getMemberName(d.typeid) == v));
@@ -3308,6 +3331,7 @@ var LLCardSelectorComponent = (function() {
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
    
+         /** @type {LLH.Component.SubElements} */
          var generalFilters = [selRarity, selChara, selUnitGrade, selAttribute, selSpecial];
          if (!options.noShowN) {
             generalFilters.push(checkShowNCard, '显示N卡');
@@ -3329,11 +3353,11 @@ var LLCardSelectorComponent = (function() {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getComponent(MEM_ID_LANGUAGE).set(language);
+         this.getValuedComponent(MEM_ID_LANGUAGE).set(language);
       }
       /** @returns {LLH.Core.CardIdOrStringType} */
       getCardId() {
-         return this.getComponent(SEL_ID_CARD_CHOICE).get() || '';
+         return this.getValuedComponent(SEL_ID_CARD_CHOICE).get() || '';
       }
       /**
        * @param {LLH.API.CardDictDataType} cards 
@@ -3379,16 +3403,18 @@ var LLCardSelectorComponent = (function() {
    
             if (curCard.album) {
                var albumGroup = LLConst.Album.getAlbumGroupByAlbumId(curCard.album);
-               if (albumGroupMemberCache[albumGroup.id]) {
-                  albumGroupMemberCache[albumGroup.id].push(curTypeId);
-               } else {
-                  albumGroupMemberCache[albumGroup.id] = [curTypeId];
+               if (albumGroup) {
+                  if (albumGroupMemberCache[albumGroup.id]) {
+                     albumGroupMemberCache[albumGroup.id].push(curTypeId);
+                  } else {
+                     albumGroupMemberCache[albumGroup.id] = [curTypeId];
+                  }
                }
             }
          }
          me.setFilterOptionGroups(SEL_ID_CARD_CHOICE, {'0': cardOptionsCN, '1': cardOptionsJP});
          me.albumGroupMemberCache = albumGroupMemberCache;
-         if (resetSelection) me.getComponent(SEL_ID_CARD_CHOICE).set('');
+         if (resetSelection) me.getValuedComponent(SEL_ID_CARD_CHOICE).set('');
    
          // build set name options from album groups
          var setNameOptionsCN = [{'value': '', 'text': '相册名'}];
@@ -3396,8 +3422,8 @@ var LLCardSelectorComponent = (function() {
          var albumGroups = LLConst.Album.getAlbumGroups();
          for (i = 0; i < albumGroups.length; i++) {
             var curGroup = albumGroups[i];
-            setNameOptionsCN.push({'value': i, 'text': (curGroup.cnname || curGroup.name)});
-            setNameOptionsJP.push({'value': i, 'text': curGroup.name});
+            setNameOptionsCN.push({'value': curGroup.id + '', 'text': (curGroup.cnname || curGroup.name)});
+            setNameOptionsJP.push({'value': curGroup.id + '', 'text': curGroup.name});
          }
          me.setFilterOptionGroups(SEL_ID_SET_NAME, {'0': setNameOptionsCN, '1': setNameOptionsJP});
    
@@ -3959,6 +3985,9 @@ var LLSaveLoadJsonHelper = {
          console.error(e);
          console.error(jsonString);
       }
+   },
+   commonSaveJson: function (data) {
+      return JSON.stringify(data);
    }
 }
 
@@ -3973,118 +4002,150 @@ var LLSaveLoadJsonHelper = {
  */
 var LLMap = (function () {
    var DEFAULT_SONG_MUSE = LLConst.Song.getDefaultSong(LLConstValue.SONG_GROUP_MUSE, LLConstValue.SONG_DEFAULT_SET_1);
-   var DEFAULT_SONG_SETTING = (function (s) {
-      for (var k in s.settings) {
-         if (s.settings[k].difficulty == LLConstValue.SONG_DIFFICULTY_EXPERT) {
-            return s.settings[k];
-         }
-      }
-      console.error('failed to find default song setting');
-      return undefined;
-   })(DEFAULT_SONG_MUSE);
+   var DEFAULT_SONG_SETTING = LLConst.Song.getDefaultSongSetting(LLConstValue.SONG_GROUP_MUSE, LLConstValue.SONG_DEFAULT_SET_1);
+   var zeroWeights = [0, 0, 0, 0, 0, 0, 0, 0, 0];
 
    /**
-    * @constructor
-    * @param {LLH.Model.LLMap_Options} options 
+    * @implements {LLH.Mixin.SaveLoadJson}
     */
-   function LLMap_cls(options) {
-      /** @type {LLH.Model.LLMap} */
-      var me = this;
-      me.data = {};
-      if (!options) options = {};
-      if (options.song) {
-         me.setSong(options.song, options.songSetting);
-      } else {
-         me.setSong(DEFAULT_SONG_MUSE, DEFAULT_SONG_SETTING);
+   class LLMap_cls {
+      /**
+       * @param {LLH.Model.LLMap_Options} options 
+       */
+      constructor(options) {
+         /** @type {LLH.Model.LLMap_SaveData} */
+         this.data = {
+            'attribute': 'all',
+            'weights': zeroWeights,
+            'totalWeight': 0,
+            'friendCSkill': {
+               'attribute': 'smile',
+               'Cskillattribute': 'smile',
+               'Cskillpercentage': 0
+            },
+            'combo': 0,
+            'star': 0,
+            'time': 110,
+            'perfect': 0,
+            'starPerfect': 0,
+            'tapup': 0,
+            'skillup': 0
+         };
+         if (!options) options = {};
+         if (options.song && options.songSetting) {
+            this.setSong(options.song, options.songSetting);
+         } else {
+            this.setSong(DEFAULT_SONG_MUSE, DEFAULT_SONG_SETTING);
+         }
+         if (options.friendCSkill) {
+            this.data.friendCSkill = options.friendCSkill;
+         }
       }
-      if (options.friendCSkill) {
-         me.data.friendCSkill = options.friendCSkill;
-      } else {
-         // no friend cskill
-         me.setFriendCSkill('smile', 'smile', 0, LLConstValue.GROUP_MUSE, 0);
+      /** @param {LLH.Core.AttributeAllType} attribute */
+      setAttribute(attribute) {
+         this.data.attribute = attribute;
       }
-      me.setMapBuff();
-      me.setLADebuff();
-   };
+      /**
+       * @param {LLH.API.SongDataType} song 
+       * @param {LLH.API.SongSettingDataType} songSetting 
+       */
+      setSong(song, songSetting) {
+         if ((!song) || (!songSetting)) {
+            console.error('No song data');
+            return;
+         }
+         this.data.attribute = song.attribute;
+         this.data.songUnit = LLConst.Song.getGroupForSongGroup(song.group);
+         // when difficulty is not given, use 0 for difficulty-specific data
+         this.setSongDifficultyData(songSetting.combo, parseInt(songSetting.star), parseFloat(songSetting.time));
+         this.setWeights(songSetting.positionweight);
+      }
+      /** @param {LLH.Core.PositionWeightType} weights */
+      setWeights(weights) {
+         var w = [];
+         var total = 0;
+         if (weights && weights.length == 9) {
+            for (var i = 0; i < 9; i++) {
+               var curWeight = weights[i];
+               if (typeof(curWeight) == 'string') {
+                  curWeight = parseFloat(curWeight);
+               }
+               w.push(curWeight);
+               total += curWeight;
+            }
+         } else {
+            if (weights !== undefined) {
+               console.error('Invalid weight data:');
+               console.log(weights);
+            }
+            w = zeroWeights;
+         }
+         this.data.weights = w;
+         this.data.totalWeight = total;
+      }
+      /**
+       * @param {number} combo 
+       * @param {number} star 
+       * @param {number} time 
+       * @param {number} [perfect] 
+       * @param {number} [starPerfect] 
+       */
+      setSongDifficultyData(combo, star, time, perfect, starPerfect) {
+         this.data.combo = (combo || 0);
+         this.data.star = (star || 0);
+         this.data.time = (time || 0);
+         // 95% perfect
+         this.data.perfect = (perfect === undefined ? (this.data.combo * 19 / 20) : perfect);
+         this.data.starPerfect = (starPerfect || 0);
+      }
+      /**
+       * @param {number} tapup 
+       * @param {number} skillup 
+       */
+      setMapBuff(tapup, skillup) {
+         this.data.tapup = (tapup || 0);
+         this.data.skillup = (skillup || 0);
+      }
+      /**
+       * @param {number} skillRateDown 
+       * @param {number} hpDownValue 
+       * @param {number} hpDownInterval 
+       */
+      setLADebuff(skillRateDown, hpDownValue, hpDownInterval) {
+         this.data.debuff_skill_rate_down = (skillRateDown || 0);
+         this.data.debuff_hp_down_value = (hpDownValue || 0);
+         this.data.debuff_hp_down_interval = (hpDownInterval || 0);
+      }
+      /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamSaveData} distParam */
+      setDistParam(distParam) {
+         this.data.perfect = Math.floor((distParam.perfect_percent || 0)/100 * this.data.combo);
+         this.data.speed = distParam.speed;
+         this.data.combo_fever_pattern = distParam.combo_fever_pattern;
+         this.data.combo_fever_limit = distParam.combo_fever_limit;
+         this.data.over_heal_pattern = distParam.over_heal_pattern;
+         this.data.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
+         this.data.trigger_limit_pattern = distParam.trigger_limit_pattern;
+         if (distParam.type == 'sim' || distParam.type == 'simla') {
+            this.data.simMode = distParam.type;
+         }
+      }
+      saveData() {
+         return this.data;
+      }
+      /** @param {LLH.Model.LLMap_SaveData} data */
+      loadData(data) {
+         this.data = data;
+      }
+      saveJson() {
+         return LLSaveLoadJsonHelper.commonSaveJson(this.saveData());
+      }
+      /** @param {string} jsonData */
+      loadJson(jsonData) {
+         var me = this;
+         LLSaveLoadJsonHelper.commonLoadJson(x => me.loadData(x), jsonData);
+      }
+   }
 
-   LLMap_cls.prototype.setAttribute = function (attribute) {
-      this.data.attribute = attribute;
-   };
-   LLMap_cls.prototype.setSong = function (song, songSetting) {
-      if ((!song) || (!songSetting)) {
-         console.error('No song data');
-         return;
-      }
-      this.data.attribute = song.attribute;
-      this.data.songUnit = LLConst.Song.getGroupForSongGroup(song.group);
-      // when difficulty is not given, use 0 for difficulty-specific data
-      this.setSongDifficultyData(songSetting.combo, songSetting.star, songSetting.time);
-      this.setWeights(songSetting.positionweight || [0, 0, 0, 0, 0, 0, 0, 0, 0]);
-   };
-   LLMap_cls.prototype.setWeights = function (weights) {
-      var w = [];
-      var total = 0;
-      if (weights && weights.length == 9) {
-         for (var i = 0; i < 9; i++) {
-            var curWeight = parseFloat(weights[i]);
-            w.push(curWeight);
-            total += curWeight;
-         }
-      } else {
-         if (weights !== undefined) {
-            console.error('Invalid weight data:');
-            console.log(weights);
-         }
-         w = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-      }
-      this.data.weights = w;
-      this.data.totalWeight = total;
-   };
-   LLMap_cls.prototype.setFriendCSkill = function (addToAttribute, addFromAttribute, percentage, groupLimit, groupPercentage) {
-      this.data.friendCSkill = {
-         'attribute': addToAttribute,
-         'Cskillattribute': addFromAttribute,
-         'Cskillpercentage': parseInt(percentage || 0),
-         'Csecondskilllimit': parseInt(groupLimit || LLConstValue.GROUP_UNKNOWN),
-         'Csecondskillattribute': parseInt(groupPercentage || 0)
-      };
-   };
-   LLMap_cls.prototype.setSongDifficultyData = function (combo, star, time, perfect, starPerfect) {
-      this.data.combo = parseInt(combo || 0);
-      this.data.star = parseInt(star || 0);
-      this.data.time = parseFloat(time || 0);
-      // 95% perfect
-      this.data.perfect = parseInt(perfect === undefined ? (this.data.combo * 19 / 20) : perfect || 0);
-      this.data.starPerfect = parseInt(starPerfect || 0);
-   };
-   LLMap_cls.prototype.setMapBuff = function (tapup, skillup) {
-      this.data.tapup = parseFloat(tapup || 0);
-      this.data.skillup = parseFloat(skillup || 0);
-   };
-   LLMap_cls.prototype.setLADebuff = function (skillRateDown, hpDownValue, hpDownInterval) {
-      this.data.debuff_skill_rate_down = parseFloat(skillRateDown || 0);
-      this.data.debuff_hp_down_value = parseInt(hpDownValue || 0);
-      this.data.debuff_hp_down_interval = parseInt(hpDownInterval || 0);
-   };
-   LLMap_cls.prototype.setDistParam = function (distParam) {
-      this.data.perfect = Math.floor(parseFloat(distParam.perfect_percent || 0)/100 * this.data.combo);
-      this.data.speed = distParam.speed;
-      this.data.combo_fever_pattern = distParam.combo_fever_pattern;
-      this.data.combo_fever_limit = distParam.combo_fever_limit;
-      this.data.over_heal_pattern = distParam.over_heal_pattern;
-      this.data.perfect_accuracy_pattern = distParam.perfect_accuracy_pattern;
-      this.data.trigger_limit_pattern = distParam.trigger_limit_pattern;
-      if (distParam.type == 'sim' || distParam.type == 'simla') {
-         this.data.simMode = distParam.type;
-      }
-   };
-   LLMap_cls.prototype.saveData = function () {
-      return this.data;
-   };
-   LLMap_cls.prototype.loadData = function (data) {
-      this.data = data;
-   };
-   LLSaveLoadJsonMixin(LLMap_cls.prototype);
    return LLMap_cls;
 })();
 
