@@ -2664,16 +2664,6 @@ var defaultHandleFailedRequest = function() {
 };
 
 var LLUnit = {
-   changeunitskilllevel: function(n) {
-      var index = document.getElementById('cardid'+String(n)).value;
-      var level = parseInt(document.getElementById('skilllevel'+String(n)).value)-1;
-      if ((level < 0) || (level > 7)) return;
-      LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function(card) {
-         //document.getElementById('require'+String(n)).value = card['skilldetail'][level].require;
-         //document.getElementById('possibility'+String(n)).value = card['skilldetail'][level].possibility;
-         //document.getElementById('score'+String(n)).value = card['skilldetail'][level].score;
-      }, defaultHandleFailedRequest);
-   },
 
    comboMulti: function (cb) {
       if (cb <= 50) {
@@ -2774,7 +2764,7 @@ var LLUnit = {
       } else if (type == 'navi') {
          var m = (mezame ? '1' : '0');
          for (var i = 0; i < 2; i++) {
-            ret.push((isHttp ^ (i>=1) ? 'http' : 'https') + '://db.loveliv.es/png/navi/' + cardid + '/' + m);
+            ret.push((isHttp !== (i>=1) ? 'http' : 'https') + '://db.loveliv.es/png/navi/' + cardid + '/' + m);
          }
       } else {
          ret.push('');
@@ -2904,7 +2894,7 @@ var LLUnit = {
     * @param {string} tag 
     * @param {*} [options]
     * @param {LLH.Component.SubElements} [subElements]
-    * @param {{[x: string] : Function}} [eventHandlers]
+    * @param {{[x: string] : (e: Event) => void}} [eventHandlers]
     * @returns {HTMLElement}
     */
    createElement: function (tag, options, subElements, eventHandlers) {
@@ -2947,7 +2937,12 @@ var LLUnit = {
     */
    getElement: function (id) {
       if (typeof(id) == 'string') {
-         return document.getElementById(id);
+         var element = document.getElementById(id);
+         if (!element) {
+            console.error('Not found element by id: ' + id);
+            element = LLUnit.createElement('div', undefined, ['dummy']);
+         }
+         return element;
       } else {
          return id;
       }
@@ -3028,16 +3023,17 @@ var LLUnit = {
 };
 
 var LLImageServerSwitch = (function () {
-   var ret = {
+   /** @type {LLH.Misc.LLImageServerSwitch_Servers} */
+   const servers = {
       'AVATAR_SERVER_GIT': 0,
       'AVATAR_SERVER_LOCAL': 1
-   };
+   }
 
    var IMAGE_SERVER_KEY = 'llhelper_image_server__';
    function getImageServer() {
-      var server = ret.AVATAR_SERVER_GIT;
+      var server = servers.AVATAR_SERVER_GIT;
       try {
-         server = parseInt(localStorage.getItem(IMAGE_SERVER_KEY) || 0);
+         server = parseInt(localStorage.getItem(IMAGE_SERVER_KEY) || '0');
       } catch (e) {
          console.error(e);
       }
@@ -3048,7 +3044,7 @@ var LLImageServerSwitch = (function () {
 
    function updateImageServer() {
       try {
-         localStorage.setItem(IMAGE_SERVER_KEY, curServer);
+         localStorage.setItem(IMAGE_SERVER_KEY, curServer.toFixed());
       } catch (e) {
          console.error(e);
       }
@@ -3074,37 +3070,42 @@ var LLImageServerSwitch = (function () {
       lastCleanupSize = callbacks.length;
    }
 
-   ret.getImageServer = function () {
-      return curServer;
-   };
-   ret.changeImageServer = function () {
-      curServer = (curServer + 1) % 2;
-      updateImageServer();
-      checkCallbacks(true);
-   };
-   ret.registerCallback = function (key, callback) {
-      for (var i = 0; i < callbacks.length; i++) {
-         if (callbacks[i][0] === key) {
-            callbacks[i][1] = callback;
-            return;
-         }
-      }
-      callbacks.push([key, callback]);
-      if (callbacks.length - lastCleanupSize > 30) {
-         checkCallbacks(false);
-      }
-   };
+   /** @type {LLH.Misc.LLImageServerSwitch} */
+   var ret = {
+      'AVATAR_SERVER_GIT': servers.AVATAR_SERVER_GIT,
+      'AVATAR_SERVER_LOCAL' : servers.AVATAR_SERVER_LOCAL,
 
-   ret.initImageServerSwitch = function (id) {
-      var element = LLUnit.getElement(id);
-      var switchLink = LLUnit.createElement('a', {'href': 'javascript:;', 'title': '点击切换头像线路'}, [getServerName(curServer)], {
-         'click': function () {
-            ret.changeImageServer();
-            LLUnit.updateSubElements(switchLink, [getServerName(curServer)], true);
+      getImageServer: function () {
+         return curServer;
+      },
+      changeImageServer: function () {
+         curServer = (curServer + 1) % 2;
+         updateImageServer();
+         checkCallbacks(true);
+      },
+      registerCallback: function (key, callback) {
+         for (var i = 0; i < callbacks.length; i++) {
+            if (callbacks[i][0] === key) {
+               callbacks[i][1] = callback;
+               return;
+            }
          }
-      });
-      LLUnit.updateSubElements(element, [switchLink], true);
-      element.style.display = '';
+         callbacks.push([key, callback]);
+         if (callbacks.length - lastCleanupSize > 30) {
+            checkCallbacks(false);
+         }
+      },
+      initImageServerSwitch: function (id) {
+         var element = LLUnit.getElement(id);
+         var switchLink = LLUnit.createElement('a', {'href': 'javascript:;', 'title': '点击切换头像线路'}, [getServerName(curServer)], {
+            'click': function () {
+               ret.changeImageServer();
+               LLUnit.updateSubElements(switchLink, [getServerName(curServer)], true);
+            }
+         });
+         LLUnit.updateSubElements(element, [switchLink], true);
+         element.style.display = '';
+      }
    };
 
    return ret;
@@ -3516,7 +3517,10 @@ var LLCardSelectorComponent = (function() {
          me.handleFilters();
       }
       scrollIntoView() {
-         this.getComponent(SEL_ID_CARD_CHOICE).element.scrollIntoView(true);
+         var element = this.getComponent(SEL_ID_CARD_CHOICE).element;
+         if (element) {
+            element.scrollIntoView(true);
+         }
       }
    }
    return LLCardSelectorComponent_cls;

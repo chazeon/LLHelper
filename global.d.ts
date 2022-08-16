@@ -893,6 +893,19 @@ declare namespace LLH {
             getMapNoteData(song: API.SongDataType, songSetting: API.SongSettingDataType): Depends.Promise<API.NoteDataType[], void>;
             getLocalMapNoteData(song: API.SongDataType, songSetting: API.SongSettingDataType): Depends.Promise<API.NoteDataType[], void>;
         }
+
+        type ImageServerIdType = number;
+        type ImageServerChangeCallback = () => void;
+        interface LLImageServerSwitch_Servers {
+            AVATAR_SERVER_GIT: ImageServerIdType;
+            AVATAR_SERVER_LOCAL: ImageServerIdType;
+        }
+        interface LLImageServerSwitch extends LLImageServerSwitch_Servers {
+            getImageServer(): ImageServerIdType;
+            changeImageServer(): void;
+            registerCallback(key: string, callback: ImageServerChangeCallback): void;
+            initImageServerSwitch(id: Component.HTMLElementOrId): void;
+        }
     }
 
     namespace Model {
