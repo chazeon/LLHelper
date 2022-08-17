@@ -3572,10 +3572,10 @@ var LLSongSelectorComponent = (function() {
 
    /**
     * @param {number} defaultValue 
-    * @returns {HTMLElement}
+    * @returns {HTMLInputElement}
     */
    function createFormNumber(defaultValue) {
-      return createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue});
+      return /** @type {HTMLInputElement} */ (createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue}));
    }
 
    /**
@@ -3630,11 +3630,11 @@ var LLSongSelectorComponent = (function() {
 
       me.updateMapInfo = function (songSetting) {
          if (songSetting) {
-            var combo = parseInt(songSetting.combo || 0)
-            numMapCombo.value = combo;
-            numMapPerfect.value = parseInt(combo * 19/20);
-            numMapTime.value = (parseInt(songSetting.time || 0) || 110);
-            numMapStarPerfect.value = parseInt(songSetting.star || 0);
+            var combo = (songSetting.combo || 0);
+            numMapCombo.value = combo + '';
+            numMapPerfect.value = Math.floor(combo * 19/20) + '';
+            numMapTime.value = (parseFloat(songSetting.time || '0') || 110) + '';
+            numMapStarPerfect.value = parseInt(songSetting.star || '0') + '';
          }
       };
 
@@ -3667,11 +3667,14 @@ var LLSongSelectorComponent = (function() {
        */
       constructor(id, options) {
          super();
-         /** @type {LLH.Selector.LLSongSelectorComponent} */
          var me = this;
-         me.includeMapInfo = options.includeMapInfo || false;
-         me.friendCSkill = options.friendCSkill || undefined;
-         me.mode = options.mode || 'normal';
+         this.includeMapInfo = options.includeMapInfo || false;
+         this.friendCSkill = options.friendCSkill || undefined;
+         this.mode = options.mode || 'normal';
+         /** @type {LLH.API.SongDictDataType} */
+         this.songs = {};
+         /** @type {LLH.Internal.ProcessedSongSettingDictDataType} */
+         this.songSettings = {};
 
          var container = LLUnit.getElement(id);
 
@@ -3704,8 +3707,8 @@ var LLSongSelectorComponent = (function() {
          me.addFilterable(SEL_ID_SONG_STAR_DIFF, new LLSelectComponent(selSongStarDiff));
          me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
 
-         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
-         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me.getValuedComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me.getValuedComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
 
          /**
           * @param {string} name
@@ -4095,7 +4098,7 @@ var LLMap = (function () {
          this.data.star = (star || 0);
          this.data.time = (time || 0);
          // 95% perfect
-         this.data.perfect = (perfect === undefined ? (this.data.combo * 19 / 20) : perfect);
+         this.data.perfect = (perfect === undefined ? Math.floor(this.data.combo * 19 / 20) : perfect);
          this.data.starPerfect = (starPerfect || 0);
       }
       /**
@@ -4150,97 +4153,112 @@ var LLMap = (function () {
 })();
 
 var LLSisGem = (function () {
-   /**
-    * @constructor
-    * @param {number} type
-    * @param {LLH.Model.LLSisGem_Options} options
-    * @this {LLH.Model.LLSisGem}
-    */
-   function LLSisGem_cls(type, options) {
-      var meta = LLConst.Gem.getNormalGemMeta(type);
-      if (!meta) throw 'Unknown type: ' + type;
-      this.type = type;
-      this.meta = meta;
-
-      options = options || {};
-      if (meta.per_grade && options.grade) this.grade = options.grade;
-      if (meta.per_member && options.member) {
-         this.member = options.member;
-         this.color = LLConst.Member.getMemberColor(options.member);
+   class LLSisGem_cls {
+      /**
+       * @param {number} type
+       * @param {LLH.Model.LLSisGem_Options} options
+       */
+      constructor(type, options) {
+         var meta = LLConst.Gem.getNormalGemMeta(type);
+         if (!meta) throw 'Unknown type: ' + type;
+         this.type = type;
+         this.meta = meta;
+   
+         options = options || {};
+         if (meta.per_grade && options.grade) this.grade = options.grade;
+         if (meta.per_member && options.member) {
+            this.member = options.member;
+            this.color = LLConst.Member.getMemberColor(options.member);
+         }
+         if (meta.per_color && options.color) this.color = options.color;
+         if (meta.per_unit && options.unit) this.unit = options.unit;
       }
-      if (meta.per_color && options.color) this.color = options.color;
-      if (meta.per_unit && options.unit) this.unit = options.unit;
-   };
-   /** @type {typeof LLH.Model.LLSisGem} */
-   var cls = LLSisGem_cls;
-
-   cls.getGemSlot = function (type) {
-      return LLConst.Gem.getNormalGemMeta(type).slot;
-   };
-   cls.getGemStockCount = function (gemStock, gemStockKeys) {
-      var cur = gemStock;
-      var keys = gemStockKeys;
-      for (var i = 0; i < keys.length; i++) {
-         if (cur.ALL !== undefined) return cur.ALL;
-         cur = cur[keys[i]];
-         if (cur === undefined) {
-            console.log("Not found " + keys.join('.') + " in gem stock");
-            return 0;
+      /**
+       * @param {LLH.Internal.NormalGemCategoryIdType} type 
+       * @returns {number}
+       */
+      static getGemSlot(type) {
+         var normalGemMeta = LLConst.Gem.getNormalGemMeta(type);
+         if (normalGemMeta) {
+            return normalGemMeta.slot;
+         } else {
+            return 999;
          }
       }
-      return cur;
-   };
-   var proto = cls.prototype;
-   proto.isEffectRangeSelf = function () { return this.meta.effect_range == LLConstValue.SIS_RANGE_SELF; };
-   proto.isEffectRangeAll = function () { return this.meta.effect_range == LLConstValue.SIS_RANGE_TEAM; };
-   proto.isSkillGem = function () { return this.meta.skill_mul || this.meta.heal_mul; };
-   proto.isAccuracyGem = function () { return this.meta.ease_attr_mul; };
-   proto.isValid = function () {
-      if (this.meta.per_grade && !this.grade) return false;
-      if (this.meta.per_member) {
-         if (!this.member) return false;
-         if (!LLConst.Gem.isMemberGemExist(this.member)) return false;
+      /**
+       * @param {LLH.TODO.GemStockType} gemStock 
+       * @param {string[]} gemStockKeys 
+       * @returns {number}
+       */
+      static getGemStockCount(gemStock, gemStockKeys) {
+         var cur = gemStock;
+         var keys = gemStockKeys;
+         for (var i = 0; i < keys.length; i++) {
+            if (cur.ALL !== undefined) return cur.ALL;
+            cur = cur[keys[i]];
+            if (cur === undefined) {
+               console.log("Not found " + keys.join('.') + " in gem stock");
+               return 0;
+            }
+         }
+         return cur;
       }
-      if (this.meta.per_unit && !this.unit) return false;
-      if (this.meta.per_color && !this.color) return false;
-      return true;
-   };
-   proto.isAttrMultiple = function () { return this.meta.attr_mul; };
-   proto.isAttrAdd = function () { return this.meta.attr_add; };
-   proto.isHealToScore = function () { return this.meta.heal_mul; };
-   proto.isScoreMultiple = function () { return this.meta.skill_mul; };
-   proto.isNonet = function () { return this.meta.per_unit; };
-   proto.isMemberGem = function () { return this.meta.per_member; };
-   proto.getEffectValue = function () { return this.meta.effect_value; };
-   proto.getNormalGemType = function () { return this.type; };
-   proto.getGemStockKeys = function () {
-      if (this.gemStockKeys !== undefined) return this.gemStockKeys;
-      var ret = [this.meta.key];
-      if (this.meta.per_grade) {
-         if (this.grade === undefined) throw "Gem has no grade";
-         ret.push(this.grade);
+      isEffectRangeSelf() { return this.meta.effect_range == LLConstValue.SIS_RANGE_SELF; }
+      isEffectRangeAll() { return this.meta.effect_range == LLConstValue.SIS_RANGE_TEAM; }
+      isSkillGem() { return this.meta.skill_mul || this.meta.heal_mul; }
+      isAccuracyGem() { return this.meta.ease_attr_mul; }
+      isValid() {
+         if (this.meta.per_grade && !this.grade) return false;
+         if (this.meta.per_member) {
+            if (!this.member) return false;
+            if (!LLConst.Gem.isMemberGemExist(this.member)) return false;
+         }
+         if (this.meta.per_unit && !this.unit) return false;
+         if (this.meta.per_color && !this.color) return false;
+         return true;
       }
-      if (this.meta.per_member) {
-         if (this.member === undefined) throw "Gem has no member";
-         ret.push(this.member);
+      isAttrMultiple() { return this.meta.attr_mul; }
+      isAttrAdd() { return this.meta.attr_add; }
+      isHealToScore() { return this.meta.heal_mul; }
+      isScoreMultiple() { return this.meta.skill_mul; }
+      isNonet() { return this.meta.per_unit; }
+      isMemberGem() { return this.meta.per_member; }
+      getEffectValue() { return this.meta.effect_value; }
+      getNormalGemType() { return this.type; }
+      getGemStockKeys() {
+         if (this.gemStockKeys !== undefined) return this.gemStockKeys;
+         var ret = [this.meta.key];
+         if (this.meta.per_grade) {
+            if (this.grade === undefined) throw "Gem has no grade";
+            ret.push(this.grade + '');
+         }
+         if (this.meta.per_member) {
+            if (this.member === undefined) throw "Gem has no member";
+            ret.push(this.member + '');
+         }
+         if (this.meta.per_unit) {
+            if (this.unit === undefined) throw "Gem has no unit";
+            ret.push(this.unit + '');
+         }
+         if (this.meta.per_color) {
+            if (this.color === undefined) throw "Gem has no color";
+            ret.push(this.color);
+         }
+         this.gemStockKeys = ret;
+         return ret;
       }
-      if (this.meta.per_unit) {
-         if (this.unit === undefined) throw "Gem has no unit";
-         ret.push(this.unit);
+      /** @param {LLH.TODO.GemStockType} gemStock */
+      getGemStockCount(gemStock) {
+         return LLSisGem_cls.getGemStockCount(gemStock, this.getGemStockKeys());
       }
-      if (this.meta.per_color) {
-         if (this.color === undefined) throw "Gem has no color";
-         ret.push(this.color);
+      getAttributeType() { return this.color; }
+      /** @param {LLH.Core.AttributeType} newColor */
+      setAttributeType(newColor) {
+         this.color = newColor;
       }
-      this.gemStockKeys = ret;
-      return ret;
-   };
-   proto.getGemStockCount = function (gemStock) {
-      return cls.getGemStockCount(gemStock, this.getGemStockKeys());
-   };
-   proto.getAttributeType = function () { return this.color; };
-   proto.setAttributeType = function (newColor) { this.color = newColor; };
-   return cls;
+   }
+
+   return LLSisGem_cls;
 })();
 
 var LLCommonSisGem = (function () {
@@ -8504,7 +8522,7 @@ var LLTeamComponent = (function () {
     * @param {string} head 
     * @param {(controller: CellController, index: number) => HTMLElement[]} cellCreator 
     * @param {LLH.Layout.Team.TeamRowController<CellController>} controller 
-    * @param {(controller: CellController, index: number) => void} cellControllerDeco
+    * @param {(controller: CellController, index: number) => void} [cellControllerDeco]
     * @returns {HTMLElement}
     */
    function createRowFor9(head, cellCreator, controller, cellControllerDeco) {
