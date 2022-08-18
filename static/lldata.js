@@ -4168,7 +4168,9 @@ var LLSisGem = (function () {
          if (meta.per_grade && options.grade) this.grade = options.grade;
          if (meta.per_member && options.member) {
             this.member = options.member;
-            this.color = LLConst.Member.getMemberColor(options.member);
+            var memberColor = LLConst.Member.getMemberColor(options.member);
+            if (memberColor == 'all') memberColor = undefined;
+            this.color = memberColor;
          }
          if (meta.per_color && options.color) this.color = options.color;
          if (meta.per_unit && options.unit) this.unit = options.unit;
@@ -4205,8 +4207,8 @@ var LLSisGem = (function () {
       }
       isEffectRangeSelf() { return this.meta.effect_range == LLConstValue.SIS_RANGE_SELF; }
       isEffectRangeAll() { return this.meta.effect_range == LLConstValue.SIS_RANGE_TEAM; }
-      isSkillGem() { return this.meta.skill_mul || this.meta.heal_mul; }
-      isAccuracyGem() { return this.meta.ease_attr_mul; }
+      isSkillGem() { return !!(this.meta.skill_mul || this.meta.heal_mul); }
+      isAccuracyGem() { return !!this.meta.ease_attr_mul; }
       isValid() {
          if (this.meta.per_grade && !this.grade) return false;
          if (this.meta.per_member) {
@@ -4217,12 +4219,12 @@ var LLSisGem = (function () {
          if (this.meta.per_color && !this.color) return false;
          return true;
       }
-      isAttrMultiple() { return this.meta.attr_mul; }
-      isAttrAdd() { return this.meta.attr_add; }
-      isHealToScore() { return this.meta.heal_mul; }
-      isScoreMultiple() { return this.meta.skill_mul; }
-      isNonet() { return this.meta.per_unit; }
-      isMemberGem() { return this.meta.per_member; }
+      isAttrMultiple() { return !!this.meta.attr_mul; }
+      isAttrAdd() { return !!this.meta.attr_add; }
+      isHealToScore() { return !!this.meta.heal_mul; }
+      isScoreMultiple() { return !!this.meta.skill_mul; }
+      isNonet() { return !!this.meta.per_unit; }
+      isMemberGem() { return !!this.meta.per_member; }
       getEffectValue() { return this.meta.effect_value; }
       getNormalGemType() { return this.type; }
       getGemStockKeys() {
@@ -4262,50 +4264,19 @@ var LLSisGem = (function () {
 })();
 
 var LLCommonSisGem = (function () {
-   /**
-    * @constructor
-    * @param {LLH.API.SisDataType} gemData 
-    */
-   function LLCommonSisGem_cls(gemData) {
-      this.gemData = gemData;
+   class LLCommonSisGem_cls {
+      /**
+       * @param {LLH.API.SisDataType} gemData 
+       */
+      constructor(gemData) {
+         this.gemData = gemData;
+      }
    }
-   /** @type {typeof LLH.Model.LLCommonSisGem} */
-   var cls = LLCommonSisGem_cls;
-   return cls;
+   return LLCommonSisGem_cls;
 })();
 
 var LLSkill = (function () {
-   /**
-    * @constructor
-    * @param {LLH.API.CardDataType} card 
-    * @param {number} level base 0
-    * @param {{gemskill?: number, skillup?: number}} [buff] 
-    */
-   function LLSkill_cls(card, level, buff) {
-      this.card = card;
-      this.level = level;
-      var skilldetails = card.skilldetail || [];
-      /** @type {LLH.API.SkillDetailDataType} */
-      var skilldetail = skilldetails[level]  || {};
-      this.hasSkill = (card.skilldetail && skilldetail.possibility);
-      this.require = skilldetail.require || 1;
-      this.possibility = skilldetail.possibility || 0;
-      this.score = skilldetail.score || 0;
-      this.time = skilldetail.time || 0;
-
-      this.triggerType = card.triggertype;
-      this.effectType = card.skilleffect;
-      this.triggerTarget = card.triggertarget;
-      this.effectTarget = card.effecttarget;
-
-      this.reset();
-
-      buff = buff || {};
-      this.setScoreGem(buff.gemskill);
-      this.setSkillPossibilityUp(buff.skillup);
-   };
-   var cls = LLSkill_cls;
-   var eTriggerType = {
+   const eTriggerType = {
       'TIME': LLConstValue.SKILL_TRIGGER_TIME,
       'NOTE': LLConstValue.SKILL_TRIGGER_NOTE,
       'COMBO': LLConstValue.SKILL_TRIGGER_COMBO,
@@ -4314,9 +4285,14 @@ var LLSkill = (function () {
       'STAR_PERFECT': LLConstValue.SKILL_TRIGGER_STAR_PERFECT,
       'MEMBERS': LLConstValue.SKILL_TRIGGER_MEMBERS
    };
+   /**
+    * @param {number} n 
+    * @param {number} p 
+    */
    var calcBiDist = function (n, p) {
       // time: O(n^2), space: O(n)
       if (n < 0) throw 'LLSkill::calcBiDist: n cannot be negitive, n=' + n + ', p=' + p;
+      /** @type {number[][]} */
       var dist = [new Array(n+1), new Array(n+1)];
       var pCur = 0, pNext = 1;
       var q = 1-p; // p: possibility for +1, q: possibility for no change
@@ -4332,350 +4308,432 @@ var LLSkill = (function () {
       }
       return dist[pCur];
    };
-   var proto = cls.prototype;
-   proto.setScoreGem = function (has) {
-      this.actualScore = 0;
-      if (parseInt(has || 0)) {
-         if (this.effectType == LLConstValue.SKILL_EFFECT_HEAL) {
-            // 日服4.1版本前是270, 4.1版本后是480; 国服没有270
-            this.actualScore = this.score * 480;
-         } else if (this.effectType == LLConstValue.SKILL_EFFECT_SCORE) {
-            this.actualScore = Math.ceil(this.score * 2.5);
-         }
-      } else {
-         if (this.effectType == LLConstValue.SKILL_EFFECT_SCORE) {
-            this.actualScore = this.score;
-         }
-      }
-   };
-   proto.setSkillPossibilityUp = function (rate) {
-      this.actualPossibility = this.possibility * (1+parseInt(rate || 0)/100);
-   };
-   proto.reset = function () {
-      this.skillChance = 0;
-      this.averageScore = 0;
-      this.maxScore = 0;
-      this.averageHeal = 0;
-      this.maxHeal = 0;
-      this.simpleCoverage = 0;
-      this.skillDist = undefined;
-   };
-   proto.isScoreTrigger = function () { return this.triggerType == eTriggerType.SCORE; };
-   // 技能发动最大判定次数
-   // 如果比上次计算的次数更多, 返回true, 否则返回false
-   // env: {time, combo, score, perfect, starperfect}
-   proto.calcSkillChance = function (env) {
-      if (!this.hasSkill) return false;
-      var chance = 0;
-      var total = 0;
-      if (this.triggerType == eTriggerType.TIME) {
-         total = env.time;
-      } else if (this.triggerType == eTriggerType.NOTE || this.triggerType == eTriggerType.COMBO) {
-         total = env.combo;
-      } else if (this.triggerType == eTriggerType.SCORE) {
-         total = env.score;
-      } else if (this.triggerType == eTriggerType.PERFECT) {
-         // TODO: combo*perfect_rate?
-         total = env.perfect;
-      } else if (this.triggerType == eTriggerType.STAR_PERFECT) {
-         // TODO: star*perfect_rate?
-         total = env.starperfect;
-      } else if (this.triggerType == eTriggerType.MEMBERS) {
-         // TODO: how to calculate it?
-         total = 0;
-      }
-      chance = Math.floor(total/this.require);
-      if (chance > this.skillChance) {
-         this.skillChance = chance;
-         this.skillDist = undefined; // reset distribution
-         return true;
-      } else {
-         return false;
-      }
-   };
-   proto.calcSkillEffect = function (env) {
-      if (!this.hasSkill) return false;
-      this.maxScore = this.skillChance * this.actualScore;
-      if (this.effectType == LLConstValue.SKILL_EFFECT_HEAL) {
-         this.maxHeal = this.skillChance * this.score;
-      } else {
+   class LLSkill_cls {
+      /**
+       * @param {LLH.API.CardDataType} card 
+       * @param {number} level base 0
+       * @param {LLH.Model.LLSkill_Buff} [buff] 
+       */
+      constructor(card, level, buff) {
+         this.card = card;
+         this.level = level;
+         var skilldetails = card.skilldetail || [];
+         var skilldetail = skilldetails[level]  || {};
+         this.hasSkill = (card.skilldetail && skilldetail.possibility);
+         this.require = skilldetail.require || 1;
+         this.possibility = skilldetail.possibility || 0;
+         this.score = skilldetail.score || 0;
+         this.time = skilldetail.time || 0;
+   
+         this.triggerType = card.triggertype;
+         this.effectType = card.skilleffect;
+         this.triggerTarget = card.triggertarget;
+         this.effectTarget = card.effecttarget;
+   
+         this.skillChance = 0;
+         this.averageScore = 0;
+         this.maxScore = 0;
+         this.averageHeal = 0;
          this.maxHeal = 0;
-      }
-      this.averageScore = this.maxScore * this.actualPossibility/100;
-      this.averageHeal = this.maxHeal * this.actualPossibility/100;
-      // 对于buff型技能, 计算简易覆盖率
-      if (this.time > 0) {
-         // 令: 判定次数*每次发动需要秒数+判定次数*发动率*发动秒数 <= 总时间
-         // 则: 判定次数<=总时间/(每次发动需要秒数+发动率*发动秒数)
-         // 简易覆盖率: 发动率*发动秒数/(每次发动需要秒数+发动率*发动秒数)
-         // 实际覆盖率受多种因素影响(临近结尾发动的判定, note分布不均匀等), 到llcoverge页面计算实际覆盖率
-         // 非时间系的转换成平均多少秒能满足发动条件
-         var timeRequire = env.time/this.skillChance;
-         var p = this.actualPossibility/100;
-         this.simpleCoverage = p*this.time/(timeRequire+p*this.time);
-      } else {
          this.simpleCoverage = 0;
+         this.skillDist = undefined;
+
+         this.actualScore = 0;
+         this.actualPossibility = this.possibility;
+   
+         buff = buff || {};
+         this.setScoreGem(buff.gemskill);
+         this.setSkillPossibilityUp(buff.skillup);
       }
-   };
-   proto.calcSkillStrength = function (scorePerStrength) {
-      if (!this.maxScore) {
-         this.strength = 0;
-      } else {
-         this.strength = Math.round(this.maxScore * this.possibility/100 /scorePerStrength);
+      /** @param {boolean} [has] */
+      setScoreGem(has) {
+         if (has) {
+            if (this.effectType == LLConstValue.SKILL_EFFECT_HEAL) {
+               // 日服4.1版本前是270, 4.1版本后是480; 国服没有270
+               this.actualScore = this.score * 480;
+            } else if (this.effectType == LLConstValue.SKILL_EFFECT_SCORE) {
+               this.actualScore = Math.ceil(this.score * 2.5);
+            }
+         } else {
+            if (this.effectType == LLConstValue.SKILL_EFFECT_SCORE) {
+               this.actualScore = this.score;
+            }
+         }
       }
-   };
-   proto.calcSkillDist = function () {
-      if (this.skillChance === undefined) {
-         console.error("No skill chance");
-         return [1];
+      /** @param {number} [rate] */
+      setSkillPossibilityUp(rate) {
+         this.actualPossibility = this.possibility * (1+(rate || 0)/100);
       }
-      if (!this.skillChance) return [1]; // no chance or not supported, return 100% not active
-      if (this.skillDist) return this.skillDist;
-      this.skillDist = calcBiDist(this.skillChance, this.actualPossibility/100);
-      return this.skillDist;
-   };
-   proto.isEffectHeal = function () { return this.effectType == LLConstValue.SKILL_EFFECT_HEAL; }
-   proto.isEffectScore = function () { return this.effectType == LLConstValue.SKILL_EFFECT_SCORE; }
-   return cls;
+      reset() {
+         this.skillChance = 0;
+         this.averageScore = 0;
+         this.maxScore = 0;
+         this.averageHeal = 0;
+         this.maxHeal = 0;
+         this.simpleCoverage = 0;
+         this.skillDist = undefined;
+      }
+      isScoreTrigger() { return this.triggerType == eTriggerType.SCORE; }
+      // 技能发动最大判定次数
+      // 如果比上次计算的次数更多, 返回true, 否则返回false
+      // env: {time, combo, score, perfect, starperfect}
+      calcSkillChance(env) {
+         if (!this.hasSkill) return false;
+         var chance = 0;
+         var total = 0;
+         if (this.triggerType == eTriggerType.TIME) {
+            total = env.time;
+         } else if (this.triggerType == eTriggerType.NOTE || this.triggerType == eTriggerType.COMBO) {
+            total = env.combo;
+         } else if (this.triggerType == eTriggerType.SCORE) {
+            total = env.score;
+         } else if (this.triggerType == eTriggerType.PERFECT) {
+            // TODO: combo*perfect_rate?
+            total = env.perfect;
+         } else if (this.triggerType == eTriggerType.STAR_PERFECT) {
+            // TODO: star*perfect_rate?
+            total = env.starperfect;
+         } else if (this.triggerType == eTriggerType.MEMBERS) {
+            // TODO: how to calculate it?
+            total = 0;
+         }
+         chance = Math.floor(total/this.require);
+         if (chance > this.skillChance) {
+            this.skillChance = chance;
+            this.skillDist = undefined; // reset distribution
+            return true;
+         } else {
+            return false;
+         }
+      }
+      calcSkillEffect(env) {
+         if (!this.hasSkill) return false;
+         this.maxScore = this.skillChance * this.actualScore;
+         if (this.effectType == LLConstValue.SKILL_EFFECT_HEAL) {
+            this.maxHeal = this.skillChance * this.score;
+         } else {
+            this.maxHeal = 0;
+         }
+         this.averageScore = this.maxScore * this.actualPossibility/100;
+         this.averageHeal = this.maxHeal * this.actualPossibility/100;
+         // 对于buff型技能, 计算简易覆盖率
+         if (this.time > 0) {
+            // 令: 判定次数*每次发动需要秒数+判定次数*发动率*发动秒数 <= 总时间
+            // 则: 判定次数<=总时间/(每次发动需要秒数+发动率*发动秒数)
+            // 简易覆盖率: 发动率*发动秒数/(每次发动需要秒数+发动率*发动秒数)
+            // 实际覆盖率受多种因素影响(临近结尾发动的判定, note分布不均匀等), 到llcoverge页面计算实际覆盖率
+            // 非时间系的转换成平均多少秒能满足发动条件
+            var timeRequire = env.time/this.skillChance;
+            var p = this.actualPossibility/100;
+            this.simpleCoverage = p*this.time/(timeRequire+p*this.time);
+         } else {
+            this.simpleCoverage = 0;
+         }
+      }
+      /** @param {number} scorePerStrength */
+      calcSkillStrength(scorePerStrength) {
+         if (!this.maxScore) {
+            this.strength = 0;
+         } else {
+            this.strength = Math.round(this.maxScore * this.possibility/100 /scorePerStrength);
+         }
+      }
+      calcSkillDist() {
+         if (this.skillChance === undefined) {
+            console.error("No skill chance");
+            return [1];
+         }
+         if (!this.skillChance) return [1]; // no chance or not supported, return 100% not active
+         if (this.skillDist) return this.skillDist;
+         this.skillDist = calcBiDist(this.skillChance, this.actualPossibility/100);
+         return this.skillDist;
+      }
+      isEffectHeal() { return this.effectType == LLConstValue.SKILL_EFFECT_HEAL; }
+      isEffectScore() { return this.effectType == LLConstValue.SKILL_EFFECT_SCORE; }
+   }
+
+   return LLSkill_cls;
 })();
 
 var LLMember = (function() {
    var int_attr = ["cardid", "smile", "pure", "cool", "skilllevel", "maxcost", "hp"];
    var MIC_RATIO = [0, 5, 11, 24, 40, 0]; //'UR': 40, 'SSR': 24, 'SR': 11, 'R': 5, 'N': 0
-   /**
-    * @constructor
-    * @param {LLH.Model.LLMember_Options} v 
-    * @param {LLH.Core.AttributeType} mapAttribute
-    */
-   function LLMember_cls(v, mapAttribute) {
-      v = v || {};
-      var i;
-      for (i = 0; i < int_attr.length; i++) {
-         var attr = int_attr[i];
-         if (v[attr] === undefined) {
-            console.error('missing attribute ' + attr);
-            this[attr] = 0;
-         } else {
-            this[attr] = parseInt(v[attr]);
-         }
-      }
-      if (v.card === undefined) {
-         console.error('missing card detail');
-      } else {
-         this.card = v.card;
-      }
-      this.gems = [];
-      if (!v.enableLAGem) {
-         if (v.gemlist === undefined) {
-            console.error('missing gem info');
-         } else if (v.card) {
-            for (i = 0; i < v.gemlist.length; i++) {
-               var gemMetaId = LLConst.GemType[v.gemlist[i]];
-               var memberId = v.card.typeid;
-               var sisOptions = {
-                  'grade': LLConst.Member.getMemberGrade(memberId),
-                  'member': memberId,
-                  'unit': LLConst.Member.getBigGroupId(memberId)
-               };
-               if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
-                  sisOptions.color = v.card.attribute;
-               } else {
-                  sisOptions.color = mapAttribute;
-               }
-               this.gems.push(new LLSisGem(gemMetaId, sisOptions));
+   class LLMember_cls {
+      /**
+       * @param {LLH.Model.LLMember_Options} v 
+       * @param {LLH.Core.AttributeType} mapAttribute
+       */
+      constructor(v, mapAttribute) {
+         var i;
+         this.cardid = v.cardid || 0;
+         this.smile = v.smile || 0;
+         this.pure = v.pure || 0;
+         this.cool = v.cool || 0;
+         this.skilllevel = v.skilllevel || 0;
+         this.maxcost = v.maxcost || 0;
+         this.hp = v.hp || 0;
+         for (i = 0; i < int_attr.length; i++) {
+            var attr = int_attr[i];
+            if (v[attr] === undefined) {
+               console.error('missing attribute ' + attr);
             }
          }
-      }
-      this.laGems = [];
-      if (v.enableLAGem && v.laGemList && v.laGemList.length > 0) {
-         if (v.gemDataDict) {
-            for (i = 0; i < v.laGemList.length; i++) {
-               var gemId = v.laGemList[i];
-               var sisBrief = v.gemDataDict[gemId];
-               if (!sisBrief) {
-                  console.error('Missing sis gem data for id = ' + gemId);
-               } else {
-                  this.laGems.push(new LLCommonSisGem(sisBrief));
+         if (v.card === undefined) {
+            console.error('missing card detail');
+         } else {
+            this.card = v.card;
+         }
+         /** @type {LLH.Model.LLSisGem[]} */
+         this.gems = [];
+         if (!v.enableLAGem) {
+            if (v.gemlist === undefined) {
+               console.error('missing gem info');
+            } else if (v.card) {
+               for (i = 0; i < v.gemlist.length; i++) {
+                  var gemMetaId = LLConst.GemType[v.gemlist[i]];
+                  var memberId = v.card.typeid;
+                  var sisOptions = {
+                     'grade': LLConst.Member.getMemberGrade(memberId),
+                     'member': memberId,
+                     'unit': LLConst.Member.getBigGroupId(memberId)
+                  };
+                  if (LLConst.Gem.isGemFollowMemberAttribute(gemMetaId)) {
+                     sisOptions.color = v.card.attribute;
+                  } else {
+                     sisOptions.color = mapAttribute;
+                  }
+                  this.gems.push(new LLSisGem(gemMetaId, sisOptions));
                }
             }
-         } else {
-            console.error('No sis gem data, skipping initialize laGems');
          }
-      }
-      if (v.accessory && v.accessoryData) {
-         if (LLConst.Accessory.canEquipAccessory(v.accessoryData, v.accessory.level, v.cardid)) {
-            this.accessory = v.accessoryData;
-            this.accessoryLevel = v.accessory.level;
-            this.accessoryAttr = LLConst.Accessory.getAccessoryLevelAttribute(this.accessory, this.accessoryLevel);
-         } else {
-            console.info('Accessory ' + v.accessoryData.id + ' cannot be equipped to ' + v.cardid);
-         }
-      }
-      this.raw = v;
-   };
-   /** @type {typeof LLH.Model.LLMember} */
-   var cls = LLMember_cls;
-   var proto = cls.prototype;
-   proto.hasSkillGem = function () {
-      for (var i = 0; i < this.gems.length; i++) {
-         if (this.gems[i].isSkillGem()) return 1;
-      }
-      return 0;
-   };
-   proto.getAccuracyGemFactor = function () {
-      var factor = 1;
-      for (var i = 0; i < this.gems.length; i++) {
-         if (this.gems[i].isAccuracyGem()) {
-            factor = factor * (1+this.gems[i].getEffectValue()/100);
-         }
-      }
-      return factor;
-   };
-   proto.empty = function () {
-      return (!this.cardid) || (this.cardid == '0');
-   };
-   proto.calcDisplayAttr = function () {
-      //显示属性=(基本属性+绊+饰品属性)*单体百分比宝石加成+数值宝石加成
-      var withAccessory = LLConst.Attributes.copyAttributes(this);
-      if (this.accessory) {
-         LLConst.Attributes.addToAttributes(withAccessory, this.accessoryAttr);
-      }
-      var ret = LLConst.Attributes.copyAttributes(withAccessory);
-      for (var i = 0; i < this.gems.length; i++) {
-         var gem = this.gems[i];
-         if (gem.isAttrAdd()) {
-            ret[gem.getAttributeType()] += gem.getEffectValue();
-         }
-         if (gem.isAttrMultiple() && gem.isEffectRangeSelf()) {
-            ret[gem.getAttributeType()] += Math.ceil(gem.getEffectValue()/100 * withAccessory[gem.getAttributeType()]);
-         }
-      }
-      this.displayAttr = ret;
-      return ret;
-   };
-   proto.calcAttrWithGem = function (mapcolor, teamgem) {
-      if (!this.displayAttr) throw "Need calcDisplayAttr first";
-      if (!(teamgem && teamgem.length == 9)) throw "Expect teamgem length 9";
-      //全体宝石累计加成(下标i表示0..i-1位队员所带的全体宝石给该队员带来的总加成, [0]=0)
-      //注意全体宝石是在(基本属性值+绊)基础上计算的, 不是在显示属性上计算的, 并且不包括饰品属性
-      var cumulativeTeamGemBonus = [0];
-      var sum = 0;
-      for (var i = 0; i < 9; i++) {
-         for (var j = 0; j < teamgem[i].length; j++) {
-            sum += Math.ceil(teamgem[i][j].getEffectValue()/100 * this[mapcolor]);
-         }
-         cumulativeTeamGemBonus.push(sum);
-      }
-      this.cumulativeTeamGemBonus = cumulativeTeamGemBonus;
-      this.attrWithGem = this.displayAttr[mapcolor] + sum;
-      return this.attrWithGem;
-   };
-   proto.calcAttrWithCSkill = function (mapcolor, cskills) {
-      if (!this.attrWithGem) throw "Need calcAttrWithGem first";
-      //主唱技能加成(下标i表示只考虑前i-1个队员的全体宝石时, 主唱技能的加成值, 下标0表示不考虑全体宝石)
-      var cumulativeCSkillBonus = [];
-      //属性强度(下标i表示只考虑前i-1个队员的全体宝石时的属性强度)
-      var cumulativeAttrStrength = [];
-      var baseAttr = LLConst.Attributes.copyAttributes(this.displayAttr);
-      for (var i = 0; i <= 9; i++) {
-         baseAttr[mapcolor] = this.displayAttr[mapcolor] + this.cumulativeTeamGemBonus[i];
-         var bonusAttr = LLConst.Attributes.makeAttributes0();
-         for (var j = 0; j < cskills.length; j++) {
-            var cskill = cskills[j];
-            //主c技能
-            if (cskill.Cskillpercentage) {
-               bonusAttr[cskill.attribute] += Math.ceil(baseAttr[cskill.Cskillattribute]*cskill.Cskillpercentage/100);
+         /** @type {LLH.Model.LLCommonSisGem[]} */
+         this.laGems = [];
+         if (v.enableLAGem && v.laGemList && v.laGemList.length > 0) {
+            if (v.gemDataDict) {
+               for (i = 0; i < v.laGemList.length; i++) {
+                  var gemId = v.laGemList[i];
+                  var sisBrief = v.gemDataDict[gemId];
+                  if (!sisBrief) {
+                     console.error('Missing sis gem data for id = ' + gemId);
+                  } else {
+                     this.laGems.push(new LLCommonSisGem(sisBrief));
+                  }
+               }
+            } else {
+               console.error('No sis gem data, skipping initialize laGems');
             }
-            //副c技能
-            if (cskill.Csecondskillattribute) {
+         }
+         if (v.accessory && v.accessoryData) {
+            if (LLConst.Accessory.canEquipAccessory(v.accessoryData, v.accessory.level, v.cardid)) {
+               this.accessory = v.accessoryData;
+               this.accessoryLevel = v.accessory.level;
+               this.accessoryAttr = LLConst.Accessory.getAccessoryLevelAttribute(this.accessory, this.accessoryLevel);
+            } else {
+               console.info('Accessory ' + v.accessoryData.id + ' cannot be equipped to ' + v.cardid);
+            }
+         }
+         this.raw = v;
+      }
+      hasSkillGem() {
+         for (var i = 0; i < this.gems.length; i++) {
+            if (this.gems[i].isSkillGem()) return true;
+         }
+         return false;
+      }
+      getAccuracyGemFactor() {
+         var factor = 1;
+         for (var i = 0; i < this.gems.length; i++) {
+            if (this.gems[i].isAccuracyGem()) {
+               factor = factor * (1+this.gems[i].getEffectValue()/100);
+            }
+         }
+         return factor;
+      }
+      empty() {
+         return (!this.cardid) || (this.cardid == '0');
+      }
+      calcDisplayAttr() {
+         //显示属性=(基本属性+绊+饰品属性)*单体百分比宝石加成+数值宝石加成
+         var withAccessory = LLConst.Attributes.copyAttributes(this);
+         if (this.accessory && this.accessoryAttr) {
+            LLConst.Attributes.addToAttributes(withAccessory, this.accessoryAttr);
+         }
+         var ret = LLConst.Attributes.copyAttributes(withAccessory);
+         for (var i = 0; i < this.gems.length; i++) {
+            var gem = this.gems[i];
+            var gemAttribute = gem.getAttributeType();
+            if (gemAttribute) {
+               if (gem.isAttrAdd()) {
+                  ret[gemAttribute] += gem.getEffectValue();
+               }
+               if (gem.isAttrMultiple() && gem.isEffectRangeSelf()) {
+                  ret[gemAttribute] += Math.ceil(gem.getEffectValue()/100 * withAccessory[gemAttribute]);
+               }
+            }
+         }
+         this.displayAttr = ret;
+         return ret;
+      }
+      /**
+       * @param {LLH.Core.AttributeAllType} mapcolor 
+       * @param {LLH.Model.LLSisGem[][]} teamgem 
+       * @returns {number}
+       */
+      calcAttrWithGem(mapcolor, teamgem) {
+         if (!this.displayAttr) throw "Need calcDisplayAttr first";
+         if (!(teamgem && teamgem.length == 9)) throw "Expect teamgem length 9";
+         //全体宝石累计加成(下标i表示0..i-1位队员所带的全体宝石给该队员带来的总加成, [0]=0)
+         //注意全体宝石是在(基本属性值+绊)基础上计算的, 不是在显示属性上计算的, 并且不包括饰品属性
+         var cumulativeTeamGemBonus = [0];
+         var sum = 0;
+         for (var i = 0; i < 9; i++) {
+            for (var j = 0; j < teamgem[i].length; j++) {
+               sum += Math.ceil(teamgem[i][j].getEffectValue()/100 * this[mapcolor]);
+            }
+            cumulativeTeamGemBonus.push(sum);
+         }
+         this.cumulativeTeamGemBonus = cumulativeTeamGemBonus;
+         this.attrWithGem = this.displayAttr[mapcolor] + sum;
+         return this.attrWithGem;
+      }
+      /**
+       * @param {LLH.Core.AttributeAllType} mapcolor 
+       * @param {LLH.Internal.CSkillDataType[]} cskills 
+       */
+      calcAttrWithCSkill(mapcolor, cskills) {
+         if (!this.displayAttr) throw "Need calcDisplayAttr first";
+         if (!(this.attrWithGem && this.cumulativeTeamGemBonus)) throw "Need calcAttrWithGem first";
+         //主唱技能加成(下标i表示只考虑前i-1个队员的全体宝石时, 主唱技能的加成值, 下标0表示不考虑全体宝石)
+         var cumulativeCSkillBonus = [];
+         //属性强度(下标i表示只考虑前i-1个队员的全体宝石时的属性强度)
+         var cumulativeAttrStrength = [];
+         var baseAttr = LLConst.Attributes.copyAttributes(this.displayAttr);
+         for (var i = 0; i <= 9; i++) {
+            baseAttr[mapcolor] = this.displayAttr[mapcolor] + this.cumulativeTeamGemBonus[i];
+            var bonusAttr = LLConst.Attributes.makeAttributes0();
+            for (var j = 0; j < cskills.length; j++) {
+               var cskill = cskills[j];
+               //主c技能
+               if (cskill.Cskillpercentage) {
+                  bonusAttr[cskill.attribute] += Math.ceil(baseAttr[cskill.Cskillattribute]*cskill.Cskillpercentage/100);
+               }
+               //副c技能
+               if (cskill.Csecondskillattribute && cskill.Csecondskilllimit && this.card) {
+                  if (LLConst.Member.isMemberInGroup(this.card.jpname, cskill.Csecondskilllimit)) {
+                     bonusAttr[cskill.attribute] += Math.ceil(baseAttr[cskill.attribute]*cskill.Csecondskillattribute/100);
+                  }
+               }
+            }
+            cumulativeCSkillBonus.push(bonusAttr[mapcolor]);
+            cumulativeAttrStrength.push(baseAttr[mapcolor] + bonusAttr[mapcolor]);
+            if (i == 9) {
+               this.bonusAttr = bonusAttr;
+               this.finalAttr = LLConst.Attributes.addAttributes(baseAttr, bonusAttr);
+               this.attrStrength = this.finalAttr[mapcolor];
+               this.attrStrengthWithAccuracy = Math.ceil(this.attrStrength * this.getAccuracyGemFactor());
+            }
+         }
+         this.cumulativeCSkillBonus = cumulativeCSkillBonus;
+         this.cumulativeAttrStrength = cumulativeAttrStrength;
+      }
+      /**
+       * @param {LLH.Core.AttributeAllType} mapcolor 
+       * @param {LLH.Core.BigGroupIdType} mapunit 
+       */
+      getAttrBuffFactor(mapcolor, mapunit) {
+         var buff = 1;
+         if (!this.card) { return buff; }
+         if (this.card.attribute == mapcolor) buff *= 1.1;
+         if (LLConst.Member.isMemberInGroup(this.card.jpname, mapunit)) buff *= 1.1;
+         return buff;
+      }
+      /**
+       * @param {LLH.Core.AttributeAllType} mapcolor 
+       * @param {LLH.Core.BigGroupIdType | undefined} mapunit 
+       * @param {number} weight 
+       * @param {number} totalweight 
+       */
+      getAttrDebuffFactor(mapcolor, mapunit, weight, totalweight) {
+         var debuff = 1;
+         if (!this.card) { return debuff; }
+         if (this.card.attribute != mapcolor) debuff *= 1.1;
+         if (mapunit && !LLConst.Member.isMemberInGroup(this.card.jpname, mapunit)) debuff *= 1.1;
+         debuff = 1-1/debuff;
+         debuff = (weight/totalweight)*debuff;
+         return debuff;
+      }
+      /**
+       * @param {LLH.Model.LLMap_SaveData} mapdata 
+       * @param {number} pos 
+       * @param {number} teamattr 
+       */
+      calcAttrDebuff(mapdata, pos, teamattr) {
+         var attrDebuff = Math.round(this.getAttrDebuffFactor(mapdata.attribute, mapdata.songUnit, mapdata.weights[pos], mapdata.totalWeight) * teamattr);
+         this.attrDebuff = attrDebuff;
+         return attrDebuff;
+      }
+      getMicPoint() {
+         if (!this.card) throw "No card data";
+         var skill_level_up_pattern = this.card.skillleveluppattern || 0;
+         if (MIC_RATIO[skill_level_up_pattern] === undefined) {
+            console.error("Unknown skill level up pattern: " + skill_level_up_pattern);
+            return 0;
+         }
+         return MIC_RATIO[skill_level_up_pattern] * this.skilllevel;
+      }
+      /**
+       * @param {LLH.Core.AttributeType} mapcolor 
+       * @param {LLH.Internal.CSkillDataType[]} cskills 
+       */
+      calcTotalCSkillPercentageForSameColor(mapcolor, cskills) {
+         var sumPercentage = 0;
+         for (var i = 0; i < cskills.length; i++) {
+            var cskill = cskills[i];
+            if (cskill.Cskillpercentage && cskill.attribute == mapcolor && cskill.Cskillattribute == mapcolor) {
+               sumPercentage += cskill.Cskillpercentage;
+            }
+            if (cskill.Csecondskillattribute && cskill.attribute == mapcolor && this.card && cskill.Csecondskilllimit) {
                if (LLConst.Member.isMemberInGroup(this.card.jpname, cskill.Csecondskilllimit)) {
-                  bonusAttr[cskill.attribute] += Math.ceil(baseAttr[cskill.attribute]*cskill.Csecondskillattribute/100);
+                  sumPercentage += cskill.Csecondskillattribute;
                }
             }
          }
-         cumulativeCSkillBonus.push(bonusAttr[mapcolor]);
-         cumulativeAttrStrength.push(baseAttr[mapcolor] + bonusAttr[mapcolor]);
-         if (i == 9) {
-            this.bonusAttr = bonusAttr;
-            this.finalAttr = LLConst.Attributes.addAttributes(baseAttr, bonusAttr);
-            this.attrStrength = this.finalAttr[mapcolor];
-            this.attrStrengthWithAccuracy = Math.ceil(this.attrStrength * this.getAccuracyGemFactor());
+         return sumPercentage;
+      }
+      getGrade() {
+         if (!this.card) throw "No card data";
+         if (this.grade !== undefined) return this.grade;
+         // N card and some special card has no grade
+         this.grade = LLConst.Member.getMemberGrade(this.card.jpname) || 0;
+         return this.grade;
+      }
+      /** @param {number} [levelBoost] */
+      getSkillDetail(levelBoost) {
+         if (!this.card) {
+            return undefined;
          }
-      }
-      this.cumulativeCSkillBonus = cumulativeCSkillBonus;
-      this.cumulativeAttrStrength = cumulativeAttrStrength;
-      return this.finalAttr[mapcolor];
-   };
-   proto.getAttrBuffFactor = function (mapcolor, mapunit) {
-      var buff = 1;
-      if (this.card.attribute == mapcolor) buff *= 1.1;
-      if (LLConst.Member.isMemberInGroup(this.card.jpname, mapunit)) buff *= 1.1;
-      return buff;
-   };
-   proto.getAttrDebuffFactor = function (mapcolor, mapunit, weight, totalweight) {
-      var debuff = 1;
-      if (this.card.attribute != mapcolor) debuff *= 1.1;
-      if (!LLConst.Member.isMemberInGroup(this.card.jpname, mapunit)) debuff *= 1.1;
-      debuff = 1-1/debuff;
-      debuff = (weight/totalweight)*debuff;
-      return debuff;
-   };
-   proto.calcAttrDebuff = function (mapdata, pos, teamattr) {
-      var attrDebuff = Math.round(this.getAttrDebuffFactor(mapdata.attribute, mapdata.songUnit, mapdata.weights[pos], mapdata.totalWeight) * teamattr);
-      this.attrDebuff = attrDebuff;
-      return attrDebuff;
-   };
-   proto.getMicPoint = function () {
-      if (!this.card) throw "No card data";
-      var skill_level_up_pattern = this.card.skillleveluppattern || 0;
-      if (MIC_RATIO[skill_level_up_pattern] === undefined) {
-         console.error("Unknown skill level up pattern: " + skill_level_up_pattern);
-         return 0;
-      }
-      return MIC_RATIO[skill_level_up_pattern] * this.skilllevel;
-   };
-   proto.calcTotalCSkillPercentageForSameColor = function (mapcolor, cskills) {
-      var sumPercentage = 0;
-      for (var i = 0; i < cskills.length; i++) {
-         var cskill = cskills[i];
-         if (cskill.Cskillpercentage && cskill.attribute == mapcolor && cskill.Cskillattribute == mapcolor) {
-            sumPercentage += parseInt(cskill.Cskillpercentage);
+         if (!levelBoost) {
+            return this.card.skilldetail[this.skilllevel-1];
          }
-         if (cskill.Csecondskillattribute && cskill.attribute == mapcolor) {
-            if (LLConst.Member.isMemberInGroup(this.card.jpname, cskill.Csecondskilllimit)) {
-               sumPercentage += parseInt(cskill.Csecondskillattribute);
-            }
+         var lv = this.skilllevel + levelBoost;
+         if (lv > this.card.skilldetail.length) lv = this.card.skilldetail.length;
+         return this.card.skilldetail[lv-1];
+      }
+      /** @param {number} [levelBoost] */
+      getAccessoryDetail(levelBoost) {
+         if (!(this.accessory && this.accessory.levels)) {
+            return undefined;
          }
+         if (!levelBoost) {
+            return this.accessory.levels[(this.accessoryLevel || 1)-1];
+         }
+         var lv = (this.accessoryLevel || 1) + levelBoost;
+         if (lv > this.accessory.levels.length) lv = this.accessory.levels.length;
+         return this.accessory.levels[lv-1];
       }
-      return sumPercentage;
-   };
-   proto.getGrade = function () {
-      if (!this.card) throw "No card data";
-      if (this.grade !== undefined) return this.grade;
-      // N card and some special card has no grade
-      this.grade = LLConst.Member.getMemberGrade(this.card.jpname) || 0;
-      return this.grade;
-   };
-   proto.getSkillDetail = function(levelBoost) {
-      if (!levelBoost) {
-         return this.card.skilldetail[this.skilllevel-1];
-      }
-      var lv = this.skilllevel + levelBoost;
-      if (lv > this.card.skilldetail.length) lv = this.card.skilldetail.length;
-      return this.card.skilldetail[lv-1];
-   };
-   proto.getAccessoryDetail = function (levelBoost) {
-      if (!this.accessory) {
-         return undefined;
-      }
-      if (!levelBoost) {
-         return this.accessory.levels[this.accessoryLevel-1];
-      }
-      var lv = this.accessoryLevel + levelBoost;
-      if (lv > this.accessory.levels.length) lv = this.accessory.levels.length;
-      return this.accessory.levels[lv-1];
-   };
-   return cls;
+   }
+
+   return LLMember_cls;
 })();
 
 var LLSimulateContextStatic = (function () {

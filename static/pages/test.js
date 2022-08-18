@@ -261,6 +261,13 @@ function renderPage(loadDeferred) {
         return item;
     }
 
+    /**
+     * 
+     * @param {LLH.API.CardDictDataType} cards 
+     * @param {number[][]} cardConfigs 
+     * @param {LLMap} mapdata 
+     * @returns {LLH.Model.LLTeam}
+     */
     function buildTeam(cards, cardConfigs, mapdata) {
         var members = [];
         for (var i = 0; i < 9; i++) {
@@ -637,6 +644,7 @@ function renderPage(loadDeferred) {
                 [957, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]]
             ],
             'run': function (cards) {
+                /** @type {LLH.API.SongSettingDataType} */
                 var songSetting = {"combo": 359, "positionweight": ["15.5", "26.0", "51.5", "55.0", "52.25", "58.25", "58.5", "26.75", "21.5"], "star": "62", "time": "117", 'difficulty': LLConstValue.SONG_DIFFICULTY_EXPERT};
                 var mapdata = new LLMap({
                     'song': {'group': LLConstValue.SONG_GROUP_MUSE, "attribute": "pure", "settings": {'1': songSetting}},

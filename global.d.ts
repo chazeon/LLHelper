@@ -935,19 +935,40 @@ declare namespace LLH {
             getNormalGemType(): Internal.NormalGemCategoryIdType;
             getGemStockKeys(): string[];
             getGemStockCount(gemStock: TODO.GemStockType): number;
-            getAttributeType(): Core.AttributeType;
+            getAttributeType(): Core.AttributeType | undefined;
             setAttributeType(newAttribute: Core.AttributeType): void;
 
             static getGemSlot(type: Internal.NormalGemCategoryIdType): number;
             static getGemStockCount(gemStock: TODO.GemStockType, gemStockKeys: string[]): number;
 
-            private type: Internal.NormalGemCategoryIdType;
-            private color?: Core.AttributeType;
-            private grade?: Core.GradeType;
-            private member?: Core.MemberIdType;
-            private unit?: Core.BigGroupIdType;
-            private meta: Internal.NormalGemMetaType;
-            private gemStockKeys: string[];
+            type: Internal.NormalGemCategoryIdType;
+            color?: Core.AttributeType;
+            grade?: Core.GradeType;
+            member?: Core.MemberIdType;
+            unit?: Core.BigGroupIdType;
+            meta: Internal.NormalGemMetaType;
+            gemStockKeys?: string[];
+        }
+        interface LLSkill_Buff {
+            gemskill?: boolean;
+            /** percentage */
+            skillup?: number;
+        }
+        class LLSkill {
+            constructor(card: API.CardDataType, level: number, buff: LLSkill_Buff);
+
+            setScoreGem(has?: boolean): void;
+            setSkillPossibilityUp(rate?: number): void;
+            reset(): void;
+            isScoreTrigger(): boolean;
+            calcSkillChance(env): boolean;
+            calcSkillEffect(env): void;
+            calcSkillStrength(scorePerStrength: number): void;
+            calcSkillDist(): number[];
+            isEffectHeal(): boolean;
+            isEffectScore(): boolean;
+
+            // TODO: properties
         }
 
         class LLCommonSisGem {
@@ -1060,16 +1081,16 @@ declare namespace LLH {
             getAccuracyGemFactor(): number;
             empty(): boolean;
             calcDisplayAttr(): Internal.AttributesValue;
-            calcAttrWithGem(mapcolor: Core.AttributeType, teamgem: LLSisGem[][]): number;
-            calcAttrWithCSkill(mapcolor: Core.AttributeType, cskills: Internal.CSkillDataType[]): number;
-            getAttrBuffFactor(mapcolor: Core.AttributeType, mapunit: Core.SongGroupIdType): number;
-            getAttrDebuffFactor(mapcolor: Core.AttributeType, mapunit: Core.SongGroupIdType, weight: number, totalweight: number): number;
+            calcAttrWithGem(mapcolor: Core.AttributeAllType, teamgem: LLSisGem[][]): number;
+            calcAttrWithCSkill(mapcolor: Core.AttributeAllType, cskills: Internal.CSkillDataType[]): void;
+            getAttrBuffFactor(mapcolor: Core.AttributeAllType, mapunit: Core.BigGroupIdType): number;
+            getAttrDebuffFactor(mapcolor: Core.AttributeAllType, mapunit: Core.BigGroupIdType | undefined, weight: number, totalweight: number): number;
             calcAttrDebuff(mapdata: LLMap_SaveData, pos: number, teamattr: number): number;
             getMicPoint(): number;
             calcTotalCSkillPercentageForSameColor(mapcolor: Core.AttributeType, cskills: Internal.CSkillDataType[]): number;
             getGrade(): Core.GradeType;
-            getSkillDetail(levelBoost?: number): API.SkillDetailDataType;
-            getAccessoryDetail(levelBoost?: number): API.AccessoryLevelDataType;
+            getSkillDetail(levelBoost?: number): API.SkillDetailDataType | undefined;
+            getAccessoryDetail(levelBoost?: number): API.AccessoryLevelDataType | undefined;
         }
 
         class LLTeam {
@@ -1083,8 +1104,8 @@ declare namespace LLH {
             totalAttrWithAccuracy: number;
             totalWeight: number[];
             /** set after calculateSkillStength() */
-            avgSkills: TODO.LLSkill[];
-            maxSkills: TODO.LLSkill[];
+            avgSkills: LLSkill[];
+            maxSkills: LLSkill[];
             averageScoreNumber: number;
             averageScore: number | string;
             maxScoreNumber: number;
@@ -1698,7 +1719,6 @@ declare namespace LLH {
     namespace TODO {
         type GemStockType = any;
         type LLSwapper = any;
-        type LLSkill = any;
     }
 }
 
