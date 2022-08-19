@@ -1083,7 +1083,7 @@ declare namespace LLH {
             calcDisplayAttr(): Internal.AttributesValue;
             calcAttrWithGem(mapcolor: Core.AttributeAllType, teamgem: LLSisGem[][]): number;
             calcAttrWithCSkill(mapcolor: Core.AttributeAllType, cskills: Internal.CSkillDataType[]): void;
-            getAttrBuffFactor(mapcolor: Core.AttributeAllType, mapunit: Core.BigGroupIdType): number;
+            getAttrBuffFactor(mapcolor: Core.AttributeAllType, mapunit?: Core.BigGroupIdType): number;
             getAttrDebuffFactor(mapcolor: Core.AttributeAllType, mapunit: Core.BigGroupIdType | undefined, weight: number, totalweight: number): number;
             calcAttrDebuff(mapdata: LLMap_SaveData, pos: number, teamattr: number): number;
             getMicPoint(): number;

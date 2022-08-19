@@ -1380,6 +1380,7 @@ const LLConstValue = {
    'SKILL_TRIGGER_MEMBERS': 100,
    'SKILL_TRIGGER_SKILL_ACTIVATE_COUNT': 201,
 
+   'SKILL_EFFECT_NONE': -1,
    'SKILL_EFFECT_ACCURACY_SMALL': 4,
    'SKILL_EFFECT_ACCURACY_NORMAL': 5,
    'SKILL_EFFECT_HEAL': 9,
@@ -4638,13 +4639,13 @@ var LLMember = (function() {
       }
       /**
        * @param {LLH.Core.AttributeAllType} mapcolor 
-       * @param {LLH.Core.BigGroupIdType} mapunit 
+       * @param {LLH.Core.BigGroupIdType} [mapunit] 
        */
       getAttrBuffFactor(mapcolor, mapunit) {
          var buff = 1;
          if (!this.card) { return buff; }
          if (this.card.attribute == mapcolor) buff *= 1.1;
-         if (LLConst.Member.isMemberInGroup(this.card.jpname, mapunit)) buff *= 1.1;
+         if (mapunit && LLConst.Member.isMemberInGroup(this.card.jpname, mapunit)) buff *= 1.1;
          return buff;
       }
       /**
@@ -4738,56 +4739,6 @@ var LLMember = (function() {
 
 var LLSimulateContextStatic = (function () {
    /**
-    * @constructor
-    * @param {LLH.Model.LLMap_SaveData} mapdata 
-    * @param {LLH.Model.LLTeam} team 
-    * @param {number} maxTime 
-    */
-   function LLSimulateContextStatic_cls(mapdata, team, maxTime){
-      this.simMode = mapdata.simMode || 'sim';
-
-      var members = team.members;
-      var isLA = (this.simMode == 'simla');
-      this.members = members;
-      this.totalNote = mapdata.combo;
-      this.totalTime = maxTime;
-      this.totalPerfect = mapdata.perfect;
-      this.totalHP = team.getResults().totalHP;
-      this.mapSkillPossibilityUp = (isLA ? 1 : (1 + parseInt(mapdata.skillup || 0)/100));
-      this.mapTapScoreUp = (isLA ? 1 : (1 + parseInt(mapdata.tapup || 0)/100));
-      this.comboFeverPattern = parseInt(mapdata.combo_fever_pattern || 2);
-      this.comboFeverLimit = parseInt(mapdata.combo_fever_limit || LLConstValue.SKILL_LIMIT_COMBO_FEVER);
-      this.perfectAccuracyPattern = parseInt(mapdata.perfect_accuracy_pattern || 0);
-      this.overHealPattern = parseInt(mapdata.over_heal_pattern || 0);
-      this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
-      this.skillPosibilityDownFixed = (isLA ? (mapdata.debuff_skill_rate_down || 0) : 0);
-      this.debuffHpDownValue = (isLA ? (mapdata.debuff_hp_down_value || 0) : 0);
-      this.debuffHpDownInterval = (isLA ? (mapdata.debuff_hp_down_interval || 0) : 0);
-      this.hasRepeatSkill = false;
-      this.nonetTeam = LLConst.Member.isNonetTeam(members);
-      this.sameColorTeam = LLConst.Member.isSameColorTeam(members);
-
-      for (var i = 0; i < 9; i++) {
-         if ((members[i].card.skilleffect == LLConstValue.SKILL_EFFECT_REPEAT)
-            || (members[i].accessory && members[i].accessory.effect_type == LLConstValue.SKILL_EFFECT_REPEAT)) {
-            this.hasRepeatSkill = true;
-            break;
-         }
-      }
-
-      this.skillsStatic = [];
-      for (var i = 0; i < 9; i++) {
-         this.skillsStatic.push(this.makeSkillStaticInfo(i));
-      }
-
-      var memberBonusFactor = [];
-      for (i = 0; i < 9; i++) {
-         memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
-      }
-      this.memberBonusFactor = memberBonusFactor;
-   }
-
-   /**
     * @param {LLH.Model.LLMember[]} members 
     * @param {LLH.Core.TriggerTargetType | LLH.Core.TriggerTargetMemberType} targets 
     * @param {boolean} byMember true if targets are member (match any), false for group (match all)
@@ -4822,94 +4773,165 @@ var LLSimulateContextStatic = (function () {
       return ret;
    }
 
-   /** @type {typeof LLH.Model.LLSimulateContextStatic} */
-   var cls = LLSimulateContextStatic_cls;
-   var proto = cls.prototype;
-   proto.makeSkillStaticInfo = function (index) {
-      /** @type {LLH.Model.LLSimulateContext_SkillStaticInfo} */
-      var ret = {};
-      var curMember = this.members[index];
-      if ((!curMember.card.skill) || (curMember.card.skilleffect == 0)) {
-         ret.neverTrigger = true;
+   class LLSimulateContextStatic_cls {
+      /**
+       * @param {LLH.Model.LLMap_SaveData} mapdata 
+       * @param {LLH.Model.LLTeam} team 
+       * @param {number} maxTime 
+       */
+      constructor(mapdata, team, maxTime) {
+         this.simMode = mapdata.simMode || 'sim';
+
+         var members = team.members;
+         var isLA = (this.simMode == 'simla');
+         this.members = members;
+         this.totalNote = mapdata.combo;
+         this.totalTime = maxTime;
+         this.totalPerfect = mapdata.perfect;
+         this.totalHP = team.getResults().totalHP;
+         this.mapSkillPossibilityUp = (isLA ? 1 : (1 + (mapdata.skillup || 0)/100));
+         this.mapTapScoreUp = (isLA ? 1 : (1 + (mapdata.tapup || 0)/100));
+         this.comboFeverPattern = (mapdata.combo_fever_pattern || 2);
+         this.comboFeverLimit = (mapdata.combo_fever_limit || LLConstValue.SKILL_LIMIT_COMBO_FEVER);
+         this.perfectAccuracyPattern = (mapdata.perfect_accuracy_pattern || 0);
+         this.overHealPattern = (mapdata.over_heal_pattern || 0);
+         this.triggerLimitPattern = mapdata.trigger_limit_pattern || 0;
+         this.skillPosibilityDownFixed = (isLA ? (mapdata.debuff_skill_rate_down || 0) : 0);
+         this.debuffHpDownValue = (isLA ? (mapdata.debuff_hp_down_value || 0) : 0);
+         this.debuffHpDownInterval = (isLA ? (mapdata.debuff_hp_down_interval || 0) : 0);
+         this.hasRepeatSkill = false;
+         this.nonetTeam = LLConst.Member.isNonetTeam(members);
+         this.sameColorTeam = LLConst.Member.isSameColorTeam(members);
+   
+         for (var i = 0; i < 9; i++) {
+            var curMember = members[i];
+            if ((curMember.card.skilleffect == LLConstValue.SKILL_EFFECT_REPEAT)
+               || (curMember.accessory && curMember.accessory.effect_type == LLConstValue.SKILL_EFFECT_REPEAT)) {
+               this.hasRepeatSkill = true;
+               break;
+            }
+         }
+   
+         this.skillsStatic = [];
+         for (var i = 0; i < 9; i++) {
+            this.skillsStatic.push(this.makeSkillStaticInfo(i));
+         }
+   
+         var memberBonusFactor = [];
+         for (i = 0; i < 9; i++) {
+            memberBonusFactor.push(this.members[i].getAttrBuffFactor(mapdata.attribute, mapdata.songUnit));
+         }
+         this.memberBonusFactor = memberBonusFactor;
+      }
+      /** @param {number} index */
+      makeSkillStaticInfo(index) {
+         /** @type {LLH.Model.LLSimulateContext_SkillStaticInfo} */
+         var ret = {};
+         var curMember = this.members[index];
+         if ((!curMember.card.skill) || (curMember.card.skilleffect == 0)) {
+            ret.neverTrigger = true;
+            return ret;
+         }
+         var triggerType = curMember.card.triggertype;
+         var skillDetail = curMember.getSkillDetail();
+         if (!skillDetail) {
+            ret.neverTrigger = true;
+            return ret;
+         }
+         var skillRequire = skillDetail.require;
+         ret.neverTrigger = false;
+         ret.skillEffect = this.makeEffectStaticInfo(index, false);
+         if (curMember.accessory) {
+            ret.accessoryEffect = this.makeEffectStaticInfo(index, true);
+         }
+         // 连锁发动条件
+         if (triggerType == LLConstValue.SKILL_TRIGGER_MEMBERS) {
+            // 连锁条件是看要求的人物(例如要求μ's二年级的穗乃果的连锁卡, 要求人物为小鸟和海未)都发动过技能
+            // 而不是所有是要求的人物的卡都发动过技能
+            // 上面的例子中, 只要有任何一张鸟的卡和一张海的卡发动过技能(包括饰品技能)就能触发果的连锁
+            var conditionBitset = 0;
+            var possibleBitset = 0;
+            /** @type {LLH.Model.LLSimulateContext_ChainTypeIdBitsType} */
+            var typeIdBits = {};
+            var typeIds = LLConst.Member.getMemberTypeIdsInGroups(curMember.card.triggertarget);
+            for (var i = 0; i < typeIds.length; i++) {
+               var typeId = typeIds[i];
+               typeIdBits[typeId] = (1 << i);
+               if (typeId != curMember.card.typeid) {
+                  conditionBitset |= (1 << i);
+               }
+            }
+            for (var i = 0; i < this.members.length; i++) {
+               // 持有连锁技能的卡牌不计入连锁发动条件
+               if (this.members[i].card.triggertype == LLConstValue.SKILL_TRIGGER_MEMBERS) continue;
+               var curBit = typeIdBits[this.members[i].card.typeid];
+               if (curBit !== undefined) {
+                  possibleBitset |= curBit;
+               }
+            }
+            // 无连锁对象, 不会触发
+            if ((possibleBitset & conditionBitset) != conditionBitset) {
+               ret.neverTrigger = true;
+            } else {
+               skillRequire = conditionBitset;
+            }
+            ret.chainTypeIdBits = typeIdBits;
+         }
+         if (!ret.neverTrigger) {
+            ret.triggerLimit = (this.triggerLimitPattern ? (skillDetail.limit || 0) : 0);
+            ret.triggerPossibility = Math.max(skillDetail.possibility - this.skillPosibilityDownFixed, 0);
+            ret.triggerRequire = skillRequire;
+            var curAccessoryDetail = curMember.getAccessoryDetail();
+            if (curAccessoryDetail) {
+               ret.accessoryPosibility = curAccessoryDetail.rate;
+            } else {
+               ret.accessoryPosibility = 0;
+            }
+         }
          return ret;
       }
-      var triggerType = curMember.card.triggertype;
-      var skillDetail = curMember.getSkillDetail();
-      var skillRequire = skillDetail.require;
-      ret.neverTrigger = false;
-      ret.skillEffect = this.makeEffectStaticInfo(index, false);
-      if (curMember.accessory) {
-         ret.accessoryEffect = this.makeEffectStaticInfo(index, true);
-      }
-      // 连锁发动条件
-      if (triggerType == LLConstValue.SKILL_TRIGGER_MEMBERS) {
-         // 连锁条件是看要求的人物(例如要求μ's二年级的穗乃果的连锁卡, 要求人物为小鸟和海未)都发动过技能
-         // 而不是所有是要求的人物的卡都发动过技能
-         // 上面的例子中, 只要有任何一张鸟的卡和一张海的卡发动过技能(包括饰品技能)就能触发果的连锁
-         var conditionBitset = 0;
-         var possibleBitset = 0;
-         var typeIdBits = {};
-         var typeIds = LLConst.Member.getMemberTypeIdsInGroups(curMember.card.triggertarget);
-         for (var i = 0; i < typeIds.length; i++) {
-            var typeId = typeIds[i];
-            typeIdBits[typeId] = (1 << i);
-            if (typeId != curMember.card.typeid) {
-               conditionBitset |= (1 << i);
+      /**
+       * @param {number} index 
+       * @param {boolean} isAccessory 
+       */
+      makeEffectStaticInfo(index, isAccessory) {
+         /** @type {LLH.Model.LLSimulateContext_EffectStaticInfo} */
+         var ret = {};
+         var curMember = this.members[index];
+         var effectType;
+         var effectTarget;
+         if (isAccessory) {
+            if (!curMember.accessory) {
+               ret.effectType = LLConstValue.SKILL_EFFECT_NONE;
+               return ret;
+            } else {
+               effectType = curMember.accessory.effect_type;
+               effectTarget = curMember.accessory.effect_target;
+            }
+         } else {
+            effectType = curMember.card.skilleffect;
+            effectTarget = curMember.card.effecttarget;
+         }
+         ret.effectType = effectType;
+         // init sync target
+         if (effectType == LLConstValue.SKILL_EFFECT_SYNC && effectTarget) {
+            // include self
+            ret.syncTargets = getTargetMembers(this.members, effectTarget, isAccessory);
+            // exclude one
+            ret.syncTargetsBy = [];
+            for (var i = 0; i < 9; i++) {
+               ret.syncTargetsBy.push(ret.syncTargets.filter((x) => x != i));
             }
          }
-         for (var i = 0; i < this.members.length; i++) {
-            // 持有连锁技能的卡牌不计入连锁发动条件
-            if (this.members[i].card.triggertype == LLConstValue.SKILL_TRIGGER_MEMBERS) continue;
-            var curBit = typeIdBits[this.members[i].card.typeid];
-            if (curBit !== undefined) {
-               possibleBitset |= curBit;
-            }
+         // attribute up target
+         else if (effectType == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP && effectTarget) {
+            ret.attributeUpTargets = getTargetMembers(this.members, effectTarget, isAccessory);
          }
-         // 无连锁对象, 不会触发
-         if ((possibleBitset & conditionBitset) != conditionBitset) {
-            ret.neverTrigger = true;
-         } else {
-            skillRequire = conditionBitset;
-         }
-         ret.chainTypeIdBits = typeIdBits;
+         return ret;
       }
-      if (!ret.neverTrigger) {
-         ret.triggerLimit = (this.triggerLimitPattern ? (skillDetail.limit || 0) : 0);
-         ret.triggerPossibility = Math.max(skillDetail.possibility - this.skillPosibilityDownFixed, 0);
-         ret.triggerRequire = skillRequire;
-         if (curMember.accessory) {
-            var curAccessoryDetail = curMember.getAccessoryDetail();
-            ret.accessoryPosibility = curAccessoryDetail.rate;
-         } else {
-            ret.accessoryPosibility = 0;
-         }
-      }
-      return ret;
-   };
-   proto.makeEffectStaticInfo = function (index, isAccessory) {
-      /** @type {LLH.Model.LLSimulateContext_EffectStaticInfo} */
-      var ret = {};
-      var curMember = this.members[index];
-      var effectType = (isAccessory ? curMember.accessory.effect_type : curMember.card.skilleffect);
-      var effectTarget = (isAccessory ? curMember.accessory.effect_target : curMember.card.effecttarget);
-      ret.effectType = effectType;
-      // init sync target
-      if (effectType == LLConstValue.SKILL_EFFECT_SYNC) {
-         // include self
-         ret.syncTargets = getTargetMembers(this.members, effectTarget, isAccessory);
-         // exclude one
-         ret.syncTargetsBy = [];
-         for (var i = 0; i < 9; i++) {
-            ret.syncTargetsBy.push(ret.syncTargets.filter((x) => x != i));
-         }
-      }
-      // attribute up target
-      else if (effectType == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
-         ret.attributeUpTargets = getTargetMembers(this.members, effectTarget, isAccessory);
-      }
-      return ret;
-   };
-   return cls;
+   }
+
+   return LLSimulateContextStatic_cls;
 })();
 
 var LLSimulateContext = (function() {
