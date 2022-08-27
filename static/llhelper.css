@@ -215,6 +215,9 @@ img.avatar {
 .filter-form.label-size-3 label {
    width: 60px;
 }
+.filter-form.label-margin-1 label {
+   margin-right: 4px;
+}
 table.gem-series tr.focused {
    border: 3px solid black;
 }

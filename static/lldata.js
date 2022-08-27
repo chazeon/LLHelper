@@ -128,6 +128,13 @@ var LoadingUtil = {
 
    cardDetailMerger: function (card, index, result) {
       result[parseInt(card.id)] = card;
+   },
+
+   stop: function () {
+      var loadingbox = document.getElementById('loadingbox');
+      if (loadingbox) {
+         loadingbox.style.display = 'none';
+      }
    }
 };
 
@@ -156,7 +163,8 @@ const LLHelperLocalStorageKeys = {
    'localStorageSongSelectKey': 'llhelper_song_select__',
    'localStorageCardSelectKey': 'llhelper_card_select__',
    'localStorageLanguageKey': 'llhelper_language__',
-   'localStorageAccessorySelectKey': 'llhelper_accessory_select__'
+   'localStorageAccessorySelectKey': 'llhelper_accessory_select__',
+   'localStorageCardPoolKey': 'llhelper_card_pool__'
 };
 
 /** @type {LLH.Persistence.LLHelperLocalStorage} */
@@ -454,6 +462,7 @@ var LLSimpleKeyData = (function () {
    return LLSimpleKeyData_cls;
 })();
 
+/** @type {LLH.LLData<LLH.API.CardDataType>} */
 var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
    ['id', 'typeid', 'support', 'rarity', 'attribute', 'special', 'type', 'skilleffect', 'triggertype', 'triggerrequire', 'eponym', 'jpeponym', 'hp', 'album']);
 var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
@@ -643,6 +652,12 @@ var LLComponentBase = (function () {
          if (visible) this.show();
          else this.hide();
       }
+      /** @param {string} newClassName */
+      setClassName(newClassName) {
+         if (!this.element) return;
+         if (this.element.className == newClassName) return;
+         this.element.className = newClassName;
+      }
       serialize() {
          if (!this.element) return undefined;
          return this.visible;
@@ -778,6 +793,8 @@ var LLSelectComponent = (function() {
          super(id, options);
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
          this.options = [];
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} read only*/
+         this.filteredOptions = [];
          /** @type {LLH.Component.LLSelectComponent_FilterCallback | undefined} */
          this.filter = undefined;
          if (!this.element) {
@@ -826,10 +843,13 @@ var LLSelectComponent = (function() {
          if (!filter) filter = this.filter;
          var oldValue = this.get();
          var foundOldValue = false;
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var filteredOptions = [];
          this.element.options.length = 0;
          for (var i in this.options) {
             var option = this.options[i];
             if (filter && !filter(option)) continue;
+            filteredOptions.push(option);
             var newOption = new Option(option.text, option.value);
             newOption.style.color = option.color || '';
             newOption.style['background-color'] = option.background || '#fff';
@@ -842,6 +862,7 @@ var LLSelectComponent = (function() {
             this.set(this.element.value);
          }
          this.filter = filter;
+         this.filteredOptions = filteredOptions;
       }
    }
 
@@ -920,6 +941,38 @@ var LLImageComponent = (function() {
    return LLImageComponent_cls;
 })();
 
+var LLButtonComponent = (function () {
+   /** @extends {LLComponentBase<HTMLButtonElement>} */
+   class LLButtonComponent extends LLComponentBase {
+      /** @param {LLH.Component.LLButtonComponent_Options} options */
+      constructor(options) {
+         var id = options.id;
+         /** @type {LLH.Component.LLComponentBase_Options} */
+         var superOptions = {};
+         if (!id) {
+            /** @type {HTMLButtonElement} */
+            var button = LLUnit.createElement('button', {'className': 'btn btn-default', 'type': 'button', 'innerHTML': options.text});
+            id = button;
+         }
+         if (options.click) {
+            superOptions.listen = {'click': options.click};
+         }
+         super(id, superOptions);
+      }
+      /** @param {boolean} enabled */
+      setEnabled(enabled) {
+         if (!this.element) return;
+         this.element.disabled = !enabled;
+      }
+      /** @param {string} text */
+      setText(text) {
+         if (!this.element) return;
+         this.element.innerHTML = text;
+      }
+   }
+   return LLButtonComponent;
+})();
+
 var LLComponentCollection = (function() {
    /**
     * @implements {LLH.Mixin.SaveLoadJson}
@@ -936,13 +989,21 @@ var LLComponentCollection = (function() {
       add(name, component) {
          this.components[name] = component;
       }
-      /** @param {string} name */
+      /**
+       * @template {LLH.Component.LLComponentBase} T
+       * @param {string} name
+       * @returns {T}
+       */
       getComponent(name) {
-         return this.components[name];
+         return /** @type {T} */ (this.components[name]);
       }
-      /** @param {string} name */
+      /**
+       * @template {LLH.Component.LLValuedComponent} T
+       * @param {string} name
+       * @returns {T}
+       */
       getValuedComponent(name) {
-         return /** @type {LLH.Component.LLValuedComponent} */ (this.components[name]);
+         return /** @type {T} */ (this.components[name]);
       }
       serialize() {
          var ret = {};
@@ -2868,9 +2929,10 @@ var LLUnit = {
 
    /**
     * @param {HTMLElement} element 
-    * @param {LLH.Component.HTMLElementOrString} subElement 
+    * @param {LLH.Component.HTMLElementOrString} [subElement] 
     */
    appendSubElement: function (element, subElement) {
+      if (!subElement) return;
       if (typeof (subElement) == 'string') {
          element.appendChild(document.createTextNode(subElement));
       } else {
@@ -2908,11 +2970,12 @@ var LLUnit = {
    },
 
    /**
+    * @template {HTMLElement} T
     * @param {string} tag 
-    * @param {*} [options]
+    * @param {LLH.Component.CreateElementOptions} [options]
     * @param {LLH.Component.SubElements} [subElements]
     * @param {{[x: string] : (e: Event) => void}} [eventHandlers]
-    * @returns {HTMLElement}
+    * @returns {T}
     */
    createElement: function (tag, options, subElements, eventHandlers) {
       var ret = document.createElement(tag);
@@ -2935,22 +2998,23 @@ var LLUnit = {
             ret.addEventListener(e, eventHandlers[e]);
          }
       }
-      return ret;
+      return /** @type {T} */ (ret);
    },
 
    /**
-    * @param {*} options 
+    * @param {LLH.Component.CreateElementOptions} [options] 
     * @param {LLH.Component.SubElements} [subElements] 
-    * @param {{[x: string] : Function}} [eventHandlers]
+    * @param {{[x: string] : (e: Event) => void}} [eventHandlers]
     * @returns {HTMLSelectElement} 
     */
    createSelectElement: function (options, subElements, eventHandlers) {
-      return /** @type {HTMLSelectElement} */ (LLUnit.createElement('select', options, subElements, eventHandlers));
+      return LLUnit.createElement('select', options, subElements, eventHandlers);
    },
 
    /**
-    * @param {string | HTMLElement} id 
-    * @returns {HTMLElement}
+    * @template {HTMLElement} T
+    * @param {LLH.Component.HTMLElementOrId} id 
+    * @returns {T}
     */
    getElement: function (id) {
       if (typeof(id) == 'string') {
@@ -2959,9 +3023,36 @@ var LLUnit = {
             console.error('Not found element by id: ' + id);
             element = LLUnit.createElement('div', undefined, ['dummy']);
          }
-         return element;
+         return /** @type {T} */ (element);
       } else {
-         return id;
+         return /** @type {T} */ (id);
+      }
+   },
+
+   /**
+    * @template {HTMLElement} T
+    * @param {LLH.Component.HTMLElementOrId | undefined} id 
+    * @param {string} tag 
+    * @param {LLH.Component.CreateElementOptions} [options]
+    * @param {LLH.Component.SubElements} [subElements]
+    * @param {{[x: string] : (e: Event) => void}} [eventHandlers]
+    * @returns {T}
+    */
+   getOrCreateElement: function (id, tag, options, subElements, eventHandlers) {
+      var element;
+      if (id) {
+         if (typeof(id) === 'string') {
+            element = document.getElementById(id);
+         } else {
+            element = id;
+         }
+      }
+      if (!element) {
+         /** @type {T} */
+         var newElement = LLUnit.createElement(tag, options, subElements, eventHandlers);
+         return newElement;
+      } else {
+         return /** @type {T} */ (element);
       }
    },
 
@@ -3359,6 +3450,17 @@ var LLCardSelectorComponent = (function() {
       /** @returns {LLH.Core.CardIdOrStringType} */
       getCardId() {
          return this.getValuedComponent(SEL_ID_CARD_CHOICE).get() || '';
+      }
+      /** @returns {LLH.Core.CardIdStringType[]} */
+      getFilteredCardIdList() {
+         /** @type {LLH.Component.LLSelectComponent} */
+         var cardSelect = this.getValuedComponent(SEL_ID_CARD_CHOICE);
+         var selectedCard = cardSelect.get();
+         if (selectedCard) {
+            return [selectedCard];
+         } else {
+            return cardSelect.filteredOptions.map((x) => x.value).filter((x) => !!x);
+         }
       }
       /**
        * @param {LLH.API.CardDictDataType} cards 
@@ -10226,4 +10328,386 @@ var LLAccessorySelectorComponent = (function () {
    }
 
    return LLAccessorySelectorComponent_cls;
+})();
+
+var LLPoolUtil = (function () {
+   /** @type {LLH.Pool.LLPoolUtil} */
+   var poolUtil = {
+      /** @template IdType */
+      loadRawPools: function(storageKey) {
+         /** @type {LLH.Internal.PoolsSaveDataType<IdType>} */
+         var pools = [];
+         LLSaveLoadJsonHelper.commonLoadJson((x) => pools = x, LLHelperLocalStorage.getData(storageKey));
+         return pools;
+      },
+      /** @template IdType */
+      loadPools: function(storageKey) {
+         /** @type {LLH.Internal.PoolsSaveDataType<IdType>} */
+         var rawPools = poolUtil.loadRawPools(storageKey);
+         return rawPools.map(poolUtil.processPool);
+      },
+      /**
+       * @template IdType
+       * @param {LLH.Internal.PoolSaveDataType<IdType>} rawPool
+       */
+      processPool: function(rawPool) {
+         /** @type {LLH.Pool.PoolProcessedDataType<IdType>} */
+         var processed = {
+            'raw': rawPool,
+            'itemSet': new Set()
+         };
+         for (var i in rawPool.items) {
+            processed.itemSet.add(rawPool.items[i]);
+         }
+         return processed;
+      },
+      saveRawPools: function (storageKey, rawPools) {
+         LLHelperLocalStorage.setData(storageKey, LLSaveLoadJsonHelper.commonSaveJson(rawPools));
+      },
+      savePools: function (storageKey, pools) {
+         poolUtil.saveRawPools(storageKey, pools.map((x) => x.raw));
+      },
+      addPool: function(pools, newPoolName) {
+         if (!newPoolName) {
+            return '名字不能为空';
+         }
+         for (var i in pools) {
+            if (newPoolName == pools[i].raw.name) {
+               return '该名字已经存在';
+            }
+         }
+         pools.push({
+            'raw': {
+               'name': newPoolName,
+               'items': []
+            },
+            'itemSet': new Set()
+         });
+         return '';
+      },
+      removePoolByIndex: function(pools, index) {
+         if (index < 0 || index >= pools.length) {
+            return;
+         }
+         pools.splice(index, 1);
+      }
+   };
+   return poolUtil;
+})();
+
+var LLCardTableComponent = (function () {
+   const createElement = LLUnit.createElement;
+   const updateSubElements = LLUnit.updateSubElements;
+
+   function renderRow() {
+      /** @type {LLH.Table.LLCardTableComponent_RowController} */
+      var controller;
+      /** @type {LLH.API.CardDataType=} */
+      var curCard = undefined;
+      var curSelected = false;
+
+      var cardIdCell = new LLValuedComponent(createElement('td'));
+      var smileCell = new LLValuedComponent(createElement('td', {'style': {'color': 'red'}}));
+      var pureCell = new LLValuedComponent(createElement('td', {'style': {'color': 'green'}}));
+      var coolCell = new LLValuedComponent(createElement('td', {'style': {'color': 'blue'}}));
+      var row = new LLComponentBase(createElement('tr', {'style': {'display': 'none'}}, [
+         cardIdCell.element, smileCell.element, pureCell.element, coolCell.element
+      ], {'click': function () {
+         controller.setSelected(!controller.isSelected());
+      }}));
+      controller = {
+         'element': [row.element],
+         'isSelected': function () { return curSelected; },
+         'setCardData': function (card) {
+            if (curCard === card) return;
+            curCard = card;
+            row.setVisible(card !== undefined);
+            if (curCard) {
+               cardIdCell.set(curCard.id + '');
+               smileCell.set(curCard.smile2 + '');
+               pureCell.set(curCard.pure2 + '');
+               coolCell.set(curCard.cool2 + '');
+            }
+         },
+         'setSelected': function (selected) {
+            if (selected == curSelected) return;
+            curSelected = selected;
+            row.setClassName(curSelected ? 'info' : '');
+         },
+         'getCardId': function () {
+            if (curCard && curCard.id) {
+               return curCard.id + '';
+            }
+            return undefined;
+         }
+      };
+      return controller;
+   }
+   class LLCardTableComponent extends LLComponentBase {
+      /**
+       * @param {LLH.Table.LLCardTableComponent_Options} options 
+       */
+      constructor(options) {
+         var container = LLUnit.getOrCreateElement(options.id, 'div', {'className': 'card-table'});
+         super(container);
+         this.element = container;
+
+         var thead = createElement('thead', undefined, [
+            createElement('tr', undefined, [
+               createElement('th', undefined, '编号'),
+               createElement('th', undefined, 'smile'),
+               createElement('th', undefined, 'pure'),
+               createElement('th', undefined, 'cool')
+            ])
+         ])
+         var tbody = createElement('tbody');
+         updateSubElements(container, createElement('table', {'className': 'table table-hover'}, [thead, tbody]));
+
+         this.tbody = tbody;
+         this.cardData = options.cards;
+         /** @type {LLH.Core.CardIdStringType[]} */
+         this.cardIds = [];
+         /** @type {LLH.Table.LLCardTableComponent_RowController[]} */
+         this.rowControllers = [];
+      }
+      /** @param {LLH.Core.CardIdStringType[]} newCardIds */
+      setCardList(newCardIds) {
+         this.cardIds = newCardIds.concat();
+         var origRowCount = this.rowControllers.length;
+         var i;
+         for (i = 0; i < this.cardIds.length; i++) {
+            if (i >= origRowCount) {
+               var newRowController = renderRow();
+               this.rowControllers.push(newRowController);
+               updateSubElements(this.tbody, newRowController.element);
+            }
+            this.rowControllers[i].setCardData(this.cardData[this.cardIds[i]]);
+            this.rowControllers[i].setSelected(false);
+         }
+         for (; i < origRowCount; i++) {
+            this.rowControllers[i].setCardData(undefined);
+            this.rowControllers[i].setSelected(false);
+         }
+      }
+      getSelectedCardList() {
+         /** @type {LLH.Core.CardIdStringType[]} */
+         var cardIds = [];
+         for (var i = 0; i < this.rowControllers.length; i++) {
+            var curController = this.rowControllers[i];
+            if (curController.isSelected()) {
+               var curCardId = curController.getCardId();
+               if (curCardId) {
+                  cardIds.push(curCardId);
+               }
+            }
+         }
+         return cardIds;
+      }
+      clearSelect() {
+         for (var i = 0; i < this.rowControllers.length; i++) {
+            this.rowControllers[i].setSelected(false);
+         }
+      }
+   }
+   return LLCardTableComponent;
+})();
+
+var LLCardPoolComponent = (function () {
+   const createElement = LLUnit.createElement;
+   const createSelectElement = LLUnit.createSelectElement;
+   const updateSubElements = LLUnit.updateSubElements;
+   const createFormSelect = LLUnit.createFormSelect;
+   const createFormInlineGroup = LLUnit.createFormInlineGroup;
+
+   const ADD_POOL_TEXT = '添加卡池';
+   const REMOVE_POOL_TEXT = '删除卡池';
+   const NEW_POOL_VALUE = 'new';
+
+   /**
+    * @param {string} poolsKey
+    * @param {LLH.Table.LLCardTableComponent} cardTable
+    */
+   function renderPoolsSelect(poolsKey, cardTable) {
+      /** @type {LLH.Pool.LLCardPoolComponent_PoolsSelectController} */
+      var controller;
+
+      var poolSelect = new LLSelectComponent(createFormSelect());
+      var newPoolInput = new LLValuedComponent(createElement('input', {'type': 'text', 'className': 'form-control small-padding'}));
+      var addPoolButton = new LLButtonComponent({'text': ADD_POOL_TEXT});
+      var addPoolMessage = new LLValuedComponent(createElement('div', {'style': {'color': 'red'}}));
+      var removePoolButton = new LLButtonComponent({'text': REMOVE_POOL_TEXT});
+      var newPoolContainer = new LLComponentBase(createElement('div', undefined, [
+         createFormInlineGroup('输入新卡池名字', [newPoolInput.element, addPoolButton.element]),
+         addPoolMessage.element
+      ]));
+
+      /** @type {LLH.Pool.CardPoolsProcessedDataType} */
+      var pools = LLPoolUtil.loadPools(poolsKey);
+
+      function reloadSelect() {
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var options = [
+            {'value': NEW_POOL_VALUE, 'text': '添加新卡池'}
+         ];
+         for (var i = 0; i < pools.length; i++) {
+            var pool = pools[i];
+            options.push({'value': i + '', 'text': pool.raw.name + '（卡片数：' + pool.raw.items.length + '）'});
+         }
+         poolSelect.setOptions(options);
+      }
+
+      poolSelect.onValueChange = function (newValue) {
+         if (NEW_POOL_VALUE == newValue) {
+            newPoolContainer.show();
+            addPoolMessage.hide();
+            cardTable.hide();
+            removePoolButton.setEnabled(false);
+            if (controller.onPoolSelectChange) {
+               controller.onPoolSelectChange();
+            }
+         } else {
+            cardTable.setCardList(pools[parseInt(newValue)].raw.items);
+            newPoolContainer.hide();
+            cardTable.show();
+            removePoolButton.setEnabled(true);
+            if (controller.onPoolSelectChange) {
+               controller.onPoolSelectChange(pools[parseInt(newValue)]);
+            }
+         }
+      };
+      addPoolButton.on('click', function (e) {
+         var newPoolName = newPoolInput.get();
+         var errorMessage = LLPoolUtil.addPool(pools, newPoolName);
+         if (errorMessage) {
+            addPoolMessage.set(errorMessage);
+            addPoolMessage.show();
+            return;
+         } else {
+            addPoolMessage.hide();
+         }
+         LLPoolUtil.savePools(poolsKey, pools);
+         reloadSelect();
+         poolSelect.set((pools.length-1) + '');
+         newPoolInput.set('');
+      });
+      removePoolButton.on('click', function (e) {
+         // TODO: confirm
+         var index = parseInt(poolSelect.get());
+         LLPoolUtil.removePoolByIndex(pools, index);
+         LLPoolUtil.savePools(poolsKey, pools);
+         reloadSelect();
+         poolSelect.set(NEW_POOL_VALUE);
+      });
+
+      controller = {
+         'getPools': function() { return pools; },
+         'getSelectedPool': function() {
+            var id = poolSelect.get();
+            if (NEW_POOL_VALUE == id) {
+               return undefined;
+            } else {
+               return pools[parseInt(id)];
+            }
+         },
+         'addCardsToSelectedPool': function(cardIds) {
+            var curPool = controller.getSelectedPool();
+            if (!curPool) return 0;
+            var count = 0;
+            for (var i = 0; i < cardIds.length; i++) {
+               var cardId = cardIds[i];
+               if (curPool.itemSet.has(cardId)) continue;
+               curPool.itemSet.add(cardId);
+               curPool.raw.items.push(cardId);
+               count += 1;
+            }
+            if (count > 0) {
+               cardTable.setCardList(curPool.raw.items);
+               reloadSelect();
+               LLPoolUtil.savePools(poolsKey, pools);
+            }
+            return count;
+         },
+         'removeCardsFromSelectedPool': function(cardIds) {
+            var curPool = controller.getSelectedPool();
+            if (!curPool) return 0;
+            var i;
+            /** @type {Set<LLH.Core.CardIdStringType} */
+            var cardSet = new Set();
+            for (i = 0; i < cardIds.length; i++) {
+               var cardId = cardIds[i];
+               if (!curPool.itemSet.has(cardId)) continue;
+               curPool.itemSet.delete(cardId);
+               cardSet.add(cardId);
+            }
+            if (cardSet.size > 0) {
+               /** @type {LLH.Core.CardIdStringType[]} */
+               var newItems = [];
+               for (i = 0; i < curPool.raw.items.length; i++) {
+                  var item = curPool.raw.items[i];
+                  if (cardSet.has(item)) continue;
+                  newItems.push(item);
+               }
+               curPool.raw.items = newItems;
+               cardTable.setCardList(curPool.raw.items);
+               reloadSelect();
+               LLPoolUtil.savePools(poolsKey, pools);
+            }
+            return cardSet.size;
+         },
+         'element': [
+            createFormInlineGroup('编辑卡池', [poolSelect.element, removePoolButton.element]),
+            newPoolContainer.element
+         ]
+      };
+
+      reloadSelect();
+      poolSelect.onValueChange(poolSelect.get());
+
+      return controller;
+   }
+
+   class LLCardPoolComponent {
+      /**
+       * @param {LLH.Pool.LLCardPoolComponent_Options} options 
+       */
+      constructor(options) {
+         var container = LLUnit.getOrCreateElement(options.id, 'div');
+         var selectorContainer = createElement('div');
+         var removeFromPoolButton = new LLButtonComponent({'text': '从卡池中移除'});
+         var addToPoolButton = new LLButtonComponent({'text': '添加到卡池'});
+         var poolCardTable = new LLCardTableComponent({'cards': options.cards});
+         var selectorCardTable = new LLCardTableComponent({'cards': options.cards});
+
+         this.controller = renderPoolsSelect(options.poolsKey, poolCardTable);
+         this.pools = this.controller.getPools();
+
+         var me = this;
+         var selector = new LLCardSelectorComponent(selectorContainer, {'cards': options.cards});
+         var origOnValueChange = selector.onValueChange;
+         selector.onValueChange = function (name, newValue) {
+            if (origOnValueChange) {
+               origOnValueChange.apply(selector, [name, newValue]);
+            }
+            selectorCardTable.setCardList(selector.getFilteredCardIdList());
+         };
+
+         addToPoolButton.on('click', function() {
+            var selectedCardIds = selectorCardTable.getSelectedCardList();
+            if (selectedCardIds.length > 0) {
+               me.controller.addCardsToSelectedPool(selectedCardIds);
+            }
+         });
+         removeFromPoolButton.on('click', function() {
+            var selectedCardIds = poolCardTable.getSelectedCardList();
+            if (selectedCardIds.length > 0) {
+               me.controller.removeCardsFromSelectedPool(selectedCardIds);
+            }
+         });
+
+         updateSubElements(container, this.controller.element, true);
+         updateSubElements(container, [poolCardTable.element, selectorContainer, selectorCardTable.element]);
+         updateSubElements(container, [addToPoolButton.element, removeFromPoolButton.element]);
+      }
+   }
+   return LLCardPoolComponent;
 })();

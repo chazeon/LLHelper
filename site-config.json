@@ -2,6 +2,7 @@
     "version": "20220804",
     "page_version": {
         "docs": "3",
+        "llcardpool": "1",
         "llnewaccessorydata": "2",
         "llnewsisdata": "2",
         "llnewautounit": "1",

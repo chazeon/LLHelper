@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+
+{% set category="队伍编成和强度" %}
+{% set category_link="/#unit-formation" %}
+{% set title="卡池编辑" %}
+{% set jsPage=url_for('static', filename='pages/llcardpool.js', v=config.PAGE_VERSION.llcardpool) %}
+
+{% block front_notice %}
+<h4 class="alert-heading">使用方法</h4>
+<ul>
+    <li>本页面可以添加、删除、编辑自定义卡池，方便在选卡时快速筛选自己常用的卡。</li>
+</ul>
+{% endblock %}
+
+{% block main %}
+<input id='language' type='hidden' /><br/>
+<h3>卡池编辑</h3>
+<div id="card_pool" class="filter-form label-margin-1">载入中...</div>
+
+{% include 'components/loadingbox.html' %}
+
+{% endblock %}

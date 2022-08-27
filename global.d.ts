@@ -417,17 +417,43 @@ declare namespace LLH {
             items: IdType[];
         }
 
-        interface PoolsSaveDataType<IdType> {
-            type: PoolType;
-            pools: PoolSaveDataType<IdType>[];
-        }
+        type PoolsSaveDataType<IdType> = PoolSaveDataType<IdType>[];
 
     }
 
     namespace Depends {
-        interface Promise<DoneT, FailT> {
-            then<DoneU, FailU>(doneCallback: (arg: DoneT) => DoneU, failCallback?: (arg: FailT) => FailU): Promise<DoneU, FailU>;
+        interface PromiseBase<
+            DoneT1, FailT1,
+            DoneT2 = never, FailT2 = never,
+            DoneT3 = never, FailT3 = never,
+            DoneT4 = never, FailT4 = never,
+            DoneT5 = never, FailT5 = never> {
+                then<DoneU1 = never, FailU1 = never,
+                    DoneU2 = never, FailU2 = never,
+                    DoneU3 = never, FailU3 = never,
+                    DoneU4 = never, FailU4 = never,
+                    DoneU5 = never, FailU5 = never,
+                    DoneV1 = never, FailV1 = never,
+                    DoneV2 = never, FailV2 = never,
+                    DoneV3 = never, FailV3 = never,
+                    DoneV4 = never, FailV4 = never,
+                    DoneV5 = never, FailV5 = never>
+                    (
+                        doneCallback: (arg1: DoneT1, arg2: DoneT2, arg3: DoneT3, arg4: DoneT4, arg5: DoneT5) =>
+                            PromiseBase<DoneU1, FailU1, DoneU2, FailU2, DoneU3, FailU3, DoneU4, FailU4, DoneU5, FailU5> | DoneU1,
+                        failCallback?: (arg1: FailT1, arg2: FailT2, arg3: FailT3, arg4: FailT4, arg5: FailT5) =>
+                            PromiseBase<DoneV1, FailV1, DoneV2, FailV2, DoneV3, FailV3, DoneV4, FailV4, DoneV5, FailV5> | DoneV1
+                    ):
+                        PromiseBase<DoneU1 | DoneV1, FailU1 | FailV1,
+                            DoneU2 | DoneV2, FailU2 | FailV2,
+                            DoneU3 | DoneV3, FailU3 | FailV3,
+                            DoneU4 | DoneV4, FailU4 | FailV4,
+                            DoneU5 | DoneV5, FailU5 | FailV5>;
         }
+        type Promise<DoneT, FailT> = PromiseBase<DoneT, FailT>;
+        // interface Promise<DoneT, FailT> {
+        //     then<DoneU, FailU>(doneCallback: (arg: DoneT) => DoneU, failCallback?: (arg: FailT) => FailU): Promise<DoneU, FailU>;
+        // }
         interface Deferred<DoneT, FailT> extends Promise<DoneT, FailT> {
             resolve(arg?: DoneT): void;
             reject(arg?: FailT): void;
@@ -435,6 +461,10 @@ declare namespace LLH {
 
         interface Utils {
             createDeferred<DoneT, FailT>(): Deferred<DoneT, FailT>;
+            whenAll<DoneT1, FailT1, DoneT2, FailT2, DoneT3, FailT3>(
+                promise1: Promise<DoneT1, FailT1>,
+                promise2: Promise<DoneT2, FailT2>,
+                promise3: Promise<DoneT3, FailT3>): PromiseBase<DoneT1, FailT1, DoneT2, FailT2, DoneT3, FailT3>;
             whenAll(...args: Promise<any, any>[]): Promise<any, any>;
             whenAllByArray(arr: Promise<any, any>[]): Promise<any, any>;
         }
@@ -464,7 +494,24 @@ declare namespace LLH {
     namespace Component {
         type HTMLElementOrId = string | HTMLElement;
         type HTMLElementOrString = string | HTMLElement;
-        type SubElements = HTMLElementOrString | (HTMLElementOrString | HTMLElementOrString[])[];
+        type SubElements = HTMLElementOrString | (HTMLElementOrString | undefined | (HTMLElementOrString | undefined)[])[];
+        interface CreateElementOptions {
+            className?: string;
+            innerHTML?: string;
+            style?: {[k: keyof typeof CSSStyleDeclaration]: string};
+            type?: string;
+            href?: string;
+            title?: string;
+            value?: string;
+            step?: string;
+            size?: number;
+            max?: string;
+            min?: string;
+            autocomplete?: string;
+            scope?: string;
+            border?: string;
+        }
+
         interface LLComponentBase_Options {
             listen?: {[e: string]: (event: Event) => void};
         }
@@ -480,6 +527,7 @@ declare namespace LLH {
             hide(): void;
             toggleVisible(): void;
             setVisible(visible: boolean): void;
+            setClassName(newClassName: string): void;
             serialize(): any;
             deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
@@ -520,6 +568,7 @@ declare namespace LLH {
             constructor(id: HTMLSelectElement | string, options?: LLValuedComponent_Options);
 
             options: LLSelectComponent_OptionDef[];
+            filteredOptions: LLSelectComponent_OptionDef[];
             filter?: LLSelectComponent_FilterCallback;
 
             setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
@@ -538,6 +587,17 @@ declare namespace LLH {
 
             setSrcList(newSrcList: string[]): void;
             setAltText(text: string): void;
+        }
+        interface LLButtonComponent_Options {
+            id?: HTMLButtonElement | string;
+            click?: (event: Event) => void;
+            text?: string;
+        }
+        class LLButtonComponent extends LLComponentBase<HTMLButtonElement> {
+            constructor(options: LLButtonComponent_Options);
+
+            setEnabled(enabled: boolean): void;
+            setText(text: string): void;
         }
         interface LLAccessoryComponent_Options extends LLComponentBase_Options {
             size?: number // in pixel, default 128
@@ -628,12 +688,76 @@ declare namespace LLH {
         }
     }
 
+    namespace Controller {
+        interface ControllerBase {
+            element: Component.SubElements;
+        }
+    }
+
+    namespace Table {
+        interface LLCardTableComponent_RowController extends Controller.ControllerBase {
+            setCardData(card?: API.CardDataType): void;
+            setSelected(selected: boolean): void;
+            isSelected(): boolean;
+            getCardId(): Core.CardIdStringType | undefined;
+
+            onClick?: () => void;
+        }
+        interface LLCardTableComponent_Options {
+            id?: Component.HTMLElementOrId;
+            cards: API.CardDictDataType;
+        }
+        class LLCardTableComponent extends Component.LLComponentBase {
+            constructor(options: LLCardTableComponent_Options);
+
+            element: HTMLElement;
+
+            setCardList(newCardIds: Core.CardIdStringType[]): void;
+            getSelectedCardList(): Core.CardIdStringType[];
+            clearSelect(): void;
+        }
+    }
+
     namespace Pool {
-        interface PoolProcessedDataType<IdType> extends Internal.PoolSaveDataType<IdType> {
+        interface PoolProcessedDataType<IdType> {
+            raw: Internal.PoolSaveDataType<IdType>
             itemSet: Set<IdType>;
         }
-        interface PoolUtil {
-            loadPools<IdType>(storageKey: string): PoolProcessedDataType<IdType>[];
+        type PoolsProcessedDataType<IdType> = PoolProcessedDataType<IdType>[];
+        interface LLPoolUtil {
+            loadRawPools<IdType>(storageKey: string): Internal.PoolsSaveDataType<IdType>;
+            loadPools<IdType>(storageKey: string): PoolsProcessedDataType<IdType>;
+            processPool<IdType>(rawPool: Internal.PoolSaveDataType<IdType>): PoolProcessedDataType<IdType>;
+            saveRawPools<IdType>(storageKey: string, rawPools: Internal.PoolsSaveDataType<IdType>): void;
+            savePools<IdType>(storageKey: string, pools: PoolsProcessedDataType<IdType>): void;
+            /** return error message if fail, or empty string if success */
+            addPool<IdType>(pools: PoolsProcessedDataType<IdType>, newPoolName: string): string;
+            /** return error message if fail, or empty string if success */
+            removePoolByIndex<IdType>(pools: PoolsProcessedDataType<IdType>, index: number): void;
+        }
+        type CardPoolProcessedDataType = PoolProcessedDataType<Core.CardIdStringType>;
+        type CardPoolsProcessedDataType = PoolsProcessedDataType<Core.CardIdStringType>;
+        interface LLCardPoolComponent_Options {
+            id?: Component.HTMLElementOrId;
+            poolsKey: string;
+            cards: API.CardDictDataType;
+        }
+
+        interface LLCardPoolComponent_PoolsSelectController extends Controller.ControllerBase {
+            getPools(): CardPoolsProcessedDataType;
+            getSelectedPool(): CardPoolProcessedDataType | undefined;
+            /** return number of new cards added */
+            addCardsToSelectedPool(cardIds: Core.CardIdStringType[]): number;
+            /** return number of removed cards */
+            removeCardsFromSelectedPool(cardIds: Core.CardIdStringType[]): number;
+
+            onPoolSelectChange?: (pool?: CardPoolProcessedDataType) => void;
+        }
+        class LLCardPoolComponent {
+            constructor(options: LLCardPoolComponent_Options);
+
+            controller: LLCardPoolComponent_PoolsSelectController;
+            pools: CardPoolsProcessedDataType;
         }
     }
 
@@ -652,6 +776,7 @@ declare namespace LLH {
 
             setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
             getCardId(): Core.CardIdOrStringType;
+            getFilteredCardIdList(): Core.CardIdStringType[];
             scrollIntoView(): void;
 
             // optional callback
@@ -764,7 +889,7 @@ declare namespace LLH {
             /** return undefined if not same color team, or color of the team */
             isSameColorTeam(members: Model.LLMember[]): Core.AttributeAllType | undefined;
             getMemberGrade(memberId: Core.MemberIdType): Core.GradeType | undefined;
-            getMemberTypeIdsInGroups(groups: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
+            getMemberTypeIdsInGroups(groups?: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
             getMemberColor(member: Core.MemberIdType): Core.AttributeAllType | undefined;
             getMemberBackgroundColor(member: Core.MemberIdType): string;
         }
@@ -1166,6 +1291,7 @@ declare namespace LLH {
             /** [activate member] = member index list excluding activate member */
             syncTargetsBy?: number[][];
         }
+        type LLSimulateContext_ChainTypeIdBitsType = {[typeId: Core.UnitTypeIdType]: number};
         class LLSimulateContext_SkillStaticInfo {
             /** trigger condition will never be hit */
             neverTrigger: boolean;
@@ -1176,7 +1302,7 @@ declare namespace LLH {
             /** percentage 0~100 */
             accessoryPosibility: number;
             triggerLimit?: number;
-            chainTypeIdBits?: {[typeId: Core.UnitTypeIdType]: number};
+            chainTypeIdBits?: LLSimulateContext_ChainTypeIdBitsType;
             skillEffect?: LLSimulateContext_EffectStaticInfo;
             accessoryEffect?: LLSimulateContext_EffectStaticInfo;
         }
@@ -1648,6 +1774,8 @@ declare namespace LLH {
     class LLData<DataT> {
         constructor(brief_url: string, detail_url: string, brief_keys: string[], version?: string);
 
+        briefKeys: string[];
+
         getAllBriefData(keys?: string[], url?: string): Depends.Promise<{[id: string]: DataT}, void>;
         getDetailedData(index: string, url?: string): Depends.Promise<DataT, void>;
         getAllCachedBriefData(): {[id: string]: DataT};
@@ -1677,7 +1805,6 @@ declare namespace LLH {
         Attributes: ConstUtil.Attributes;
         Live: ConstUtil.Live;
         Song: ConstUtil.Song;
-        // TODO
     }
 
     namespace Test {
