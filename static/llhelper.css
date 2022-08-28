@@ -270,3 +270,7 @@ table.gem-series tr.focused {
    margin-top: 0px;
    margin-left: 10px;
 }
+.card-table .card-id {
+   font-weight: bold;
+   text-align: center;
+}

@@ -511,6 +511,7 @@ declare namespace LLH {
             autocomplete?: string;
             scope?: string;
             border?: string;
+            src?: string;
         }
 
         interface LLComponentBase_Options {
@@ -589,6 +590,19 @@ declare namespace LLH {
 
             setSrcList(newSrcList: string[]): void;
             setAltText(text: string): void;
+        }
+        interface LLAvatarComponent_Options extends LLComponentBase_Options {
+            id?: HTMLImageElement | string;
+            cardId?: Core.CardIdStringType;
+            mezame?: boolean;
+            smallAvatar?: boolean;
+        }
+        class LLAvatarComponent extends LLImageComponent {
+            constructor(options: LLAvatarComponent_Options);
+
+            setCard(cardId?: Core.CardIdStringType, mezame?: boolean): void;
+            getCardId(): Core.CardIdStringType | undefined;
+            getMezame(): boolean;
         }
         interface LLButtonComponent_Options {
             id?: HTMLButtonElement | string;
@@ -775,6 +789,7 @@ declare namespace LLH {
             removeCardsFromSelectedPool(cardIds: Core.CardIdStringType[]): number;
 
             onPoolSelectChange?: (pool?: CardPoolProcessedDataType) => void;
+            onPoolSave?: (pool: CardPoolProcessedDataType) => void;
         }
         class LLCardPoolComponent {
             constructor(options: LLCardPoolComponent_Options);
@@ -788,6 +803,7 @@ declare namespace LLH {
         interface LLCardSelectorComponent_Options {
             cards: API.CardDictDataType;
             noShowN?: boolean;
+            pools?: Pool.CardPoolsProcessedDataType;
         }
         type LLCardSelectorComponent_OnCardChangeCallback = (cardId: Core.CardIdOrStringType) => void;
         class LLCardSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
@@ -800,6 +816,7 @@ declare namespace LLH {
             setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
             getCardId(): Core.CardIdOrStringType;
             getFilteredCardIdList(): Core.CardIdStringType[];
+            updatePoolsOptions(): void;
             scrollIntoView(): void;
 
             // optional callback
@@ -998,7 +1015,7 @@ declare namespace LLH {
             getTriggerTargetDescription(targets?: Core.TriggerTargetType): string;
             getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
             getTriggerLimitDescription(triggerLimit?: number): string;
-            getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue: number, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
+            getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue: number | string, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
             getEffectDescription(effectType: Core.SkillEffectType, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
             getRateDescription(rate: number): string;
 
@@ -1053,7 +1070,7 @@ declare namespace LLH {
         interface LLImageServerSwitch extends LLImageServerSwitch_Servers {
             getImageServer(): ImageServerIdType;
             changeImageServer(): void;
-            registerCallback(key: string, callback: ImageServerChangeCallback): void;
+            registerCallback(key: string | Component.LLComponentBase, callback: ImageServerChangeCallback): void;
             initImageServerSwitch(id: Component.HTMLElementOrId): void;
         }
     }

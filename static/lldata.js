@@ -947,6 +947,50 @@ var LLImageComponent = (function() {
    return LLImageComponent_cls;
 })();
 
+var LLAvatarComponent = (function () {
+   class LLAvatarComponent extends LLImageComponent {
+      /** @param {LLH.Component.LLAvatarComponent_Options} [options] */
+      constructor(options) {
+         if (!options) {
+            options = {};
+         }
+         var id = /** @type {HTMLImageElement} */ (LLUnit.getOrCreateElement(options.id, 'img', {
+            'src': '/static/null.png',
+            'className': (options.smallAvatar ? 'avatar' : '')
+         }));
+         super(id, options);
+         /** @type {LLH.Core.CardIdStringType=} */
+         this.cardId = undefined;
+         this.mezame = false;
+         this.setCard(options.cardId, options.mezame);
+      }
+      /**
+       * @param {LLH.Core.CardIdStringType} [cardId] 
+       * @param {boolean} [mezame] 
+       */
+      setCard(cardId, mezame) {
+         var newMezame = (mezame ? true : false);
+         if (this.cardId != cardId || this.mezame != newMezame) {
+            this.cardId = cardId;
+            this.mezame = newMezame;
+            this.setSrcList(LLUnit.getImagePathList(cardId, 'avatar', newMezame));
+            if (cardId) {
+               this.setAltText(LLConst.Common.getCardDescription((LLCardData.getAllCachedBriefData() || {})[cardId] || {'id': cardId}, LLConstValue.LANGUAGE_CN, newMezame));
+            } else {
+               this.setAltText('');
+            }
+            var me = this;
+            LLImageServerSwitch.registerCallback(this, function () {
+               me.setSrcList(LLUnit.getImagePathList(cardId, 'avatar', newMezame));
+            });
+         }
+      }
+      getCardId() { return this.cardId; }
+      getMezame() { return this.mezame; }
+   }
+   return LLAvatarComponent;
+})();
+
 var LLButtonComponent = (function () {
    /** @extends {LLComponentBase<HTMLButtonElement>} */
    class LLButtonComponent extends LLComponentBase {
@@ -2825,6 +2869,12 @@ var LLUnit = {
       }
    },
 
+   /**
+    * @param {LLH.Core.CardIdOrStringType | undefined} cardid 
+    * @param {'avatar' | 'card' | 'navi'} type 
+    * @param {boolean} mezame 
+    * @returns {string[]}
+    */
    getImagePathList: function (cardid, type, mezame) {
       if ((!cardid) || cardid == "0") {
          if (type == 'avatar') return ['/static/null.png'];
@@ -3320,23 +3370,24 @@ var LLSkillContainer = (function() {
 })();
 
 var LLCardSelectorComponent = (function() {
-   var createElement = LLUnit.createElement;
-   var updateSubElements = LLUnit.updateSubElements;
-   var createFormInlineGroup = LLUnit.createFormInlineGroup;
-   var createFormSelect = LLUnit.createFormSelect;
+   const createElement = LLUnit.createElement;
+   const updateSubElements = LLUnit.updateSubElements;
+   const createFormInlineGroup = LLUnit.createFormInlineGroup;
+   const createFormSelect = LLUnit.createFormSelect;
 
-   var SEL_ID_CARD_CHOICE = 'cardchoice';
-   var SEL_ID_RARITY = 'rarity';
-   var SEL_ID_CHARA = 'chr';
-   var SEL_ID_UNIT_GRADE = 'unitgrade';
-   var SEL_ID_ATTRIBUTE = 'att';
-   var SEL_ID_TRIGGER_TYPE = 'triggertype';
-   var SEL_ID_TRIGGER_REQUIRE = 'triggerrequire';
-   var SEL_ID_SKILL_TYPE = 'skilltype';
-   var SEL_ID_SPECIAL = 'special';
-   var SEL_ID_SET_NAME = 'setname';
-   var SEL_ID_SHOW_N_CARD = 'showncard';
-   var MEM_ID_LANGUAGE = 'language';
+   const SEL_ID_CARD_CHOICE = 'cardchoice';
+   const SEL_ID_RARITY = 'rarity';
+   const SEL_ID_CHARA = 'chr';
+   const SEL_ID_UNIT_GRADE = 'unitgrade';
+   const SEL_ID_ATTRIBUTE = 'att';
+   const SEL_ID_TRIGGER_TYPE = 'triggertype';
+   const SEL_ID_TRIGGER_REQUIRE = 'triggerrequire';
+   const SEL_ID_SKILL_TYPE = 'skilltype';
+   const SEL_ID_SPECIAL = 'special';
+   const SEL_ID_SET_NAME = 'setname';
+   const SEL_ID_SHOW_N_CARD = 'showncard';
+   const SEL_ID_CARD_POOL = 'cardpool';
+   const MEM_ID_LANGUAGE = 'language';
 
    var makeTriggerTypeOption = function (triggerId) {
       return {'value': triggerId, 'text': LLConst.Skill.getSkillTriggerText(parseInt(triggerId))};
@@ -3363,6 +3414,8 @@ var LLCardSelectorComponent = (function() {
          this.cards = {};
          /** @type {LLH.Selector.LLCardSelectorComponent_OnCardChangeCallback=} */
          this.onCardChange = undefined;
+         /** @type {LLH.Pool.CardPoolsProcessedDataType=} */
+         this.pools = options.pools;
 
          var me = this;
          // init components
@@ -3376,6 +3429,7 @@ var LLCardSelectorComponent = (function() {
          var selSkillType = createFormSelect();
          var selSpecial = createFormSelect();
          var selSetName = createFormSelect();
+         var selCardPool = (this.pools ? createFormSelect() : undefined);
          var checkShowNCard = createElement('input', {'type': 'checkbox'});
    
          me.addFilterable(SEL_ID_CARD_CHOICE, new LLSelectComponent(selCardChoice), function (opt) {
@@ -3393,6 +3447,9 @@ var LLCardSelectorComponent = (function() {
          me.addFilterable(SEL_ID_SPECIAL, new LLSelectComponent(selSpecial));
          me.addFilterable(SEL_ID_SET_NAME, new LLSelectComponent(selSetName));
          me.addFilterable(SEL_ID_SHOW_N_CARD, new LLValuedComponent(checkShowNCard));
+         if (selCardPool) {
+            me.addFilterable(SEL_ID_CARD_POOL, new LLSelectComponent(selCardPool));
+         }
          me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
    
          var languageGroupGetter = function () {
@@ -3430,7 +3487,10 @@ var LLCardSelectorComponent = (function() {
          me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggerrequire == v));
          me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.skilleffect == v));
          me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (parseInt(d.special) == parseInt(v)));
-         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
+         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, /** @type {LLH.API.CardDataType=} */ d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
+         if (selCardPool) {
+            me.addFilterCallback(SEL_ID_CARD_POOL, SEL_ID_CARD_CHOICE, (opt, v) => (v == '') || (!opt.value) || (!me.pools) || me.pools[parseInt(v)].itemSet.has(opt.value));
+         }
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
    
@@ -3443,6 +3503,7 @@ var LLCardSelectorComponent = (function() {
             createFormInlineGroup('筛选：', generalFilters),
             createFormInlineGroup('技能筛选：', [selTriggerType, selTriggerRequire, selSkillType]),
             createFormInlineGroup('相册：', [selSetName]),
+            (selCardPool ? createFormInlineGroup('卡池：', [selCardPool]) : undefined),
             createFormInlineGroup('卡片：', [selCardChoice])
          ], true);
    
@@ -3586,7 +3647,10 @@ var LLCardSelectorComponent = (function() {
             triggerRequireOptions[i] = options;
          }
          me.setFilterOptionGroups(SEL_ID_TRIGGER_REQUIRE, triggerRequireOptions);
-   
+
+         // build card pool options
+         me.updatePoolsOptions();
+
          // set other options
          me.setFilterOptions(SEL_ID_RARITY, [
             {'value': '',    'text': '稀有度'},
@@ -3661,6 +3725,16 @@ var LLCardSelectorComponent = (function() {
          if (element) {
             element.scrollIntoView(true);
          }
+      }
+      updatePoolsOptions() {
+         if (!this.pools) return;
+         var cardPoolOptions = [{'value': '', 'text': '自定义卡池'}];
+         for (var i = 0; i < this.pools.length; i++) {
+            var poolName = this.pools[i].raw.name + '（卡片数：' + this.pools[i].raw.items.length + '）';
+            cardPoolOptions.push({'value': i + '', 'text': poolName});
+         }
+         this.setFilterOptions(SEL_ID_CARD_POOL, cardPoolOptions);
+         this.handleFilters(SEL_ID_CARD_POOL);
       }
    }
    return LLCardSelectorComponent_cls;
@@ -10417,12 +10491,17 @@ var LLCardTableComponent = (function () {
       var curCard = undefined;
       var curSelected = false;
 
-      var cardIdCell = new LLValuedComponent(createElement('td'));
+      var cardIdDiv = new LLValuedComponent(createElement('div', {'className': 'card-id'}));
+      var normalAvatar = new LLAvatarComponent({'smallAvatar': true});
+      var mezameAvatar = new LLAvatarComponent({'smallAvatar': true});
       var smileCell = new LLValuedComponent(createElement('td', {'style': {'color': 'red'}}));
       var pureCell = new LLValuedComponent(createElement('td', {'style': {'color': 'green'}}));
       var coolCell = new LLValuedComponent(createElement('td', {'style': {'color': 'blue'}}));
+      var triggerCell = new LLValuedComponent(createElement('td'));
+      var skillEffectCell = new LLValuedComponent(createElement('td'));
       var row = new LLComponentBase(createElement('tr', {'style': {'display': 'none'}}, [
-         cardIdCell.element, smileCell.element, pureCell.element, coolCell.element
+         createElement('td', undefined, [cardIdDiv.element, normalAvatar.element, mezameAvatar.element]),
+         smileCell.element, pureCell.element, coolCell.element, triggerCell.element, skillEffectCell.element
       ], {'click': function () {
          controller.setSelected(!controller.isSelected());
          if (controller.onClick) controller.onClick();
@@ -10435,10 +10514,14 @@ var LLCardTableComponent = (function () {
             curCard = card;
             row.setVisible(card !== undefined);
             if (curCard) {
-               cardIdCell.set(curCard.id + '');
+               cardIdDiv.set('#' + curCard.id);
+               normalAvatar.setCard(curCard.id + '', false);
+               mezameAvatar.setCard(curCard.id + '', true);
                smileCell.set(curCard.smile2 + '');
                pureCell.set(curCard.pure2 + '');
                coolCell.set(curCard.cool2 + '');
+               triggerCell.set(LLConst.Skill.getTriggerDescription(curCard.triggertype, curCard.triggerrequire, curCard.triggertarget));
+               skillEffectCell.set(LLConst.Skill.getEffectBrief(curCard.skilleffect));
             }
          },
          'setSelected': function (selected) {
@@ -10570,10 +10653,12 @@ var LLCardTableComponent = (function () {
 
          var thead = createElement('thead', undefined, [
             createElement('tr', undefined, [
-               createElement('th', undefined, '编号'),
+               createElement('th', {'style': {'width': '150px'}}, '编号'),
                createElement('th', undefined, 'smile'),
                createElement('th', undefined, 'pure'),
-               createElement('th', undefined, 'cool')
+               createElement('th', undefined, 'cool'),
+               createElement('th', undefined, '触发条件'),
+               createElement('th', undefined, '技能类型')
             ])
          ])
          var tbody = createElement('tbody');
@@ -10850,6 +10935,9 @@ var LLCardPoolComponent = (function () {
                cardTable.setCardList(curPool.raw.items);
                reloadSelect();
                LLPoolUtil.savePools(poolsKey, pools);
+               if (controller.onPoolSave) {
+                  controller.onPoolSave(curPool);
+               }
             }
             return count;
          },
@@ -10877,6 +10965,9 @@ var LLCardPoolComponent = (function () {
                cardTable.setCardList(curPool.raw.items);
                reloadSelect();
                LLPoolUtil.savePools(poolsKey, pools);
+               if (controller.onPoolSave) {
+                  controller.onPoolSave(curPool);
+               }
             }
             return cardSet.size;
          },
@@ -10909,7 +11000,7 @@ var LLCardPoolComponent = (function () {
          this.pools = this.controller.getPools();
 
          var me = this;
-         var selector = new LLCardSelectorComponent(selectorContainer, {'cards': options.cards});
+         var selector = new LLCardSelectorComponent(selectorContainer, {'cards': options.cards, 'pools': this.pools});
          var origOnValueChange = selector.onValueChange;
          selector.onValueChange = function (name, newValue) {
             if (origOnValueChange) {
@@ -10921,7 +11012,11 @@ var LLCardPoolComponent = (function () {
             var visible = (pool !== undefined);
             selectorContainerComponent.setVisible(visible);
             selectorCardTable.setVisible(visible);
-         }
+         };
+         this.controller.onPoolSave = function () {
+            selector.updatePoolsOptions();
+            selectorCardTable.setCardList(selector.getFilteredCardIdList());
+         };
 
          addToPoolButton.on('click', function() {
             var selectedCardIds = selectorCardTable.getSelectedCardList();
