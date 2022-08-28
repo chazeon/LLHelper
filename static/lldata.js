@@ -658,6 +658,12 @@ var LLComponentBase = (function () {
          if (this.element.className == newClassName) return;
          this.element.className = newClassName;
       }
+      /** @param {string} tooltips */
+      setTooltips(tooltips) {
+         if (!this.element) return;
+         if (this.element.title == tooltips) return;
+         this.element.title = tooltips;
+      }
       serialize() {
          if (!this.element) return undefined;
          return this.visible;
@@ -950,14 +956,19 @@ var LLButtonComponent = (function () {
          /** @type {LLH.Component.LLComponentBase_Options} */
          var superOptions = {};
          if (!id) {
+            var colorStyle = options.colorStyle || 'default';
             /** @type {HTMLButtonElement} */
-            var button = LLUnit.createElement('button', {'className': 'btn btn-default', 'type': 'button', 'innerHTML': options.text});
+            var button = LLUnit.createElement('button', {'className': 'btn btn-' + colorStyle, 'type': 'button', 'innerHTML': options.text});
             id = button;
          }
          if (options.click) {
             superOptions.listen = {'click': options.click};
          }
          super(id, superOptions);
+
+         if (options.tooltips) {
+            this.setTooltips(options.tooltips);
+         }
       }
       /** @param {boolean} enabled */
       setEnabled(enabled) {
@@ -10414,6 +10425,7 @@ var LLCardTableComponent = (function () {
          cardIdCell.element, smileCell.element, pureCell.element, coolCell.element
       ], {'click': function () {
          controller.setSelected(!controller.isSelected());
+         if (controller.onClick) controller.onClick();
       }}));
       controller = {
          'element': [row.element],
@@ -10443,6 +10455,96 @@ var LLCardTableComponent = (function () {
       };
       return controller;
    }
+
+   function renderPagination() {
+      /** @type {LLH.Table.LLCardTableComponent_PaginationController} */
+      var controller;
+      var pageCount = 0;
+      var selectedPage = 0;
+      /** @type {LLH.Table.LLCardTableComponent_PageButtonController[]} */
+      var pageButtonControllers = [];
+
+      var ul = createElement('ul', {'className': 'pagination'});
+
+      var pushPage = function() {
+         /** @type {LLH.Table.LLCardTableComponent_PageButtonController} */
+         var pageButtonController;
+         pageCount += 1;
+         var myPageId = pageCount;
+         var li = createElement('li', undefined,
+            createElement('a', {'href': 'javascript:;'}, [myPageId + ''], {
+               'click': function () {
+                  if (selectedPage == myPageId) return;
+                  if (selectedPage) {
+                     pageButtonControllers[selectedPage-1].setActive(false);
+                  }
+                  pageButtonController.setActive(true);
+                  selectedPage = myPageId;
+                  if (controller.onPageChange) {
+                     controller.onPageChange(myPageId);
+                  }
+               }
+            })
+         );
+         pageButtonController = {
+            'setActive': function(active) {
+               li.className = (active ? 'active' : '');
+            },
+            'element': li
+         }
+         pageButtonControllers.push(pageButtonController);
+         updateSubElements(ul, li);
+         return pageButtonController;
+      };
+      var popPage = function() {
+         var pageButtonController = pageButtonControllers.pop();
+         if (!pageButtonController) return;
+         var myPageId = pageCount;
+         pageCount -= 1;
+         if (selectedPage == myPageId) {
+            selectedPage = 1;
+            pageButtonControllers[0].setActive(true);
+            if (controller.onPageChange) {
+               controller.onPageChange(selectedPage);
+            }
+         }
+         ul.removeChild(pageButtonController.element);
+      };
+
+      controller = {
+         'element': createElement('nav', undefined, ul),
+         'setPageCount': function (count) {
+            if (count <= 0) count = 1;
+            if (count == pageCount) return;
+            if (count > pageCount) {
+               while (pageCount < count) pushPage();
+            } else {
+               while (pageCount > count) popPage();
+            }
+         },
+         'getSelectedPage': function() {
+            return selectedPage;
+         }
+      };
+
+      pushPage().setActive(true);
+      selectedPage = 1;
+      return controller;
+   }
+
+   /**
+    * @param {LLH.Table.LLCardTableComponent_CardInfo} cardInfo 
+    * @param {boolean} isSelected 
+    * @returns {number} delta
+    */
+   function setCardInfoSelected(cardInfo, isSelected) {
+      if (cardInfo.selected != isSelected) {
+         cardInfo.selected = isSelected;
+         return (isSelected ? 1 : -1);
+      }
+      return 0;
+   }
+
    class LLCardTableComponent extends LLComponentBase {
       /**
        * @param {LLH.Table.LLCardTableComponent_Options} options 
@@ -10451,6 +10553,20 @@ var LLCardTableComponent = (function () {
          var container = LLUnit.getOrCreateElement(options.id, 'div', {'className': 'card-table'});
          super(container);
          this.element = container;
+
+         var me = this;
+
+         var selectAllButton = new LLButtonComponent({'text': '全选', 'click': () => me.selectAll()});
+         var selectNoneButton = new LLButtonComponent({'text': '清空选择', 'click': () => me.selectNone()});
+         var selectReverseButton = new LLButtonComponent({'text': '反选', 'click': () => me.selectReverse()});
+         var selectAllForPageButton = new LLButtonComponent({'text': '单页全选', 'click': () => me.selectAll(true)});
+         var selectNoneForPageButton = new LLButtonComponent({'text': '单页清空选择', 'click': () => me.selectNone(true)});
+         var selectReverseForPageButton = new LLButtonComponent({'text': '单页反选', 'click': () => me.selectReverse(true)});
+         var selectedCountSpan = new LLValuedComponent(createElement('div', {'className': 'btn-group', 'style': {'marginTop': '6px'}}, ['共0个']));
+         var additionalButtons = undefined;
+         if (options.toolbarButtons && options.toolbarButtons.length > 0) {
+            additionalButtons = createElement('div', {'className': 'btn-group'}, options.toolbarButtons.map((x) => x.element));
+         }
 
          var thead = createElement('thead', undefined, [
             createElement('tr', undefined, [
@@ -10461,52 +10577,162 @@ var LLCardTableComponent = (function () {
             ])
          ])
          var tbody = createElement('tbody');
+         var pageController = renderPagination();
+
+         updateSubElements(container, createElement('div', {'className': 'btn-toolbar'}, [
+            createElement('div', {'className': 'btn-group'}, [selectAllButton.element, selectNoneButton.element, selectReverseButton.element]),
+            createElement('div', {'className': 'btn-group'}, [selectAllForPageButton.element, selectNoneForPageButton.element, selectReverseForPageButton.element]),
+            additionalButtons,
+            selectedCountSpan.element
+         ]));
          updateSubElements(container, createElement('table', {'className': 'table table-hover'}, [thead, tbody]));
+         updateSubElements(container, pageController.element);
+
+         pageController.onPageChange = function() {
+            me.refreshPage();
+         }
 
          this.tbody = tbody;
+         this.selectedCountSpan = selectedCountSpan;
+         this.toolbarButtons = options.toolbarButtons;
+
+         this.pageController = pageController;
+         this.pageSize = 10;
+         this.selectedCount = 0;
          this.cardData = options.cards;
-         /** @type {LLH.Core.CardIdStringType[]} */
-         this.cardIds = [];
+         /** @type {LLH.Table.LLCardTableComponent_CardInfo[]} */
+         this.cardsInfo = [];
          /** @type {LLH.Table.LLCardTableComponent_RowController[]} */
          this.rowControllers = [];
+         for (var i = 0; i < this.pageSize; i++) {
+            var newRowController = renderRow();
+            this.rowControllers.push(newRowController);
+            updateSubElements(this.tbody, newRowController.element);
+            newRowController.onClick = (function (index) {
+               return function () {
+                  me.onRowClick(index);
+               }
+            })(i);
+         }
+
+         this.updateToolbarButtons(false);
       }
       /** @param {LLH.Core.CardIdStringType[]} newCardIds */
       setCardList(newCardIds) {
-         this.cardIds = newCardIds.concat();
-         var origRowCount = this.rowControllers.length;
+         /** @type {LLH.Table.LLCardTableComponent_CardInfo[]} */
+         var cardsInfo = [];
          var i;
-         for (i = 0; i < this.cardIds.length; i++) {
-            if (i >= origRowCount) {
-               var newRowController = renderRow();
-               this.rowControllers.push(newRowController);
-               updateSubElements(this.tbody, newRowController.element);
-            }
-            this.rowControllers[i].setCardData(this.cardData[this.cardIds[i]]);
-            this.rowControllers[i].setSelected(false);
+
+         for (i = 0; i < newCardIds.length; i++) {
+            cardsInfo.push({
+               'cardId': newCardIds[i],
+               'selected': false
+            });
          }
-         for (; i < origRowCount; i++) {
-            this.rowControllers[i].setCardData(undefined);
-            this.rowControllers[i].setSelected(false);
+         this.cardsInfo = cardsInfo;
+         this.pageController.setPageCount(Math.ceil(cardsInfo.length / this.pageSize));
+         this.refreshPage();
+         this.updateSelectedCount(-this.selectedCount);
+      }
+      getPageStartPos() {
+         var curPage = this.pageController.getSelectedPage();
+         return (curPage - 1) * this.pageSize;
+      }
+      refreshPage() {
+         var startPos = this.getPageStartPos();
+         for (var i = 0; i < this.pageSize; i++) {
+            var curPos = startPos + i;
+            var curRow = this.rowControllers[i];
+            if (curPos < this.cardsInfo.length) {
+               var curCardInfo = this.cardsInfo[curPos];
+               curRow.setCardData(this.cardData[curCardInfo.cardId]);
+               curRow.setSelected(curCardInfo.selected);
+            } else {
+               curRow.setCardData(undefined);
+               curRow.setSelected(false);
+            }
+         }
+      }
+      /** @param {number} delta */
+      updateSelectedCount(delta) {
+         var lastHasSelect = (this.selectedCount != 0);
+         this.selectedCount += delta;
+         var curHasSelect = (this.selectedCount != 0);
+         if (curHasSelect) {
+            this.selectedCountSpan.set('选中' + this.selectedCount + '个，共' + this.cardsInfo.length + '个');
+         } else {
+            this.selectedCountSpan.set('共' + this.cardsInfo.length + '个');
+         }
+         if (lastHasSelect != curHasSelect) {
+            this.updateToolbarButtons(curHasSelect);
+         }
+      }
+      /** @param {boolean} enabled */
+      updateToolbarButtons(enabled) {
+         if (!this.toolbarButtons) return;
+         for (var i = 0; i < this.toolbarButtons.length; i++) {
+            this.toolbarButtons[i].setEnabled(enabled);
+         }
+      }
+      /** @param {number} index */
+      onRowClick(index) {
+         var curCardInfo = this.cardsInfo[this.getPageStartPos() + index];
+         if (curCardInfo) {
+            var delta = setCardInfoSelected(curCardInfo, this.rowControllers[index].isSelected());
+            this.updateSelectedCount(delta);
          }
       }
       getSelectedCardList() {
          /** @type {LLH.Core.CardIdStringType[]} */
          var cardIds = [];
-         for (var i = 0; i < this.rowControllers.length; i++) {
-            var curController = this.rowControllers[i];
-            if (curController.isSelected()) {
-               var curCardId = curController.getCardId();
-               if (curCardId) {
-                  cardIds.push(curCardId);
-               }
+         for (var i = 0; i < this.cardsInfo.length; i++) {
+            var curCardInfo = this.cardsInfo[i];
+            if (curCardInfo.selected) {
+               cardIds.push(curCardInfo.cardId);
             }
          }
          return cardIds;
       }
-      clearSelect() {
-         for (var i = 0; i < this.rowControllers.length; i++) {
-            this.rowControllers[i].setSelected(false);
+      /** @param {boolean} [isPage] */
+      selectAll(isPage) {
+         this.applySelectImpl(() => true, isPage);
+      }
+      /** @param {boolean} [isPage] */
+      selectNone(isPage) {
+         this.applySelectImpl(() => false, isPage);
+      }
+      /** @param {boolean} [isPage] */
+      selectReverse(isPage) {
+         this.applySelectImpl((b) => !b, isPage);
+      }
+      /**
+       * @param {(boolean) => boolean} applyCallback 
+       * @param {boolean} [isPage]
+       */
+      applySelectImpl(applyCallback, isPage) {
+         var i;
+         var startPos = this.getPageStartPos();
+         var delta = 0;
+         for (i = 0; i < this.rowControllers.length; i++) {
+            var curPos = i + startPos;
+            if (curPos < this.cardsInfo.length) {
+               var curCardInfo = this.cardsInfo[curPos];
+               delta += setCardInfoSelected(curCardInfo, applyCallback(curCardInfo.selected));
+               this.rowControllers[i].setSelected(curCardInfo.selected);
+            } else {
+               this.rowControllers[i].setSelected(false);
+            }
+         }   
+         if (!isPage) {
+            var endPos = startPos + this.pageSize;
+            for (i = 0; i < this.cardsInfo.length; i++) {
+               if (i < startPos || i >= endPos) {
+                  var curCardInfo = this.cardsInfo[i];
+                  delta += setCardInfoSelected(curCardInfo, applyCallback(curCardInfo.selected));
+               }
+            }
          }
+         this.updateSelectedCount(delta);
       }
    }
    return LLCardTableComponent;
@@ -10533,9 +10759,9 @@ var LLCardPoolComponent = (function () {
 
       var poolSelect = new LLSelectComponent(createFormSelect());
       var newPoolInput = new LLValuedComponent(createElement('input', {'type': 'text', 'className': 'form-control small-padding'}));
-      var addPoolButton = new LLButtonComponent({'text': ADD_POOL_TEXT});
+      var addPoolButton = new LLButtonComponent({'text': ADD_POOL_TEXT, 'colorStyle': 'primary'});
       var addPoolMessage = new LLValuedComponent(createElement('div', {'style': {'color': 'red'}}));
-      var removePoolButton = new LLButtonComponent({'text': REMOVE_POOL_TEXT});
+      var removePoolButton = new LLButtonComponent({'text': REMOVE_POOL_TEXT, 'colorStyle': 'danger'});
       var newPoolContainer = new LLComponentBase(createElement('div', undefined, [
          createFormInlineGroup('输入新卡池名字', [newPoolInput.element, addPoolButton.element]),
          addPoolMessage.element
@@ -10673,10 +10899,11 @@ var LLCardPoolComponent = (function () {
       constructor(options) {
          var container = LLUnit.getOrCreateElement(options.id, 'div');
          var selectorContainer = createElement('div');
-         var removeFromPoolButton = new LLButtonComponent({'text': '从卡池中移除'});
-         var addToPoolButton = new LLButtonComponent({'text': '添加到卡池'});
-         var poolCardTable = new LLCardTableComponent({'cards': options.cards});
-         var selectorCardTable = new LLCardTableComponent({'cards': options.cards});
+         var selectorContainerComponent = new LLComponentBase(selectorContainer);
+         var removeFromPoolButton = new LLButtonComponent({'text': '从卡池中移除', 'colorStyle': 'danger', 'tooltips': '将选中的卡片从当前卡池中移除'});
+         var addToPoolButton = new LLButtonComponent({'text': '添加到卡池', 'colorStyle': 'primary', 'tooltips': '将选中的卡片添加到当前卡池中'});
+         var poolCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [removeFromPoolButton]});
+         var selectorCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [addToPoolButton]});
 
          this.controller = renderPoolsSelect(options.poolsKey, poolCardTable);
          this.pools = this.controller.getPools();
@@ -10690,6 +10917,11 @@ var LLCardPoolComponent = (function () {
             }
             selectorCardTable.setCardList(selector.getFilteredCardIdList());
          };
+         this.controller.onPoolSelectChange = function (pool) {
+            var visible = (pool !== undefined);
+            selectorContainerComponent.setVisible(visible);
+            selectorCardTable.setVisible(visible);
+         }
 
          addToPoolButton.on('click', function() {
             var selectedCardIds = selectorCardTable.getSelectedCardList();
@@ -10706,7 +10938,8 @@ var LLCardPoolComponent = (function () {
 
          updateSubElements(container, this.controller.element, true);
          updateSubElements(container, [poolCardTable.element, selectorContainer, selectorCardTable.element]);
-         updateSubElements(container, [addToPoolButton.element, removeFromPoolButton.element]);
+
+         this.controller.onPoolSelectChange(this.controller.getSelectedPool());
       }
    }
    return LLCardPoolComponent;

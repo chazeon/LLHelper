@@ -495,6 +495,7 @@ declare namespace LLH {
         type HTMLElementOrId = string | HTMLElement;
         type HTMLElementOrString = string | HTMLElement;
         type SubElements = HTMLElementOrString | (HTMLElementOrString | undefined | (HTMLElementOrString | undefined)[])[];
+        type BootCssColorStyleType = 'default' | 'primary' | 'success' | 'info' | 'warning' | 'danger';
         interface CreateElementOptions {
             className?: string;
             innerHTML?: string;
@@ -528,6 +529,7 @@ declare namespace LLH {
             toggleVisible(): void;
             setVisible(visible: boolean): void;
             setClassName(newClassName: string): void;
+            setTooltips(tooltips: string): void;
             serialize(): any;
             deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
@@ -592,6 +594,8 @@ declare namespace LLH {
             id?: HTMLButtonElement | string;
             click?: (event: Event) => void;
             text?: string;
+            colorStyle?: BootCssColorStyleType;
+            tooltips?: string;
         }
         class LLButtonComponent extends LLComponentBase<HTMLButtonElement> {
             constructor(options: LLButtonComponent_Options);
@@ -692,20 +696,37 @@ declare namespace LLH {
         interface ControllerBase {
             element: Component.SubElements;
         }
+        interface ClickableController {
+            onClick?: () => void;
+        }
     }
 
     namespace Table {
-        interface LLCardTableComponent_RowController extends Controller.ControllerBase {
+        interface LLCardTableComponent_RowController extends Controller.ControllerBase, Controller.ClickableController {
             setCardData(card?: API.CardDataType): void;
             setSelected(selected: boolean): void;
             isSelected(): boolean;
             getCardId(): Core.CardIdStringType | undefined;
+        }
+        interface LLCardTableComponent_PageButtonController extends Controller.ControllerBase {
+            element: HTMLElement;
 
-            onClick?: () => void;
+            setActive(active: boolean): void;
+        }
+        interface LLCardTableComponent_PaginationController extends Controller.ControllerBase {
+            setPageCount(count: number): void;
+            getSelectedPage(): number;
+
+            onPageChange?: (page: number) => void;
+        }
+        interface LLCardTableComponent_CardInfo {
+            cardId: Core.CardIdStringType;
+            selected: boolean;
         }
         interface LLCardTableComponent_Options {
             id?: Component.HTMLElementOrId;
             cards: API.CardDictDataType;
+            toolbarButtons?: Component.LLButtonComponent[];
         }
         class LLCardTableComponent extends Component.LLComponentBase {
             constructor(options: LLCardTableComponent_Options);
@@ -714,7 +735,9 @@ declare namespace LLH {
 
             setCardList(newCardIds: Core.CardIdStringType[]): void;
             getSelectedCardList(): Core.CardIdStringType[];
-            clearSelect(): void;
+            selectAll(isPage?: boolean): void;
+            selectNone(isPage?: boolean): void;
+            selectReverse(isPage?: boolean): void;
         }
     }
 

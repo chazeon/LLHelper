@@ -252,3 +252,21 @@ table.gem-series tr.focused {
    top: 16%;
    position: relative;
 }
+.card-table {
+   margin-top: 6px;
+   border: 1px solid #ddd;
+}
+.card-table >table {
+   border-top: 1px solid #ddd;
+   border-bottom: 1px solid #ddd;
+}
+.card-table div.btn-toolbar {
+   background-color: #eee;
+   margin: 0px;
+   padding-top: 2px;
+   padding-bottom: 2px;
+}
+.card-table .pagination {
+   margin-top: 0px;
+   margin-left: 10px;
+}
