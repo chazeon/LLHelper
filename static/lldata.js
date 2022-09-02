@@ -966,7 +966,7 @@ var LLAvatarComponent = (function () {
       }
       /**
        * @param {LLH.Core.CardIdStringType} [cardId] 
-       * @param {boolean} [mezame] 
+       * @param {boolean | LLH.Core.MezameType} [mezame] 
        */
       setCard(cardId, mezame) {
          var newMezame = (mezame ? true : false);
@@ -7414,26 +7414,24 @@ var LLSubMemberComponent = (function () {
       var group = createElement('div', {'className': 'form-group'}, [label, inputContainer]);
       return group;
    }
-   // controller:
-   // {
-   //    'onDelete': undefined function(),
-   //    'onSwap': undefined function(),
-   //    'getMember': function() return member,
-   //    'setMember': function(m),
-   //    'startSwapping': function() return member,
-   //    'finishSwapping': function(v) return member,
-   // }
+
+   /**
+    * @param {LLH.Internal.SubMemberSaveDataType} member 
+    * @param {LLH.Layout.SubMember.LLSubMemberComponent_MemberContainerController} controller 
+    * @returns {HTMLElement}
+    */
    function createMemberContainer(member, controller) {
       var localMember;
       var bSwapping = false;
       var bDeleting = false;
-      var image = createElement('img', {'className': 'avatar'});
-      var imageComp = new LLImageComponent(image);
-      var levelInput = createElement('input', {'className': 'form-control', 'type': 'number', 'min': 1, 'max': 8, 'value': 1});
+      var imageComp = new LLAvatarComponent({'smallAvatar': true});
+      /** @type {HTMLInputElement} */
+      var levelInput = createElement('input', {'className': 'form-control', 'type': 'number', 'min': '1', 'max': '8', 'value': '1'});
       levelInput.addEventListener('change', function() {
          localMember.skilllevel = parseInt(levelInput.value);
       });
-      var slotInput = createElement('input', {'className': 'form-control', 'type': 'number', 'min': 0, 'max': 8, 'value': 0});
+      /** @type {HTMLInputElement} */
+      var slotInput = createElement('input', {'className': 'form-control', 'type': 'number', 'min': '0', 'max': '8', 'value': '0'});
       slotInput.addEventListener('change', function() {
          localMember.maxcost = parseInt(slotInput.value);
       });
@@ -7475,7 +7473,7 @@ var LLSubMemberComponent = (function () {
          }
          levelInput.value = m.skilllevel;
          slotInput.value = m.maxcost;
-         LLUnit.setAvatarSrcList(imageComp, m.cardid, parseInt(m.mezame));
+         imageComp.setCard(m.cardid + '', m.mezame);
       };
       controller.startSwapping = function() {
          swapButton.innerHTML = '选择';
@@ -7500,7 +7498,7 @@ var LLSubMemberComponent = (function () {
          return ret;
       };
       controller.setMember(member);
-      var imageContainer = createElement('td', {'className': 'text-center'}, [image]);
+      var imageContainer = createElement('td', {'className': 'text-center'}, [imageComp.element]);
       var levelInputContainer = createSimpleInputContainer('等级', levelInput);
       var slotInputContainer = createSimpleInputContainer('槽数', slotInput);
       var inputsContainer = createElement('td', {'className': 'form-horizontal'}, [levelInputContainer, slotInputContainer]);
@@ -7517,6 +7515,7 @@ var LLSubMemberComponent = (function () {
     */
    function LLSubMemberComponent_cls(id) {
       var element = LLUnit.getElement(id);
+      /** @type {LLH.Layout.SubMember.LLSubMemberComponent_MemberContainerController[]} */
       var controllers = [];
       var swapper;
       var me = this;
@@ -7539,6 +7538,7 @@ var LLSubMemberComponent = (function () {
          }
       };
       this.add = function (member, skipCountChange) {
+         /** @type {LLH.Layout.SubMember.LLSubMemberComponent_MemberContainerController} */
          var controller = {};
          var container = createMemberContainer(member, controller);
          element.appendChild(container);
@@ -8326,22 +8326,21 @@ var LLTeamComponent = (function () {
 
    /** @param {LLH.Layout.Team.TeamAvatarCellController} controller */
    function avatarCreator(controller) {
-      var imgElement = createElement('img', {'className': 'avatar'});
-      var imgComp = new LLImageComponent(imgElement, {'srcList': ['/static/null.png']});
+      var avatarComp = new LLAvatarComponent({'smallAvatar': true});
       var curCardid = undefined;
       var curMezame = undefined;
       controller.update = function(cardid, mezame) {
          cardid = parseInt(cardid || 0);
-         mezame = parseInt(mezame || 0);
+         mezame = mezame || 0;
          if (cardid != curCardid || mezame != curMezame) {
             curCardid = cardid;
             curMezame = mezame;
-            LLUnit.setAvatarSrcList(imgComp, cardid, mezame);
+            avatarComp.setCard(cardid + '', mezame);
          }
       };
-      controller.getCardId = function() { return curCardid; };
-      controller.getMezame = function() { return curMezame; };
-      return [imgElement];
+      controller.getCardId = function() { return curCardid || 0; };
+      controller.getMezame = function() { return curMezame || 0; };
+      return [avatarComp.element];
    }
 
    /** @param {LLH.Layout.Team.TeamAccessoryIconCellController} controller */
@@ -10007,7 +10006,7 @@ var LLAccessoryComponent = (function () {
    class LLAccessoryComponent_cls extends LLComponentBase {
       /**
        * @param {LLH.Component.HTMLElementOrId} id
-       * @param {LLH.Component.LLAccessoryComponent_Options} options
+       * @param {LLH.Component.LLAccessoryComponent_Options} [options]
        */
       constructor(id, options) {
          super(id, options);
@@ -10016,12 +10015,15 @@ var LLAccessoryComponent = (function () {
             this.size = options.size;
          }
          this.accessoryId = undefined;
-         this.element.className = 'accessory-base';
-         this.element.style.width = this.size + 'px';
-         this.element.style.height = this.size + 'px';
+         /** @type {HTMLImageElement} */
          var img = LLUnit.createElement('img');
          this.accessoryImage = new LLImageComponent(img);
-         LLUnit.updateSubElements(this.element, img);
+         if (this.element) {
+            this.element.className = 'accessory-base';
+            this.element.style.width = this.size + 'px';
+            this.element.style.height = this.size + 'px';
+            LLUnit.updateSubElements(this.element, img);
+         }
       }
       /**
        * @param {LLH.Core.AccessoryIdStringType | LLH.API.AccessoryDataType} [newAccessory] 
@@ -10081,10 +10083,10 @@ var LLAccessorySelectorComponent = (function () {
 
    /** @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller */
    function renderAccessoryDetail(controller) {
-      var cardAvatar1 = createElement('img');
-      var cardAvatar2 = createElement('img');
-      var cardAvatar1Component = new LLImageComponent(cardAvatar1);
-      var cardAvatar2Component = new LLImageComponent(cardAvatar2);
+      var cardAvatar1Component = new LLAvatarComponent();
+      var cardAvatar2Component = new LLAvatarComponent();
+      cardAvatar1Component.hide();
+      cardAvatar2Component.hide();
       var accessoryComponent = new LLAccessoryComponent(createElement('div'));
       var container = createElement('div');
       controller.set = function (data, language) {
@@ -10100,15 +10102,17 @@ var LLAccessorySelectorComponent = (function () {
                   createElement('th', undefined, '技能'),
                ])
             ];
-            for (var i = 1; i <= data.levels.length; i++) {
-               var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
-               levelRows.push(createElement('tr', undefined, [
-                  createElement('td', undefined, i + ''),
-                  createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
-                  createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
-                  createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
-                  createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
-               ]));
+            if (data.levels) {
+               for (var i = 1; i <= data.levels.length; i++) {
+                  var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
+                  levelRows.push(createElement('tr', undefined, [
+                     createElement('td', undefined, i + ''),
+                     createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
+                     createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
+                     createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
+                     createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
+                  ]));
+               }
             }
             updateSubElements(container, [
                createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
@@ -10118,8 +10122,8 @@ var LLAccessorySelectorComponent = (function () {
          }
          accessoryComponent.setAccessory(data, language);
          if (data && data.unit_id) {
-            LLUnit.setAvatarSrcList(cardAvatar1Component, parseInt(data.unit_id), 0);
-            LLUnit.setAvatarSrcList(cardAvatar2Component, parseInt(data.unit_id), 1);
+            cardAvatar1Component.setCard(data.unit_id, false);
+            cardAvatar2Component.setCard(data.unit_id, true);
             cardAvatar1Component.show();
             cardAvatar2Component.show();
          } else {
@@ -10131,8 +10135,8 @@ var LLAccessorySelectorComponent = (function () {
       return createElement('div', undefined, [
          createElement('div', {'style': {'display': 'flex', 'flex-flow': 'row'}}, [
             accessoryComponent.element,
-            cardAvatar1,
-            cardAvatar2
+            cardAvatar1Component.element,
+            cardAvatar2Component.element
          ]),
          container
       ]);
@@ -10945,7 +10949,7 @@ var LLCardPoolComponent = (function () {
             var curPool = controller.getSelectedPool();
             if (!curPool) return 0;
             var i;
-            /** @type {Set<LLH.Core.CardIdStringType} */
+            /** @type {Set<LLH.Core.CardIdStringType>} */
             var cardSet = new Set();
             for (i = 0; i < cardIds.length; i++) {
                var cardId = cardIds[i];

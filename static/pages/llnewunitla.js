@@ -175,7 +175,7 @@ function docalculate(cards, accessoryDetails, extraData) {
 }
 
 
-/** @param {LLH.Depends.Promise<void>} loadDeferred */
+/** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
     /**
      * @param {LLH.API.CardDictDataType} cardData
@@ -195,7 +195,7 @@ function renderPage(loadDeferred) {
         });
         data_mapnote = new LLMapNoteData();
         comp_skill = new LLSkillContainer();
-        comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData });
+        comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey) });
         comp_cardselector.onCardChange = LLUnit.applycarddata;
         comp_cardavatar = new LLImageComponent('imageselect');
         comp_distribution_param = new LLScoreDistributionParameter('distribution_param', {'mode': 'la'});
@@ -283,7 +283,7 @@ function renderPage(loadDeferred) {
         }
 
         // done
-        document.getElementById('loadingbox').style.display = 'none';
+        LoadingUtil.stop();
     }
 
     LLDepends.whenAll(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), LLAccessoryData.getAllBriefData(), LLSisData.getAllBriefData(), loadDeferred).then(

@@ -39,7 +39,7 @@
       comp_songselector.onSongSettingChange = applysongdata;
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
-      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'noShowN': true});
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'noShowN': true, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey)});
       comp_cardselector.getComponent('rarity').filterOptions(function (opt) {
          return !(opt.value == 'N' || opt.value == 'R');
       });

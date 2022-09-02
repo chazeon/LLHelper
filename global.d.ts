@@ -600,7 +600,7 @@ declare namespace LLH {
         class LLAvatarComponent extends LLImageComponent {
             constructor(options: LLAvatarComponent_Options);
 
-            setCard(cardId?: Core.CardIdStringType, mezame?: boolean): void;
+            setCard(cardId?: Core.CardIdStringType, mezame?: boolean | Core.MezameType): void;
             getCardId(): Core.CardIdStringType | undefined;
             getMezame(): boolean;
         }
@@ -1505,7 +1505,7 @@ declare namespace LLH {
                 get(): T;
             }
             interface TeamAvatarCellController {
-                update(cardid: Core.CardIdOrStringType, mezame: Core.MezameType): void;
+                update(cardid?: Core.CardIdOrStringType, mezame?: Core.MezameType): void;
                 getCardId(): Core.CardIdType;
                 getMezame(): Core.MezameType;
             }
@@ -1734,6 +1734,17 @@ declare namespace LLH {
         }
 
         namespace SubMember {
+            interface LLSubMemberComponent_MemberContainerController {
+                getMember(): Internal.SubMemberSaveDataType;
+                setMember(member: Internal.SubMemberSaveDataType): void;
+                startSwapping(): Internal.SubMemberSaveDataType;
+                finishSwapping(member: Internal.SubMemberSaveDataType): Internal.SubMemberSaveDataType;
+
+                removeElement(): void;
+                onDelete?: () => void;
+                onSwap?: () => void;
+            }
+
             type LLSubMemberComponent_OnCountChangeCallback = (count: number) => void;
 
             class LLSubMemberComponent implements Mixin.SaveLoadJson {

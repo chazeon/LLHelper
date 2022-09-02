@@ -309,7 +309,7 @@ function docalculate(cards, accessoryDetails, extraData) {
     comp_result.showResult(llteam);
 }
 
-/** @param {LLH.Depends.Promise<void>} loadDeferred */
+/** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
     LLCardData.briefKeys.push('minslot');
 
@@ -327,7 +327,7 @@ function renderPage(loadDeferred) {
         comp_songselector = new LLSongSelectorComponent('song_filter', {'songs': songData, 'includeMapInfo': true, 'friendCSkill': comp_cskill_friend});
         data_mapnote = new LLMapNoteData();
         comp_skill = new LLSkillContainer();
-        comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
+        comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey)});
         comp_cardselector.onCardChange = LLUnit.applycarddata;
         comp_cardavatar = new LLImageComponent('imageselect');
         comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
@@ -419,7 +419,7 @@ function renderPage(loadDeferred) {
         comp_team.setMapAttribute(comp_songselector.getSongAttribute());
 
         // done
-        document.getElementById('loadingbox').style.display = 'none';
+        LoadingUtil.stop();
     }
 
     LLDepends.whenAll(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), LLAccessoryData.getAllBriefData(), loadDeferred).then(
