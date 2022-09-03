@@ -16,7 +16,7 @@ function renderPage(loadDeferred) {
         });
 
         var comp_language = new LLLanguageComponent('language');
-        // comp_language.registerLanguageChange(comp_gem_selector);
+        comp_language.registerLanguageChange(comp_card_pool);
 
         // done
         LoadingUtil.stop();

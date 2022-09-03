@@ -241,6 +241,12 @@ declare namespace LLH {
 
     }
 
+    namespace Callback {
+        type Action = () => void;
+        type Consumer<T> = (x: T) => void;
+        type Supplier<T> = () => T;
+    }
+
     namespace Internal {
         /** LLConstValue.SONG_DEFAULT_SET_... */
         type DefaultSongSetIdType = number;
@@ -496,10 +502,26 @@ declare namespace LLH {
         type HTMLElementOrString = string | HTMLElement;
         type SubElements = HTMLElementOrString | (HTMLElementOrString | undefined | (HTMLElementOrString | undefined)[])[];
         type BootCssColorStyleType = 'default' | 'primary' | 'success' | 'info' | 'warning' | 'danger';
+        // type OptionalStyle = {[k: keyof CSSStyleDeclaration]: string};
+        interface OptionalStyle {
+            color?: string;
+            display?: string;
+            float?: string;
+            height?: string;
+            marginLeft?: string;
+            marginRight?: string;
+            marginTop?: string;
+            maxHeight?: string;
+            overflowY?: string;
+            padding?: string;
+            textAlign?: string;
+            width?: string;
+            zIndex?: string;
+        }
         interface CreateElementOptions {
             className?: string;
             innerHTML?: string;
-            style?: {[k: keyof typeof CSSStyleDeclaration]: string};
+            style?: OptionalStyle;
             type?: string;
             href?: string;
             title?: string;
@@ -610,12 +632,36 @@ declare namespace LLH {
             text?: string;
             colorStyle?: BootCssColorStyleType;
             tooltips?: string;
+            style?: Component.OptionalStyle;
         }
         class LLButtonComponent extends LLComponentBase<HTMLButtonElement> {
             constructor(options: LLButtonComponent_Options);
 
             setEnabled(enabled: boolean): void;
             setText(text: string): void;
+        }
+        interface LLDialogComponent_Options {
+            height?: string;
+            width?: string;
+            content: SubElements;
+            closeCallback?: Callback.Action;
+        }
+        class LLDialogComponent {
+            constructor(options: LLDialogComponent_Options);
+
+            close(): void;
+
+            static openDialog(options: LLDialogComponent_Options): LLDialogComponent;
+        }
+        interface LLYesNoDialogComponent_Options {
+            question: SubElements;
+            title?: SubElements;
+            answerCallback?: Callback.Consumer<boolean>;
+        }
+        class LLYesNoDialogComponent extends LLDialogComponent {
+            constructor(options: LLYesNoDialogComponent_Options);
+
+            static openYesNoDialog(options: LLYesNoDialogComponent_Options): LLYesNoDialogComponent;
         }
         interface LLAccessoryComponent_Options extends LLComponentBase_Options {
             size?: number // in pixel, default 128
@@ -740,7 +786,10 @@ declare namespace LLH {
         interface LLCardTableComponent_Options {
             id?: Component.HTMLElementOrId;
             cards: API.CardDictDataType;
+            /** enabled when selected any item */
             toolbarButtons?: Component.LLButtonComponent[];
+            /** always enabled buttons */
+            toolbarEnabledButtons?: Component.LLButtonComponent[];
         }
         class LLCardTableComponent extends Component.LLComponentBase {
             constructor(options: LLCardTableComponent_Options);
@@ -787,15 +836,17 @@ declare namespace LLH {
             addCardsToSelectedPool(cardIds: Core.CardIdStringType[]): number;
             /** return number of removed cards */
             removeCardsFromSelectedPool(cardIds: Core.CardIdStringType[]): number;
+            removeSelectedPool(): void;
 
             onPoolSelectChange?: (pool?: CardPoolProcessedDataType) => void;
             onPoolSave?: (pool: CardPoolProcessedDataType) => void;
         }
-        class LLCardPoolComponent {
+        class LLCardPoolComponent implements Mixin.LanguageSupport {
             constructor(options: LLCardPoolComponent_Options);
 
             controller: LLCardPoolComponent_PoolsSelectController;
             pools: CardPoolsProcessedDataType;
+            cardSelector: Selector.LLCardSelectorComponent;
         }
     }
 

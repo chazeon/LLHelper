@@ -1002,7 +1002,7 @@ var LLButtonComponent = (function () {
          if (!id) {
             var colorStyle = options.colorStyle || 'default';
             /** @type {HTMLButtonElement} */
-            var button = LLUnit.createElement('button', {'className': 'btn btn-' + colorStyle, 'type': 'button', 'innerHTML': options.text});
+            var button = LLUnit.createElement('button', {'className': 'btn btn-' + colorStyle, 'type': 'button', 'style': options.style, 'innerHTML': options.text});
             id = button;
          }
          if (options.click) {
@@ -1026,6 +1026,102 @@ var LLButtonComponent = (function () {
       }
    }
    return LLButtonComponent;
+})();
+
+var LLDialogComponent = (function () {
+   const ZINDEX_BASE = 101;
+   var dialogDepth = 0;
+
+   class LLDialogComponent {
+      /** @param {LLH.Component.LLDialogComponent_Options} options */
+      constructor(options) {
+         var me = this;
+         var closeButton = LLUnit.createElement('a', { 'title': 'Close', 'className': 'dialog-close-button' }, undefined, {
+            'click': () => me.close()
+         });
+         var height = options.height || '80%';
+         var width = options.width || '80%';
+         var dialogContent;
+         if (height == 'auto') {
+            dialogContent = LLUnit.createElement('div', {'style': {
+               'display': 'flex',
+               'overflowY': 'auto',
+               'maxHeight': (document.documentElement.clientHeight * 0.8).toFixed(0) + 'px'
+            }}, options.content);
+         } else {
+            dialogContent = options.content;
+         }
+
+         this.depth = dialogDepth;
+         dialogDepth += 1;
+         this.closeCallback = options.closeCallback;
+         this.overlay = LLUnit.createElement('div', {
+            'className': 'dialog-overlay',
+            'style': {'zIndex': (ZINDEX_BASE + this.depth * 2).toFixed()}
+         }, undefined, {
+            'click': () => me.close()
+         });
+         this.dialog = LLUnit.createElement('div', {
+            'className': 'dialog-main',
+            'style': {
+               'display': 'block',
+               'height': height,
+               'width': width,
+               'zIndex': (ZINDEX_BASE + this.depth * 2 + 1).toFixed()
+            }
+         }, dialogContent);
+         LLUnit.updateSubElements(this.dialog, closeButton);
+         LLUnit.updateSubElements(document.body, [this.overlay, this.dialog]);
+      }
+      close() {
+         dialogDepth = this.depth;
+         this.dialog.remove();
+         this.overlay.remove();
+         if (this.closeCallback) {
+            this.closeCallback();
+         }
+      }
+      /** @param {LLH.Component.LLDialogComponent_Options} options */
+      static openDialog(options) {
+         return new LLDialogComponent(options);
+      }
+   }
+   return LLDialogComponent;
+})();
+
+var LLYesNoDialogComponent = (function() {
+   class LLYesNoDialogComponent extends LLDialogComponent {
+      /** @param {LLH.Component.LLYesNoDialogComponent_Options} options */
+      constructor(options) {
+         var answer = false;
+         var answerCallback = options.answerCallback;
+         var yesButton = new LLButtonComponent({'text': '确认', 'colorStyle': 'primary'});
+         var noButton = new LLButtonComponent({'text': '取消', 'style': {'marginLeft': '12px'}});
+         var content = LLUnit.createElement('div');
+         if (options.title) {
+            LLUnit.updateSubElements(content, LLUnit.createElement('div', {'className': 'dialog-title-section'}, options.title));
+         }
+         LLUnit.updateSubElements(content, options.question);
+         LLUnit.updateSubElements(content, LLUnit.createElement('div', {'className': 'dialog-bottom-section'}, [yesButton.element, noButton.element]));
+         super({
+            'content': content,
+            'height': 'auto',
+            'width': 'auto',
+            'closeCallback': () => answerCallback && answerCallback(answer)
+         });
+         var me = this;
+         yesButton.on('click', function () {
+            answer = true;
+            me.close();
+         });
+         noButton.on('click', () => me.close());
+      }
+      /** @param {LLH.Component.LLYesNoDialogComponent_Options} options */
+      static openYesNoDialog(options) {
+         return new LLYesNoDialogComponent(options);
+      }
+   }
+   return LLYesNoDialogComponent;
 })();
 
 var LLComponentCollection = (function() {
@@ -10649,10 +10745,14 @@ var LLCardTableComponent = (function () {
          var selectAllForPageButton = new LLButtonComponent({'text': '单页全选', 'click': () => me.selectAll(true)});
          var selectNoneForPageButton = new LLButtonComponent({'text': '单页清空选择', 'click': () => me.selectNone(true)});
          var selectReverseForPageButton = new LLButtonComponent({'text': '单页反选', 'click': () => me.selectReverse(true)});
-         var selectedCountSpan = new LLValuedComponent(createElement('div', {'className': 'btn-group', 'style': {'marginTop': '6px'}}, ['共0个']));
-         var additionalButtons = undefined;
+         var selectedCountSpan = new LLValuedComponent(createElement('div', {'className': 'btn-group'}, ['共0项']));
+         var onSelectButtons = undefined;
+         var alwaysEnabledButtons = undefined;
          if (options.toolbarButtons && options.toolbarButtons.length > 0) {
-            additionalButtons = createElement('div', {'className': 'btn-group'}, options.toolbarButtons.map((x) => x.element));
+            onSelectButtons = createElement('div', {'className': 'btn-group'}, options.toolbarButtons.map((x) => x.element));
+         }
+         if (options.toolbarEnabledButtons && options.toolbarEnabledButtons.length > 0) {
+            alwaysEnabledButtons = createElement('div', {'className': 'btn-group'}, options.toolbarEnabledButtons.map((x) => x.element));
          }
 
          var thead = createElement('thead', undefined, [
@@ -10671,7 +10771,8 @@ var LLCardTableComponent = (function () {
          updateSubElements(container, createElement('div', {'className': 'btn-toolbar'}, [
             createElement('div', {'className': 'btn-group'}, [selectAllButton.element, selectNoneButton.element, selectReverseButton.element]),
             createElement('div', {'className': 'btn-group'}, [selectAllForPageButton.element, selectNoneForPageButton.element, selectReverseForPageButton.element]),
-            additionalButtons,
+            onSelectButtons,
+            alwaysEnabledButtons,
             selectedCountSpan.element
          ]));
          updateSubElements(container, createElement('table', {'className': 'table table-hover'}, [thead, tbody]));
@@ -10748,9 +10849,9 @@ var LLCardTableComponent = (function () {
          this.selectedCount += delta;
          var curHasSelect = (this.selectedCount != 0);
          if (curHasSelect) {
-            this.selectedCountSpan.set('选中' + this.selectedCount + '个，共' + this.cardsInfo.length + '个');
+            this.selectedCountSpan.set('选中' + this.selectedCount + '项，共' + this.cardsInfo.length + '项');
          } else {
-            this.selectedCountSpan.set('共' + this.cardsInfo.length + '个');
+            this.selectedCountSpan.set('共' + this.cardsInfo.length + '项');
          }
          if (lastHasSelect != curHasSelect) {
             this.updateToolbarButtons(curHasSelect);
@@ -10834,8 +10935,6 @@ var LLCardPoolComponent = (function () {
    const createFormSelect = LLUnit.createFormSelect;
    const createFormInlineGroup = LLUnit.createFormInlineGroup;
 
-   const ADD_POOL_TEXT = '添加卡池';
-   const REMOVE_POOL_TEXT = '删除卡池';
    const NEW_POOL_VALUE = 'new';
 
    /**
@@ -10848,9 +10947,8 @@ var LLCardPoolComponent = (function () {
 
       var poolSelect = new LLSelectComponent(createFormSelect());
       var newPoolInput = new LLValuedComponent(createElement('input', {'type': 'text', 'className': 'form-control small-padding'}));
-      var addPoolButton = new LLButtonComponent({'text': ADD_POOL_TEXT, 'colorStyle': 'primary'});
+      var addPoolButton = new LLButtonComponent({'text': '添加卡池', 'colorStyle': 'primary'});
       var addPoolMessage = new LLValuedComponent(createElement('div', {'style': {'color': 'red'}}));
-      var removePoolButton = new LLButtonComponent({'text': REMOVE_POOL_TEXT, 'colorStyle': 'danger'});
       var newPoolContainer = new LLComponentBase(createElement('div', undefined, [
          createFormInlineGroup('输入新卡池名字', [newPoolInput.element, addPoolButton.element]),
          addPoolMessage.element
@@ -10876,7 +10974,6 @@ var LLCardPoolComponent = (function () {
             newPoolContainer.show();
             addPoolMessage.hide();
             cardTable.hide();
-            removePoolButton.setEnabled(false);
             if (controller.onPoolSelectChange) {
                controller.onPoolSelectChange();
             }
@@ -10884,7 +10981,6 @@ var LLCardPoolComponent = (function () {
             cardTable.setCardList(pools[parseInt(newValue)].raw.items);
             newPoolContainer.hide();
             cardTable.show();
-            removePoolButton.setEnabled(true);
             if (controller.onPoolSelectChange) {
                controller.onPoolSelectChange(pools[parseInt(newValue)]);
             }
@@ -10904,14 +11000,6 @@ var LLCardPoolComponent = (function () {
          reloadSelect();
          poolSelect.set((pools.length-1) + '');
          newPoolInput.set('');
-      });
-      removePoolButton.on('click', function (e) {
-         // TODO: confirm
-         var index = parseInt(poolSelect.get());
-         LLPoolUtil.removePoolByIndex(pools, index);
-         LLPoolUtil.savePools(poolsKey, pools);
-         reloadSelect();
-         poolSelect.set(NEW_POOL_VALUE);
       });
 
       controller = {
@@ -10975,8 +11063,17 @@ var LLCardPoolComponent = (function () {
             }
             return cardSet.size;
          },
+         'removeSelectedPool': function() {
+            var curSelect = poolSelect.get();
+            if (curSelect == NEW_POOL_VALUE) return;
+            var index = parseInt(curSelect);
+            LLPoolUtil.removePoolByIndex(pools, index);
+            LLPoolUtil.savePools(poolsKey, pools);
+            reloadSelect();
+            poolSelect.set(NEW_POOL_VALUE);
+         },
          'element': [
-            createFormInlineGroup('编辑卡池', [poolSelect.element, removePoolButton.element]),
+            createFormInlineGroup('编辑卡池', [poolSelect.element]),
             newPoolContainer.element
          ]
       };
@@ -10987,24 +11084,30 @@ var LLCardPoolComponent = (function () {
       return controller;
    }
 
+   /**
+    * @implements {LLH.Mixin.LanguageSupport}
+    */
    class LLCardPoolComponent {
       /**
        * @param {LLH.Pool.LLCardPoolComponent_Options} options 
        */
       constructor(options) {
          var container = LLUnit.getOrCreateElement(options.id, 'div');
+         var selectorHeader = new LLComponentBase(createElement('h3', undefined, ['选择要添加的卡片']));
          var selectorContainer = createElement('div');
          var selectorContainerComponent = new LLComponentBase(selectorContainer);
          var removeFromPoolButton = new LLButtonComponent({'text': '从卡池中移除', 'colorStyle': 'danger', 'tooltips': '将选中的卡片从当前卡池中移除'});
          var addToPoolButton = new LLButtonComponent({'text': '添加到卡池', 'colorStyle': 'primary', 'tooltips': '将选中的卡片添加到当前卡池中'});
-         var poolCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [removeFromPoolButton]});
+         var removePoolButton = new LLButtonComponent({'text': '删除卡池', 'colorStyle': 'danger', 'tooltips': '删除当前卡池'});
+         var poolCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [removeFromPoolButton], 'toolbarEnabledButtons': [removePoolButton]});
          var selectorCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [addToPoolButton]});
 
          this.controller = renderPoolsSelect(options.poolsKey, poolCardTable);
          this.pools = this.controller.getPools();
+         this.cardSelector = new LLCardSelectorComponent(selectorContainer, {'cards': options.cards, 'pools': this.pools});
 
          var me = this;
-         var selector = new LLCardSelectorComponent(selectorContainer, {'cards': options.cards, 'pools': this.pools});
+         var selector = this.cardSelector;
          var origOnValueChange = selector.onValueChange;
          selector.onValueChange = function (name, newValue) {
             if (origOnValueChange) {
@@ -11014,6 +11117,7 @@ var LLCardPoolComponent = (function () {
          };
          this.controller.onPoolSelectChange = function (pool) {
             var visible = (pool !== undefined);
+            selectorHeader.setVisible(visible);
             selectorContainerComponent.setVisible(visible);
             selectorCardTable.setVisible(visible);
          };
@@ -11034,11 +11138,34 @@ var LLCardPoolComponent = (function () {
                me.controller.removeCardsFromSelectedPool(selectedCardIds);
             }
          });
+         removePoolButton.on('click', function() {
+            var selectedPool = me.controller.getSelectedPool();
+            if (selectedPool) {
+               LLYesNoDialogComponent.openYesNoDialog({
+                  'title': createElement('b', undefined, ['删除卡池']),
+                  'question': ['确认要删除卡池[' + selectedPool.raw.name + ']吗？'],
+                  'answerCallback': function (answer) {
+                     if (answer) {
+                        me.controller.removeSelectedPool();
+                     }
+                  }
+               });
+            }
+         });
 
          updateSubElements(container, this.controller.element, true);
-         updateSubElements(container, [poolCardTable.element, selectorContainer, selectorCardTable.element]);
+         updateSubElements(container, [
+            poolCardTable.element,
+            selectorHeader.element,
+            selectorContainer,
+            selectorCardTable.element
+         ]);
 
          this.controller.onPoolSelectChange(this.controller.getSelectedPool());
+      }
+      /** @param {LLH.Core.LanguageType} language */
+      setLanguage(language) {
+         this.cardSelector.setLanguage(language);
       }
    }
    return LLCardPoolComponent;
