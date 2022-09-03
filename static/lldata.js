@@ -4262,15 +4262,17 @@ var LLSaveLoadJsonHelper = {
     * @param {string} [jsonString] 
     */
    commonLoadJson: function (loader, jsonString) {
-      if (!jsonString) return;
-      if (jsonString == 'undefined') return;
+      if (!jsonString) return true;
+      if (jsonString == 'undefined') return true;
       try {
          var json = JSON.parse(jsonString);
          loader(json);
+         return true;
       } catch (e) {
          console.error('Failed to load json:');
          console.error(e);
          console.error(jsonString);
+         return false;
       }
    },
    commonSaveJson: function (data) {
@@ -11084,6 +11086,57 @@ var LLCardPoolComponent = (function () {
       return controller;
    }
 
+   /** @param {LLH.Pool.LLCardPoolComponent_PoolsSelectController} poolSelectController */
+   function renderImportExportDialog(poolSelectController) {
+      var curPool = poolSelectController.getSelectedPool();
+      if (!curPool) return;
+
+      var messageSpan = new LLValuedComponent(createElement('div', {'style': {'color': 'red'}}));
+      /** @type {HTMLTextAreaElement} */
+      var textArea = createElement('textarea', {'style': {'width': '100%', 'height': '201px'}}, [LLSaveLoadJsonHelper.commonSaveJson(curPool.raw.items)]);
+      var importAdd = new LLButtonComponent({
+         'text': '导入（添加）',
+         'tooltips': '通过添加的方式导入数据，只添加不在当前卡池中的卡，不影响当前卡池中已有的卡。',
+         'click': function () {
+            if (!textArea.value) {
+               messageSpan.set('无导入数据');
+               return;
+            }
+            messageSpan.set('');
+            var loadSuccess = LLSaveLoadJsonHelper.commonLoadJson(function(data) {
+               if (Array.isArray(data)) {
+                  var count = poolSelectController.addCardsToSelectedPool(data);
+                  if (count > 0) {
+                     messageSpan.set('导入成功，新增' + count + '张卡片');
+                  } else {
+                     messageSpan.set('无新卡片');
+                  }
+               } else {
+                  messageSpan.set('无法识别导入数据');
+               }
+            }, textArea.value);
+            if (!loadSuccess) {
+               messageSpan.set('无法识别导入数据');
+            }
+         }
+      });
+
+      LLDialogComponent.openDialog({
+         'content': createElement('div', {'style': {'width': '100%'}}, [
+            createElement('div', {'className': 'dialog-title-section'}, ['卡池导入/导出']),
+            createElement('div', undefined, [
+               createElement('p', undefined, ['当前卡池：' + curPool.raw.name]),
+               createElement('p', undefined, ['卡池数据：']),
+               textArea,
+               messageSpan.element
+            ]),
+            createElement('div', {'className': 'dialog-bottom-section'}, [importAdd.element])
+         ]),
+         'width': '50%',
+         'height': 'auto'
+      });
+   }
+
    /**
     * @implements {LLH.Mixin.LanguageSupport}
     */
@@ -11099,7 +11152,12 @@ var LLCardPoolComponent = (function () {
          var removeFromPoolButton = new LLButtonComponent({'text': '从卡池中移除', 'colorStyle': 'danger', 'tooltips': '将选中的卡片从当前卡池中移除'});
          var addToPoolButton = new LLButtonComponent({'text': '添加到卡池', 'colorStyle': 'primary', 'tooltips': '将选中的卡片添加到当前卡池中'});
          var removePoolButton = new LLButtonComponent({'text': '删除卡池', 'colorStyle': 'danger', 'tooltips': '删除当前卡池'});
-         var poolCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [removeFromPoolButton], 'toolbarEnabledButtons': [removePoolButton]});
+         var importExportButton = new LLButtonComponent({'text': '导入/导出'});
+         var poolCardTable = new LLCardTableComponent({
+            'cards': options.cards,
+            'toolbarButtons': [removeFromPoolButton],
+            'toolbarEnabledButtons': [importExportButton, removePoolButton]
+         });
          var selectorCardTable = new LLCardTableComponent({'cards': options.cards, 'toolbarButtons': [addToPoolButton]});
 
          this.controller = renderPoolsSelect(options.poolsKey, poolCardTable);
@@ -11142,7 +11200,7 @@ var LLCardPoolComponent = (function () {
             var selectedPool = me.controller.getSelectedPool();
             if (selectedPool) {
                LLYesNoDialogComponent.openYesNoDialog({
-                  'title': createElement('b', undefined, ['删除卡池']),
+                  'title': ['删除卡池'],
                   'question': ['确认要删除卡池[' + selectedPool.raw.name + ']吗？'],
                   'answerCallback': function (answer) {
                      if (answer) {
@@ -11151,6 +11209,9 @@ var LLCardPoolComponent = (function () {
                   }
                });
             }
+         });
+         importExportButton.on('click', function() {
+            renderImportExportDialog(me.controller);
          });
 
          updateSubElements(container, this.controller.element, true);

@@ -317,6 +317,8 @@ table.gem-series tr.focused {
    text-align: center;
    padding-right: 20px;
    margin-bottom: 12px;
+   font-weight: bold;
+   width: 100%;
 }
 .dialog-bottom-section {
    text-align: center;
