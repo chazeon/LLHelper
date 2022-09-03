@@ -1,6 +1,6 @@
 /** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
-    LLCardData.briefKeys.push('smile2', 'pure2', 'cool2');
+    LLCardData.briefKeys.push('smile2', 'pure2', 'cool2', 'score_range', 'time_range', 'possibility_range', 'limit_range', 'effecttarget', 'triggertarget');
 
     /**
      * @param {LLH.API.CardDictDataType} cardData

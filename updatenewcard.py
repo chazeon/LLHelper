@@ -41,6 +41,47 @@ def namechange(name):
     else:
         return name
 
+class MinMax:
+    def __init__(self):
+        self.min = None
+        self.max = None
+
+    def add(self, value):
+        if value:
+            if self.min is None:
+                self.min = value
+                self.max = value
+            else:
+                if value < self.min:
+                    self.min = value
+                if value > self.max:
+                    self.max = value
+
+    def hasValue(self):
+        if self.min:
+            return True
+        return False
+
+    def isMinMaxSame(self):
+        return self.min == self.max
+
+    def toRange(self):
+        if self.isMinMaxSame():
+            if isinstance(self.min, float):
+                if self.min.is_integer():
+                    return int(self.min)
+            return self.min
+        else:
+            min_str = str(self.min)
+            max_str = str(self.max)
+            if isinstance(self.min, float):
+                if self.min.is_integer():
+                    min_str = str(int(self.min))
+            if isinstance(self.max, float):
+                if self.max.is_integer():
+                    max_str = str(int(self.max))
+            return '%s~%s' % (min_str, max_str)
+
 if __name__ == "__main__":
     json_file = JsonFile('newcardsjson.txt')
     cards = json_file.load()
@@ -141,8 +182,11 @@ if __name__ == "__main__":
             card['skilldetail'] = []
             tmp = skilldetail.fetchone()
             i = 0
-            trigger_require_min = None
-            trigger_require_max = None
+            trigger_require_minmax = MinMax()
+            score_minmax = MinMax()
+            time_minmax = MinMax()
+            possibility_minmax = MinMax()
+            limit_minmax = MinMax()
             while tmp:
                 card['skilldetail'].append({})
                 card['skilldetail'][i]['score'] = tmp[0]
@@ -151,21 +195,26 @@ if __name__ == "__main__":
                 card['skilldetail'][i]['possibility'] = tmp[3]
                 if tmp[4]:
                     card['skilldetail'][i]['limit'] = tmp[4]
-                if 0 == i:
-                    trigger_require_min = tmp[2]
-                    trigger_require_max = tmp[2]
-                else:
-                    if tmp[2] < trigger_require_min:
-                        trigger_require_min = tmp[2]
-                    if tmp[2] > trigger_require_max:
-                        trigger_require_max = tmp[2]
+                score_minmax.add(tmp[0])
+                time_minmax.add(tmp[1])
+                trigger_require_minmax.add(tmp[2])
+                possibility_minmax.add(tmp[3])
+                limit_minmax.add(tmp[4])
+
                 i = i + 1
                 tmp = skilldetail.fetchone()
-            if trigger_require_min:
-                if trigger_require_min == trigger_require_max:
-                    card['triggerrequire'] = trigger_require_min
-                else:
-                    card['triggerrequire'] = str(trigger_require_min) + '~' + str(trigger_require_max)
+
+            if score_minmax.hasValue():
+                card['score_range'] = score_minmax.toRange()
+            if time_minmax.hasValue():
+                card['time_range'] = time_minmax.toRange()
+            if trigger_require_minmax.hasValue():
+                card['triggerrequire'] = trigger_require_minmax.toRange()
+            if possibility_minmax.hasValue():
+                card['possibility_range'] = possibility_minmax.toRange()
+            if limit_minmax.hasValue():
+                card['limit_range'] = limit_minmax.toRange()
+
             triggertarget = jpdbconn.execute('SELECT trigger_target FROM unit_skill_trigger_target_m WHERE unit_skill_id = '+str(skillid)+' ORDER BY trigger_target DESC;')
             tmp = triggertarget.fetchone()
             if tmp:

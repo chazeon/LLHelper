@@ -2471,7 +2471,7 @@ var LLConst = (function () {
       },
       getTriggerLimitDescription: function (triggerLimit) {
          var desc = '';
-         if (triggerLimit) desc = '（最多' + desc + '次）';
+         if (triggerLimit) desc = '（最多' + triggerLimit + '次）';
          return desc;
       },
       getTriggerDescription: function (triggerType, triggerValue, triggerTarget, triggerEffectType) {
@@ -2516,9 +2516,13 @@ var LLConst = (function () {
             desc = '发动上一个发动的非repeat的特技';
          else if (effectType == KEYS.SKILL_EFFECT_PERFECT_SCORE_UP)
             desc = dischargeTime + '秒内的PERFECT提升' + effectValue + '分';
-         else if (effectType == KEYS.SKILL_EFFECT_COMBO_FEVER)
-            desc = dischargeTime + '秒内的点击得分根据combo数提升' + effectValue + '~' + (effectValue*10) + '分';
-         else if (effectType == KEYS.SKILL_EFFECT_SYNC) {
+         else if (effectType == KEYS.SKILL_EFFECT_COMBO_FEVER) {
+            if (effectValue && typeof(effectValue) == 'number') {
+               desc = dischargeTime + '秒内的点击得分根据combo数提升' + effectValue + '~' + (effectValue*10) + '分';
+            } else {
+               desc = dischargeTime + '秒内的点击得分根据combo数提升' + effectValue + '0分';
+            }
+         } else if (effectType == KEYS.SKILL_EFFECT_SYNC) {
             if (effectTarget || effectTargetMember) targetDesc += '的随机一位成员';
             else targetDesc = '某位成员';
             desc = dischargeTime + '秒内自身的属性P变为与' + targetDesc + '的属性P一致';
@@ -10600,10 +10604,12 @@ var LLCardTableComponent = (function () {
       var pureCell = new LLValuedComponent(createElement('td', {'style': {'color': 'green'}}));
       var coolCell = new LLValuedComponent(createElement('td', {'style': {'color': 'blue'}}));
       var triggerCell = new LLValuedComponent(createElement('td'));
+      var possibilityCell = new LLValuedComponent(createElement('td'));
       var skillEffectCell = new LLValuedComponent(createElement('td'));
       var row = new LLComponentBase(createElement('tr', {'style': {'display': 'none'}}, [
          createElement('td', undefined, [cardIdDiv.element, normalAvatar.element, mezameAvatar.element]),
-         smileCell.element, pureCell.element, coolCell.element, triggerCell.element, skillEffectCell.element
+         smileCell.element, pureCell.element, coolCell.element,
+         triggerCell.element, possibilityCell.element, skillEffectCell.element
       ], {'click': function () {
          controller.setSelected(!controller.isSelected());
          if (controller.onClick) controller.onClick();
@@ -10623,7 +10629,10 @@ var LLCardTableComponent = (function () {
                pureCell.set(curCard.pure2 + '');
                coolCell.set(curCard.cool2 + '');
                triggerCell.set(LLConst.Skill.getTriggerDescription(curCard.triggertype, curCard.triggerrequire, curCard.triggertarget));
-               skillEffectCell.set(LLConst.Skill.getEffectBrief(curCard.skilleffect));
+               possibilityCell.set((curCard.possibility_range || 0) + '%');
+               skillEffectCell.set(LLConst.Skill.getEffectDescription(curCard.skilleffect, curCard.score_range, curCard.time_range, curCard.effecttarget)
+                  + LLConst.Skill.getTriggerLimitDescription(curCard.limit_range)
+               );
             }
          },
          'setSelected': function (selected) {
@@ -10764,6 +10773,7 @@ var LLCardTableComponent = (function () {
                createElement('th', undefined, 'pure'),
                createElement('th', undefined, 'cool'),
                createElement('th', undefined, '触发条件'),
+               createElement('th', undefined, '概率'),
                createElement('th', undefined, '技能类型')
             ])
          ])

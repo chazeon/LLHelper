@@ -57,6 +57,8 @@ declare namespace LLH {
         type LanguageType = 0 | 1;
     }
     namespace API {
+        /** <value> | "<min>~<max>" */
+        type CardDetailRangeType = number | string;
         interface SkillDetailDataType {
             score: number; // effect value
             time: number; // discharge time
@@ -97,7 +99,13 @@ declare namespace LLH {
             triggertype: Core.SkillTriggerType;
             skillleveluppattern: number;
             skilldetail: SkillDetailDataType[];
-            triggerrequire: number | string; // <require> | "<min>~<max>"
+
+            score_range?: CardDetailRangeType;
+            time_range?: CardDetailRangeType;
+            triggerrequire?: CardDetailRangeType;
+            possibility_range?: CardDetailRangeType;
+            limit_range?: CardDetailRangeType;
+
             triggertarget?: Core.TriggerTargetType; // chain target
             effecttarget?: Core.TriggerTargetType; // attribute up target
         }
@@ -1065,9 +1073,9 @@ declare namespace LLH {
         interface Skill {
             getTriggerTargetDescription(targets?: Core.TriggerTargetType): string;
             getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
-            getTriggerLimitDescription(triggerLimit?: number): string;
-            getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue: number | string, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
-            getEffectDescription(effectType: Core.SkillEffectType, effectValue: number, dischargeTime: number, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
+            getTriggerLimitDescription(triggerLimit?: API.CardDetailRangeType): string;
+            getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue?: API.CardDetailRangeType, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
+            getEffectDescription(effectType: Core.SkillEffectType, effectValue?: API.CardDetailRangeType, dischargeTime?: API.CardDetailRangeType, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
             getRateDescription(rate: number): string;
 
             getEffectBrief(effectType?: Core.SkillEffectType): string;
