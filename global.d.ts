@@ -842,6 +842,8 @@ declare namespace LLH {
             getSelectedPool(): CardPoolProcessedDataType | undefined;
             /** return number of new cards added */
             addCardsToSelectedPool(cardIds: Core.CardIdStringType[]): number;
+            /** return number of cards */
+            replaceCardsToSelectedPool(cardIds: Core.CardIdStringType[]): number;
             /** return number of removed cards */
             removeCardsFromSelectedPool(cardIds: Core.CardIdStringType[]): number;
             removeSelectedPool(): void;

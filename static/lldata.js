@@ -1036,7 +1036,7 @@ var LLDialogComponent = (function () {
       /** @param {LLH.Component.LLDialogComponent_Options} options */
       constructor(options) {
          var me = this;
-         var closeButton = LLUnit.createElement('a', { 'title': 'Close', 'className': 'dialog-close-button' }, undefined, {
+         var closeButton = LLUnit.createElement('a', { 'title': '关闭', 'className': 'dialog-close-button' }, undefined, {
             'click': () => me.close()
          });
          var height = options.height || '80%';
@@ -10980,6 +10980,15 @@ var LLCardPoolComponent = (function () {
          }
          poolSelect.setOptions(options);
       }
+      /** @param {LLH.Pool.CardPoolProcessedDataType} curPool */
+      function savePoolChange(curPool) {
+         cardTable.setCardList(curPool.raw.items);
+         reloadSelect();
+         LLPoolUtil.savePools(poolsKey, pools);
+         if (controller.onPoolSave) {
+            controller.onPoolSave(curPool);
+         }
+      }
 
       poolSelect.onValueChange = function (newValue) {
          if (NEW_POOL_VALUE == newValue) {
@@ -11036,12 +11045,19 @@ var LLCardPoolComponent = (function () {
                count += 1;
             }
             if (count > 0) {
-               cardTable.setCardList(curPool.raw.items);
-               reloadSelect();
-               LLPoolUtil.savePools(poolsKey, pools);
-               if (controller.onPoolSave) {
-                  controller.onPoolSave(curPool);
-               }
+               savePoolChange(curPool);
+            }
+            return count;
+         },
+         'replaceCardsToSelectedPool': function(cardIds) {
+            var curPool = controller.getSelectedPool();
+            if (!curPool) return 0;
+            var origCount = curPool.raw.items.length;
+            curPool.itemSet.clear();
+            curPool.raw.items.splice(0, origCount);
+            var count = controller.addCardsToSelectedPool(cardIds);
+            if (origCount > 0 && count == 0) {
+               savePoolChange(curPool);
             }
             return count;
          },
@@ -11104,31 +11120,47 @@ var LLCardPoolComponent = (function () {
       var messageSpan = new LLValuedComponent(createElement('div', {'style': {'color': 'red'}}));
       /** @type {HTMLTextAreaElement} */
       var textArea = createElement('textarea', {'style': {'width': '100%', 'height': '201px'}}, [LLSaveLoadJsonHelper.commonSaveJson(curPool.raw.items)]);
-      var importAdd = new LLButtonComponent({
-         'text': '导入（添加）',
-         'tooltips': '通过添加的方式导入数据，只添加不在当前卡池中的卡，不影响当前卡池中已有的卡。',
-         'click': function () {
-            if (!textArea.value) {
-               messageSpan.set('无导入数据');
-               return;
-            }
-            messageSpan.set('');
-            var loadSuccess = LLSaveLoadJsonHelper.commonLoadJson(function(data) {
-               if (Array.isArray(data)) {
-                  var count = poolSelectController.addCardsToSelectedPool(data);
+      /** @param {boolean} isAdd */
+      var handleImport = function (isAdd) {
+         if (!textArea.value) {
+            messageSpan.set('无导入数据');
+            return;
+         }
+         messageSpan.set('');
+         var loadSuccess = LLSaveLoadJsonHelper.commonLoadJson(function(data) {
+            if (Array.isArray(data)) {
+               var count = 0;
+               if (isAdd) {
+                  count = poolSelectController.addCardsToSelectedPool(data);
                   if (count > 0) {
                      messageSpan.set('导入成功，新增' + count + '张卡片');
                   } else {
                      messageSpan.set('无新卡片');
                   }
                } else {
-                  messageSpan.set('无法识别导入数据');
+                  count = poolSelectController.replaceCardsToSelectedPool(data);
+                  messageSpan.set('导入成功，现有' + count + '张卡片');
                }
-            }, textArea.value);
-            if (!loadSuccess) {
+            } else {
                messageSpan.set('无法识别导入数据');
             }
+         }, textArea.value);
+         if (!loadSuccess) {
+            messageSpan.set('无法识别导入数据');
          }
+      };
+      var importAdd = new LLButtonComponent({
+         'text': '导入（添加）',
+         'colorStyle': 'primary',
+         'tooltips': '通过添加的方式导入数据，只添加不在当前卡池中的卡，不影响当前卡池中已有的卡。',
+         'click': () => handleImport(true)
+      });
+      var importReplace = new LLButtonComponent({
+         'text': '导入（覆盖）',
+         'colorStyle': 'danger',
+         'tooltips': '通过覆盖的方式导入数据，当前卡池中的卡会被完全覆盖。',
+         'style': {'marginLeft': '12px'},
+         'click': () => handleImport(false)
       });
 
       LLDialogComponent.openDialog({
@@ -11140,7 +11172,7 @@ var LLCardPoolComponent = (function () {
                textArea,
                messageSpan.element
             ]),
-            createElement('div', {'className': 'dialog-bottom-section'}, [importAdd.element])
+            createElement('div', {'className': 'dialog-bottom-section'}, [importAdd.element, importReplace.element])
          ]),
          'width': '50%',
          'height': 'auto'
@@ -11233,6 +11265,7 @@ var LLCardPoolComponent = (function () {
          ]);
 
          this.controller.onPoolSelectChange(this.controller.getSelectedPool());
+         selectorCardTable.setCardList(selector.getFilteredCardIdList());
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {

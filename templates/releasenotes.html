@@ -20,6 +20,22 @@
          var update_history = [
             {
                'version': LLSiteVersion.current_version,
+               'features': [
+                  '添加了#llcardpool#页面',
+                  [
+                     '可以添加、删除、编辑、导入、导出自定义卡池，方便在选卡时快速筛选自己常用的卡'
+                  ],
+                  '各页面中筛选卡片时可以按自定义卡池筛选'
+               ],
+               'enhancements': [
+                  '卡片筛选增加Liella二期成员'
+               ],
+               'fixes': [
+                  '修复了技能描述中限制发动次数没有正确显示的问题'
+               ]
+            },
+            {
+               'version': 20220804,
                'fixes': [
                   '修复了2021-12-26那次更新造成的诡计宝石无法模拟计算的问题'
                ]
@@ -660,7 +676,8 @@
                .replace('#doc-repeat_team#', '<a href="/document/repeat_team.md">复读机队伍选择</a>')
                .replace('#llnewsisdata#', '<a href="/llnewsisdata">宝石（SI技能）</a>')
                .replace('#llnewaccessorydata#', '<a href="/llnewaccessorydata">饰品</a>')
-               .replace('#llnewunitla#', '<a href="/llnewunitla">演唱会竞技场计算</a>');
+               .replace('#llnewunitla#', '<a href="/llnewunitla">演唱会竞技场计算</a>')
+               .replace('#llcardpool#', '<a href="/llcardpool">卡池编辑</a>');
          }
          function createList(data) {
             var list_items = [];
