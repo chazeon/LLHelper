@@ -185,6 +185,11 @@ def document_score_calculation():
 def document_repeat_team():
     return render_document('docs/repeat_team.md', '复读机队伍选择')
 
+### pools ###
+@app.route("/llcardpool", methods=['GET'])
+def llcardpool():
+    return render_template('llcardpool.html')
+
 ### species ###
 @app.route("/llspecies", methods=['GET', 'POST'])
 @app.route("/llurrank", methods=['GET', 'POST'])

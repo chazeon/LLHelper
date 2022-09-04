@@ -1,24 +1,29 @@
 var import_unit_json = undefined;
 var mezame = 0;
 
-var data_mapnote = 0;
-var comp_skill = 0;
-var comp_cardselector = 0;
+/** @type {LLMapNoteData} */
+var data_mapnote;
+/** @type {LLSkillContainer} */
+var comp_skill;
+/** @type {LLH.Selector.LLCardSelectorComponent} */
+var comp_cardselector;
 /** @type {LLH.Selector.LLSongSelectorComponent} */
-var comp_songselector = undefined;
+var comp_songselector;
 var comp_gemselector = 0;
 /** @type {LLH.Selector.LLAccessorySelectorComponent} */
-var comp_accessory_selector = undefined;
+var comp_accessory_selector;
 var comp_cardavatar = 0;
 /** @type {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
-var comp_distribution_param = undefined;
+var comp_distribution_param;
 var comp_distribution_chart = 0;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
-var comp_team = undefined;
-var comp_cskill_team = 0;
-var comp_cskill_friend = 0;
+var comp_team;
 var comp_result = 0;
-var comp_language = 0;
+/** @type {LLH.Layout.Language.LLLanguageComponent} */
+var comp_language;
+/** @type {LLH.Persistence.LLSaveLoadJsonGroup} */
+var persister;
+
 var enable_make_test_case = 0;
 
 function toMezame() {
@@ -28,11 +33,7 @@ function toMezame() {
 
 function clearall() {
     setCookie("mezame" + "unit", mezame, -1)
-    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLanguageKey);
-    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageCardSelectKey);
-    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageSongSelectKey);
-    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey);
-    LLHelperLocalStorage.clearData(LLHelperLocalStorage.localStorageAccessorySelectKey);
+    persister.clearAll();
     window.location.href = "/llnewunit"
 }
 
@@ -86,12 +87,7 @@ function check() {
     }
     comp_result.hideError();
     saveToCookie();
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLanguageKey, comp_language.serialize())
-    comp_cardselector.saveLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageSongSelectKey, comp_songselector.saveJson());
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageAccessorySelectKey, comp_accessory_selector.saveJson());
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageDistParamKey, comp_distribution_param.saveJson());
-    LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey, comp_team.saveJson());
+    persister.saveAll();
     var distParam = comp_distribution_param.saveData();
     if (distParam.type == 'sim') {
         LLUnit.calculate(docalculate, comp_team.getCardIds(), comp_team.getAccessoryIds(), [data_mapnote.getMapNoteData(comp_songselector.getSelectedSong(), comp_songselector.getSelectedSongSetting())]);
@@ -190,7 +186,7 @@ function docalculate(cards, accessoryDetails, extraData) {
 }
 
 
-/** @param {LLH.Depends.Promise<void>} loadDeferred */
+/** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
     /**
      * @param {LLH.API.CardDictDataType} cardData
@@ -201,16 +197,15 @@ function renderPage(loadDeferred) {
     function init(cardData, songData, metaData, accessoryData) {
         // init components
         LLConst.initMetadata(metaData);
-        comp_cskill_team = new LLCSkillComponent('cskill_team');
-        comp_cskill_friend = new LLCSkillComponent('cskill_friend', { 'editable': true, 'title': '好友主唱技能' });
+        var comp_cskill_team = new LLCSkillComponent('cskill_team');
+        var comp_cskill_friend = new LLCSkillComponent('cskill_friend', { 'editable': true, 'title': '好友主唱技能' });
         comp_songselector = new LLSongSelectorComponent('song_filter', { 'songs': songData, 'includeMapInfo': true, 'friendCSkill': comp_cskill_friend });
         data_mapnote = new LLMapNoteData();
         comp_skill = new LLSkillContainer();
-        comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData });
+        comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey) });
         comp_cardselector.onCardChange = LLUnit.applycarddata;
         comp_cardavatar = new LLImageComponent('imageselect');
         comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
-        comp_distribution_param.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageDistParamKey));
         comp_accessory_selector = new LLAccessorySelectorComponent('accessory_selector', {
             'accessoryData': accessoryData,
             'cardData': cardData,
@@ -265,7 +260,6 @@ function renderPage(loadDeferred) {
                 return comp_accessory_selector.getAccessorySaveData();
             }
         });
-        comp_team.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLLNewUnitTeamKey));
 
 
         mezame = getCookie("mezameunit")
@@ -273,10 +267,15 @@ function renderPage(loadDeferred) {
         document.getElementById("mezame").checked = mezame
 
         // load
-        comp_language.deserialize(parseInt(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLanguageKey, 0)));
-        comp_cardselector.loadLocalStorage(LLHelperLocalStorage.localStorageCardSelectKey);
-        comp_songselector.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageSongSelectKey));
-        comp_accessory_selector.loadJson(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageAccessorySelectKey));
+        persister = new LLSaveLoadJsonGroup();
+        persister.register(LLHelperLocalStorageKeys.localStorageDistParamKey, comp_distribution_param, undefined, true);
+        persister.register(LLHelperLocalStorageKeys.localStorageLLNewUnitTeamKey, comp_team);
+        persister.register(LLHelperLocalStorageKeys.localStorageLanguageKey, comp_language, '0');
+        persister.register(LLHelperLocalStorageKeys.localStorageCardSelectKey, comp_cardselector);
+        persister.register(LLHelperLocalStorageKeys.localStorageSongSelectKey, comp_songselector);
+        persister.register(LLHelperLocalStorageKeys.localStorageAccessorySelectKey, comp_accessory_selector);
+
+        persister.loadAll();
         comp_team.setMapAttribute(comp_songselector.getSongAttribute());
 
         // addition script
@@ -287,7 +286,7 @@ function renderPage(loadDeferred) {
         }
 
         // done
-        document.getElementById('loadingbox').style.display = 'none';
+        LoadingUtil.stop();
     }
 
     LLDepends.whenAll(LLCardData.getAllBriefData(), LLSongData.getAllBriefData(), LLMetaData.get(), LLAccessoryData.getAllBriefData(), loadDeferred).then(

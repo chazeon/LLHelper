@@ -96,7 +96,7 @@ function renderPage(loadDeferred) {
        var weights = curSongSetting.positionweight;
        var c = parseInt(curSongSetting.combo);
        var hasNoteData = (weights !== undefined);
-       var isRandom = (curSongSetting.difficulty == LLConst.SONG_DIFFICULTY_RANDOM);
+       var isRandom = (curSongSetting.difficulty == LLConstValue.SONG_DIFFICULTY_RANDOM);
        for (var i = 0; i < 9; i++) {
           var showNoteInfo = (hasNoteData && !isRandom);
           document.getElementById('positionnote' + i).innerHTML = (showNoteInfo ? curSongSetting.positionnote[i] : '?');

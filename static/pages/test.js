@@ -261,6 +261,13 @@ function renderPage(loadDeferred) {
         return item;
     }
 
+    /**
+     * 
+     * @param {LLH.API.CardDictDataType} cards 
+     * @param {number[][]} cardConfigs 
+     * @param {LLMap} mapdata 
+     * @returns {LLH.Model.LLTeam}
+     */
     function buildTeam(cards, cardConfigs, mapdata) {
         var members = [];
         for (var i = 0; i < 9; i++) {
@@ -342,9 +349,9 @@ function renderPage(loadDeferred) {
   
     function getSmileSong(name) {
         if (name == 'oyasuminasann') {
-            var songSetting = {"combo": 427, "positionweight": ["39.75", "48.0", "65", "52.5", "29", "55.75", "58.75", "47.25", "41.75"], "star": 0, "time": "110", 'difficulty': LLConst.SONG_DIFFICULTY_EXPERT};
+            var songSetting = {"combo": 427, "positionweight": ["39.75", "48.0", "65", "52.5", "29", "55.75", "58.75", "47.25", "41.75"], "star": 0, "time": "110", 'difficulty': LLConstValue.SONG_DIFFICULTY_EXPERT};
             return {
-              'song': {'group': LLConst.SONG_GROUP_AQOURS, "attribute": "smile", "settings": {'1': songSetting}},
+              'song': {'group': LLConstValue.SONG_GROUP_AQOURS, "attribute": "smile", "settings": {'1': songSetting}},
               'songSetting': songSetting
             };
         }
@@ -352,9 +359,9 @@ function renderPage(loadDeferred) {
   
     function getPureSong(name) {
         if (name == 'kiminokokorohakagayaiterukai') {
-            var songSetting = {"combo": 497, "positionweight": ["41.25", "68.5", "82.5", "59.25", "16.5", "56.25", "82.5", "67.5", "40.25"], "star": 0, "time": "110", 'difficulty': LLConst.SONG_DIFFICULTY_EXPERT};
+            var songSetting = {"combo": 497, "positionweight": ["41.25", "68.5", "82.5", "59.25", "16.5", "56.25", "82.5", "67.5", "40.25"], "star": 0, "time": "110", 'difficulty': LLConstValue.SONG_DIFFICULTY_EXPERT};
             return {
-              'song': {'group': LLConst.SONG_GROUP_AQOURS, "attribute": "pure", "settings": {'1': songSetting}},
+              'song': {'group': LLConstValue.SONG_GROUP_AQOURS, "attribute": "pure", "settings": {'1': songSetting}},
               'songSetting': songSetting
             };
         }
@@ -365,7 +372,7 @@ function renderPage(loadDeferred) {
             'attribute': attribute,
             'Cskillattribute': attribute,
             'Cskillpercentage': 9,
-            'Csecondskilllimit': LLConst.GROUP_MUSE,
+            'Csecondskilllimit': LLConstValue.GROUP_MUSE,
             'Csecondskillattribute': 3
         };
     }
@@ -375,7 +382,7 @@ function renderPage(loadDeferred) {
             'attribute': attribute,
             'Cskillattribute': attribute,
             'Cskillpercentage': 9,
-            'Csecondskilllimit': LLConst.GROUP_GRADE2,
+            'Csecondskilllimit': LLConstValue.GROUP_GRADE2,
             'Csecondskillattribute': 6
         };
     }
@@ -411,8 +418,8 @@ function renderPage(loadDeferred) {
         var member_29 = {};
         for (var i = 0; i < names.length; i++) {
             var per_color = {'smile': 0, 'pure': 0, 'cool': 0}
-            per_color[LLConst.getMemberColor(names[i])] = 9;
-            member_29[LLConst[names[i]]] = per_color;
+            per_color[LLConst.Member.getMemberColor(names[i])] = 9;
+            member_29[LLConstValue[names[i]]] = per_color;
         }
         return {
             'SADD_200': {'ALL': 9},
@@ -563,7 +570,7 @@ function renderPage(loadDeferred) {
             'attribute': 'smile',
             'Cskillattribute': 'smile',
             'Cskillpercentage': 0,
-            'Csecondskilllimit': LLConst.GROUP_UNKNOWN,
+            'Csecondskilllimit': LLConstValue.GROUP_UNKNOWN,
             'Csecondskillattribute': 0
         };
         var buffTapUp = item.buffTapUp || 0;
@@ -637,9 +644,10 @@ function renderPage(loadDeferred) {
                 [957, 1, 1, 5, [LLConst.GemType.SMUL_10, LLConst.GemType.SMUL_16]]
             ],
             'run': function (cards) {
-                var songSetting = {"combo": 359, "positionweight": ["15.5", "26.0", "51.5", "55.0", "52.25", "58.25", "58.5", "26.75", "21.5"], "star": "62", "time": "117", 'difficulty': LLConst.SONG_DIFFICULTY_EXPERT};
+                /** @type {LLH.API.SongSettingDataType} */
+                var songSetting = {"combo": 359, "positionweight": ["15.5", "26.0", "51.5", "55.0", "52.25", "58.25", "58.5", "26.75", "21.5"], "star": "62", "time": "117", 'difficulty': LLConstValue.SONG_DIFFICULTY_EXPERT};
                 var mapdata = new LLMap({
-                    'song': {'group': LLConst.SONG_GROUP_MUSE, "attribute": "pure", "settings": {'1': songSetting}},
+                    'song': {'group': LLConstValue.SONG_GROUP_MUSE, "attribute": "pure", "settings": {'1': songSetting}},
                     'songSetting': songSetting
                 });
                 var llteam = buildTeam(cards, this.cardConfigs, mapdata);

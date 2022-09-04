@@ -9,7 +9,7 @@
    <script type="text/javascript" src="{{ url_for('static', filename='lldata.js', v=config.SITE_VERSION) }}"></script>
    <script type="text/javascript" src="/static/js/highcharts/highstock.js"></script>
    <script type="text/javascript" src="/static/js/highcharts/exporting.js"></script>
-   <script type="text/javascript" src="{{ url_for('static', filename='CoverageCalculator.js') }}"></script>
+   <script type="text/javascript" src="{{ url_for('static', filename='CoverageCalculator.js', v=2) }}"></script>
    <link rel="shortcut icon" href="/static/shortcuticon.png" />
    <style type="text/css">
    	table {position:relative;}
@@ -39,7 +39,7 @@
       comp_songselector.onSongSettingChange = applysongdata;
       data_mapnote = new LLMapNoteData();
       comp_skill = new LLSkillContainer();
-      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'noShowN': true});
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'noShowN': true, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey)});
       comp_cardselector.getComponent('rarity').filterOptions(function (opt) {
          return !(opt.value == 'N' || opt.value == 'R');
       });
@@ -66,7 +66,7 @@
       init();
 
       // load
-      comp_language.deserialize(parseInt(LLHelperLocalStorage.getData(LLHelperLocalStorage.localStorageLanguageKey, 0)));
+      comp_language.deserialize(parseInt(LLHelperLocalStorage.getData(LLHelperLocalStorageKeys.localStorageLanguageKey, 0)));
       comp_cardselector.loadLocalStorage('llcoverage_cardselector');
       comp_songselector.loadLocalStorage('llcoverage_songselector');
 
@@ -136,7 +136,7 @@
 
    function applysongdata(songSettingId, songSetting) {
       if (!songSettingId) return;
-      document.getElementById('speeds').value = LLConst.getDefaultSpeed(songSetting.difficulty);;
+      document.getElementById('speeds').value = LLConst.Live.getDefaultSpeed(songSetting.difficulty);
    }
 
    function copyTo(n){
@@ -217,7 +217,7 @@
    	saveToCookie();
       comp_cardselector.saveLocalStorage('llcoverage_cardselector');
       comp_songselector.saveLocalStorage('llcoverage_songselector');
-      LLHelperLocalStorage.setData(LLHelperLocalStorage.localStorageLanguageKey, comp_language.serialize());
+      LLHelperLocalStorage.setData(LLHelperLocalStorageKeys.localStorageLanguageKey, comp_language.serialize());
 	document.getElementById('container').style.display = "";
 	document.getElementById('separater').style.display = "";
       var song = comp_songselector.getSelectedSong();

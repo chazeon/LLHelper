@@ -35,3 +35,6 @@ static/live
 static/avatar
 static/accessory
 translate-missing.properties
+node_modules
+package-lock.json
+package.json

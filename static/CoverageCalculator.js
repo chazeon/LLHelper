@@ -1235,7 +1235,7 @@ function CoverageCalculator(song, songSetting, createdData)
         case "cool":
             livecolor = "#7cb5ec";
             break;
-        case "":
+        case "all":
             livecolor = "purple";
             break;
     }

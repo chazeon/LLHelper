@@ -65,7 +65,7 @@
       comp_skill2.setSkillLevel = newSetSkillLevel;
 
       // init card selector, with lowbound filter
-      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData});
+      comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey)});
       comp_cardselector.addFilterable('lowbound', new LLValuedComponent('lowbound'));
       comp_cardselector.addFilterCallback('lowbound', 'cardchoice', function (opt, v, d) {
          return (v == '' || isNaN(v) || (!d) || getmaxstrength(d) >= parseInt(v));

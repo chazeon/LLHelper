@@ -332,7 +332,7 @@ function renderPage(loadDeferred) {
             return LLUnit.createSimpleTable(table_data);
         },
         'cf_combo_factor': function (context, params) {
-            var cf_pattern = parseInt(params[0]);
+            var cf_pattern = /** @type {LLH.Core.ComboFeverPattern} */ (parseInt(params[0]));
             var table_data = [];
             var header_row = [];
             var min_combo = 0, max_combo = (cf_pattern == 1 ? 300 : 220);
@@ -352,7 +352,7 @@ function renderPage(loadDeferred) {
                     table_data[curRow].push('');
                 }
                 table_data[curRow].push(i + '~' + (i == max_combo ? '' : i + 9));
-                table_data[curRow].push(LLConst.getComboFeverBonus(i, cf_pattern).toFixed(2));
+                table_data[curRow].push(LLConst.Live.getComboFeverBonus(i, cf_pattern).toFixed(2));
             }
             return LLUnit.createSimpleTable(table_data);
         },
@@ -363,17 +363,17 @@ function renderPage(loadDeferred) {
                 var needCards = {};
                 var notes = {};
                 var effects = [
-                    LLConst.SKILL_EFFECT_LEVEL_UP,
-                    LLConst.SKILL_EFFECT_POSSIBILITY_UP,
-                    LLConst.SKILL_EFFECT_REPEAT,
-                    LLConst.SKILL_EFFECT_SCORE,
-                    LLConst.SKILL_EFFECT_ATTRIBUTE_UP,
-                    LLConst.SKILL_EFFECT_HEAL,
-                    LLConst.SKILL_EFFECT_ACCURACY_NORMAL
+                    LLConstValue.SKILL_EFFECT_LEVEL_UP,
+                    LLConstValue.SKILL_EFFECT_POSSIBILITY_UP,
+                    LLConstValue.SKILL_EFFECT_REPEAT,
+                    LLConstValue.SKILL_EFFECT_SCORE,
+                    LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP,
+                    LLConstValue.SKILL_EFFECT_HEAL,
+                    LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL
                 ];
                 for (var i in data) {
                     var curCard = data[i];
-                    if (curCard.triggertype != LLConst.SKILL_TRIGGER_NOTE) continue;
+                    if (curCard.triggertype != LLConstValue.SKILL_TRIGGER_NOTE) continue;
                     if (curCard.rarity != 'UR') continue;
                     var effect = parseInt(curCard.skilleffect);
                     var note = parseInt(curCard.triggerrequire);
