@@ -1510,7 +1510,7 @@ declare namespace LLH {
 
             timeToFrame(t: number): number;
             updateNextFrameByMinTime(minTime: number): void;
-            setFailTime(t: number): number;
+            setFailTime(t: number): void;
 
             processDeactiveSkills(): void;
             getMinDeactiveTime(): void;
@@ -1520,7 +1520,7 @@ declare namespace LLH {
             onSkillActive(membereId: number, isAccessory: boolean): boolean;
             getNextTriggerChances(): number[];
             getMinTriggerChanceTime(): number;
-            makeTriggerData(index: number): LLSimulateContext_Trigger;
+            makeTriggerData(index: number): LLSimulateContext_Trigger | undefined;
             addActiveSkill(effectInfo: LLSimulateContext_EffectStaticInfo, effectTime: number, memberId: number, realMemberId: number, effectValue?: number, syncTarget?: number): LLSimulateContext_ActiveSkill;
             setLastActiveSkill(memberId: number, levelBoost: number, activateFrame: number, isAccessory: boolean): void;
             clearLastActiveSkill(): void;
