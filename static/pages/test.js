@@ -1085,7 +1085,7 @@ function renderPage(loadDeferred) {
             'after': test1,
             'run': function () {
                 var runs = [];
-                for (var i = 1; i <= 14; i++) {
+                for (var i = 1; i <= 15; i++) {
                     runs.push(loadAndRunTestCase(i + ''));
                 }
                 return $.when.apply($, runs);

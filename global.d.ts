@@ -514,6 +514,7 @@ declare namespace LLH {
         interface OptionalStyle {
             color?: string;
             display?: string;
+            flexFlow?: string;
             float?: string;
             height?: string;
             marginLeft?: string;
@@ -1074,7 +1075,7 @@ declare namespace LLH {
         }
         interface Skill {
             getTriggerTargetDescription(targets?: Core.TriggerTargetType): string;
-            getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
+            getTriggerTargetMemberDescription(targets?: Core.TriggerTargetMemberType): string;
             getTriggerLimitDescription(triggerLimit?: API.CardDetailRangeType): string;
             getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue?: API.CardDetailRangeType, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
             getEffectDescription(effectType: Core.SkillEffectType, effectValue?: API.CardDetailRangeType, dischargeTime?: API.CardDetailRangeType, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;
@@ -1133,6 +1134,19 @@ declare namespace LLH {
             changeImageServer(): void;
             registerCallback(key: string | Component.LLComponentBase, callback: ImageServerChangeCallback): void;
             initImageServerSwitch(id: Component.HTMLElementOrId): void;
+        }
+
+        interface Swappable<T> {
+            startSwapping(): T;
+            finishSwapping(data: T): T;
+        }
+        class LLSwapper<T> {
+            constructor();
+
+            controller?: Swappable<T>;
+            data?: T;
+
+            onSwap(controller: Swappable<T>): void;
         }
     }
 
@@ -1344,7 +1358,7 @@ declare namespace LLH {
 
             calculateAttributeStrength(mapdata: LLMap_SaveData): void;
             calculateSkillStrength(mapdata: LLMap_SaveData): void;
-            calculateScoreDistribution(): void;
+            calculateScoreDistribution(): string | undefined;
             simulateScoreDistribution(mapdata: LLMap_SaveData, noteData: API.NoteDataType[], simCount: number): void;
             calculatePercentileNaive(): void;
             calculateMic(): void;
@@ -1510,7 +1524,7 @@ declare namespace LLH {
 
             timeToFrame(t: number): number;
             updateNextFrameByMinTime(minTime: number): void;
-            setFailTime(t: number): number;
+            setFailTime(t: number): void;
 
             processDeactiveSkills(): void;
             getMinDeactiveTime(): void;
@@ -1520,7 +1534,7 @@ declare namespace LLH {
             onSkillActive(membereId: number, isAccessory: boolean): boolean;
             getNextTriggerChances(): number[];
             getMinTriggerChanceTime(): number;
-            makeTriggerData(index: number): LLSimulateContext_Trigger;
+            makeTriggerData(index: number): LLSimulateContext_Trigger | undefined;
             addActiveSkill(effectInfo: LLSimulateContext_EffectStaticInfo, effectTime: number, memberId: number, realMemberId: number, effectValue?: number, syncTarget?: number): LLSimulateContext_ActiveSkill;
             setLastActiveSkill(memberId: number, levelBoost: number, activateFrame: number, isAccessory: boolean): void;
             clearLastActiveSkill(): void;
@@ -1551,7 +1565,8 @@ declare namespace LLH {
             hasGemStock: boolean;
             subMember: Internal.SubMemberSaveDataType[];
 
-            serializeV104(excludeTeam: boolean, excludeGemStock: boolean, excludeSubMember: boolean): Internal.UnitSaveDataTypeV104;
+            /** return json string of UnitSaveDataTypeV104 */
+            serializeV104(excludeTeam?: boolean, excludeGemStock?: boolean, excludeSubMember?: boolean): string;
         }
     }
 
@@ -1664,8 +1679,8 @@ declare namespace LLH {
                 getWeights(): number[];
                 setWeight(i: IndexType, w: number): void;
                 setWeights(weights: number[]): void;
-                setSwapper(swapper: TODO.LLSwapper): void;
-                getSwapper(): TODO.LLSwapper;
+                setSwapper(swapper: Misc.LLSwapper): void;
+                getSwapper(): Misc.LLSwapper;
                 setMapAttribute(attribute: Core.AttributeType): void;
                 isAllMembersPresent(): boolean;
 
@@ -1795,7 +1810,7 @@ declare namespace LLH {
         }
 
         namespace SubMember {
-            interface LLSubMemberComponent_MemberContainerController {
+            interface LLSubMemberComponent_MemberContainerController implements Misc.Swappable<Internal.SubMemberSaveDataType> {
                 getMember(): Internal.SubMemberSaveDataType;
                 setMember(member: Internal.SubMemberSaveDataType): void;
                 startSwapping(): Internal.SubMemberSaveDataType;
@@ -1817,7 +1832,7 @@ declare namespace LLH {
                 remove(start: number, n: number): void;
                 count(): number;
                 empty(): boolean;
-                setSwapper(swapper: TODO.LLSwapper): void;
+                setSwapper(swapper: Misc.LLSwapper): void;
                 setOnCountChange(callback: LLSubMemberComponent_OnCountChangeCallback): void;
 
                 saveData(): Internal.SubMemberSaveDataType[];
@@ -1957,7 +1972,6 @@ declare namespace LLH {
 
     namespace TODO {
         type GemStockType = any;
-        type LLSwapper = any;
     }
 }
 
