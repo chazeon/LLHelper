@@ -514,6 +514,7 @@ declare namespace LLH {
         interface OptionalStyle {
             color?: string;
             display?: string;
+            flexFlow?: string;
             float?: string;
             height?: string;
             marginLeft?: string;
@@ -1074,7 +1075,7 @@ declare namespace LLH {
         }
         interface Skill {
             getTriggerTargetDescription(targets?: Core.TriggerTargetType): string;
-            getTriggerTargetMemberDescription(targets: Core.TriggerTargetMemberType): string;
+            getTriggerTargetMemberDescription(targets?: Core.TriggerTargetMemberType): string;
             getTriggerLimitDescription(triggerLimit?: API.CardDetailRangeType): string;
             getTriggerDescription(triggerType: Core.SkillTriggerType, triggerValue?: API.CardDetailRangeType, triggerTarget?: Core.TriggerTargetType, triggerEffectType?: number): string;
             getEffectDescription(effectType: Core.SkillEffectType, effectValue?: API.CardDetailRangeType, dischargeTime?: API.CardDetailRangeType, effectTarget?: Core.TriggerTargetType, effectTargetMember?: Core.TriggerTargetMemberType): string;

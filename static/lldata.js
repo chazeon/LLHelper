@@ -2499,7 +2499,7 @@ var LLConst = (function () {
          var targetDesc = '(数据缺失)';
          if (effectTarget) {
             targetDesc = SkillUtils.getTriggerTargetDescription(effectTarget);
-         } else if (effectTargetMember) {
+         } else {
             targetDesc = SkillUtils.getTriggerTargetMemberDescription(effectTargetMember);
          }
          if (effectType == KEYS.SKILL_EFFECT_ACCURACY_SMALL)
@@ -10310,7 +10310,7 @@ var LLAccessorySelectorComponent = (function () {
          container.scrollIntoView();
       };
       return createElement('div', undefined, [
-         createElement('div', {'style': {'display': 'flex', 'flex-flow': 'row'}}, [
+         createElement('div', {'style': {'display': 'flex', 'flexFlow': 'row'}}, [
             accessoryComponent.element,
             cardAvatar1Component.element,
             cardAvatar2Component.element
@@ -10393,6 +10393,7 @@ var LLAccessorySelectorComponent = (function () {
             createFormInlineGroup('饰品：', accessoryChoice)
          ], true);
    
+         /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController} */
          var briefController = {};
          if (this.showLevelSelect) {
             var accessoryLevel = createFormSelect();
@@ -10403,6 +10404,7 @@ var LLAccessorySelectorComponent = (function () {
                renderAccessoryBrief(briefController)
             ], false);
          }
+         /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController} */
          var detailController = {};
          if (this.showDetail) {
             updateSubElements(container, [
@@ -10548,7 +10550,7 @@ var LLAccessorySelectorComponent = (function () {
          if (this.showLevelSelect) {
             /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
             var levelOptions = [];
-            for (var i = 1; i <= 8; i++) {
+            for (i = 1; i <= 8; i++) {
                levelOptions.push({'value': i + '', 'text': i + ''});
             }
             this.setFilterOptions(SEL_ID_ACCESSORY_LEVEL, levelOptions);
