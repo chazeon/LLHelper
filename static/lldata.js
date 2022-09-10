@@ -2640,8 +2640,11 @@ var LLConst = (function () {
          var name = accessoryData.jpname;
          if (language == KEYS.LANGUAGE_CN && accessoryData.cnname) name = accessoryData.cnname;
          var type = AccessoryUtils.getAccessoryType(accessoryData);
-         if (accessoryData.unit_id && accessoryData.card && accessoryData.card.typeid) {
-            type = constUtil.Member.getMemberName(accessoryData.card.typeid, language);
+         if (accessoryData.unit_id) {
+            var maybeProcessedData = /** @type {LLH.Internal.ProcessedAccessoryDataType} */ (accessoryData);
+            if (maybeProcessedData.card && maybeProcessedData.card.typeid) {
+               type = constUtil.Member.getMemberName(maybeProcessedData.card.typeid, language);
+            }
          }
          return desc + ' [' + rarityStr + '][' + type + '] ' + name;
       },
@@ -2986,6 +2989,9 @@ var LLUnit = {
       if (type == 'avatar' || type == 'card') {
          var f = (type == 'avatar' ? 'icon' : 'unit');
          var m = (mezame ? 'rankup' : 'normal');
+         if (type == 'avatar') {
+            ret.push('/static/avatar/' + m + '/' + cardid + '.png');
+         }
          if (!(type == 'avatar' && curServer === LLImageServerSwitch.AVATAR_SERVER_LOCAL)) {
             if (isHttp) {
                for (var i = 0; i < 4; i++) {
@@ -2996,9 +3002,6 @@ var LLUnit = {
                   ret.push('https://gitcdn.' + (i%2==0 ? 'xyz' : 'link') + '/repo/iebb/SIFStatic/master/' + f + '/' + m + '/' + cardid + '.png');
                }
             }
-         }
-         if (type == 'avatar') {
-            ret.push('/static/avatar/' + m + '/' + cardid + '.png');
          }
       } else if (type == 'navi') {
          var m = (mezame ? '1' : '0');
@@ -10124,29 +10127,35 @@ var LLLanguageComponent = (function() {
 
    /** @param {LLH.Layout.Language.LLLanguageComponent} me */
    function toggleLanguage(me) {
-      var newValue = (me.value + 1) % 2;
-      me.set(newValue);
+      if (me.value == LLConstValue.LANGUAGE_CN) {
+         me.set(LLConstValue.LANGUAGE_JP);
+      } else {
+         me.set(LLConstValue.LANGUAGE_CN);
+      }
    }
 
+   /**
+    * @extends {LLH.Component.LLComponentBase<HTMLInputElement>}
+    */
    class LLLanguageComponent_cls extends LLComponentBase {
-      /** @param {LLH.Component.HTMLElementOrId} [id] */
+      /** @param {string | HTMLInputElement} [id] */
       constructor(id) {
-         if (id === undefined) {
-            id = createElement('input');
-         }
-         super(id);
-         if (this.element) {
-            this.element.type = 'button';
-            this.element.value = '切换语言';
-            this.element.className = 'btn btn-default';
-         }
-         var me = this;
-         me.value = 0;
+         /** @type {HTMLInputElement} */
+         var element = LLUnit.getOrCreateElement(id, 'input');
+         super(element);
+         this.element = element;
+         this.element.type = 'button';
+         this.element.value = '切换语言';
+         this.element.className = 'btn btn-default';
+         /** @type {LLH.Core.LanguageType} */
+         this.value = LLConstValue.LANGUAGE_CN;
          /** @type {LLH.Mixin.LanguageSupport[]} */
-         me.langSupports = [];
+         this.langSupports = [];
+         /** @type {((newValue: LLH.Core.LanguageType) => void) | undefined} */
+         this.onValueChange = undefined;
+         var me = this;
          this.on('click', () => toggleLanguage(me));
       }
-      /** @returns {LLH.Core.LanguageType} */
       get() {
          return this.value;
       }
@@ -10168,7 +10177,7 @@ var LLLanguageComponent = (function() {
       }
       /**
        * @override
-       * @param {number} v
+       * @param {LLH.Core.LanguageType} v
        */
       deserialize(v) {
          this.set(v);
@@ -10183,7 +10192,10 @@ var LLLanguageComponent = (function() {
        */
       loadJson(json) {
          if (json) {
-            this.set(parseInt(json));
+            var intValue = parseInt(json);
+            if (intValue == LLConstValue.LANGUAGE_CN || intValue == LLConstValue.LANGUAGE_JP) {
+               this.set(intValue);
+            }
          }
       };
    }
@@ -10219,22 +10231,23 @@ var LLAccessoryComponent = (function () {
        * @param {LLH.Core.LanguageType} [language] 
        */
       setAccessory(newAccessory, language) {
-         /** @type {LLH.API.AccessoryDataType} */
-         var accessory = newAccessory;
+         /** @type {LLH.API.AccessoryDataType=} */
+         var accessory;
          if (typeof(newAccessory) == 'string') {
             accessory = LLAccessoryData.getAllCachedBriefData()[newAccessory];
             if (!accessory) {
                console.warn('Not found accessory in cache: ' + newAccessory)
                return;
             }
-         }
-         if (accessory === undefined) {
+         } else if (newAccessory === undefined) {
             if (this.accessoryId !== undefined) {
-               this.element.className = 'accessory-base';
+               this.setClassName('accessory-base');
                this.accessoryImage.hide();
                this.accessoryId = undefined;
             }
             return;
+         } else {
+            accessory = newAccessory;
          }
          this.accessoryImage.show();
          this.accessoryImage.setAltText(LLConst.Accessory.getAccessoryDescription(accessory, language));
@@ -10245,9 +10258,7 @@ var LLAccessoryComponent = (function () {
          if (accessory.unit_id) {
             newClassName = newClassName + ' accessory-special';
          }
-         if (newClassName != this.element.className) {
-            this.element.className = newClassName;
-         }
+         this.setClassName(newClassName);
          this.accessoryImage.setSrcList(['/static/accessory/' + accessory.id + '.png']);
          this.accessoryId = accessory.id;
       }

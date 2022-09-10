@@ -16,7 +16,7 @@ else:
 
 LLSIF_WIN_API_DOMAIN = 'http://a.llsif.win/'
 LLSIF_WIN_API_ENDPOINT = 'live/json/'
-LIVE_MAP_LOCAL_CACHE_DIR = 'live/json/'
+LIVE_MAP_LOCAL_CACHE_DIR = 'static/live/json/'
 
 NOTE_TYPE_RANDOM = 0
 NOTE_TYPE_NORMAL = 1
@@ -130,11 +130,11 @@ class LiveMap:
         self.swingSliderCount = swingSliderCount
         self.endTime = endTime
     def updateLiveData(self, liveData):
-        liveData['positionweight'] = map(str, self.positionWeight)
-        liveData['positionnote'] = map(str, self.positionNote)
-        liveData['positionslider'] = map(str, self.positionSlider)
-        liveData['positionswing'] = map(str, self.positionSwing)
-        liveData['positionswingslider'] = map(str, self.positionSwingSlider)
+        liveData['positionweight'] = list(map(str, self.positionWeight))
+        liveData['positionnote'] = list(map(str, self.positionNote))
+        liveData['positionslider'] = list(map(str, self.positionSlider))
+        liveData['positionswing'] = list(map(str, self.positionSwing))
+        liveData['positionswingslider'] = list(map(str, self.positionSwingSlider))
         liveData['star'] = str(self.starCount)
         liveData['slider'] = str(self.sliderCount)
         liveData['swing'] = str(self.swingCount)

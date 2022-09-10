@@ -1049,7 +1049,7 @@ declare namespace LLH {
             postProcessAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): Internal.ProcessedAccessoryDictDataType;
             postProcessSingleAccessoryData(accessoryData: API.AccessoryDataType, cardData: API.CardDictDataType): Internal.ProcessedAccessoryDataType;
             
-            getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType, language?: Core.LanguageType): string;
+            getAccessoryDescription(accessoryData: Internal.ProcessedAccessoryDataType | API.AccessoryDataType, language?: Core.LanguageType): string;
             getAccessoryMainAttribute(accessory: API.AccessoryDataType): Core.AttributeAllType;
             getAccessoryType(accessory: API.AccessoryDataType): string;
             getAccessoryLevelAttribute(accessory: API.AccessoryDataType, level: number): Internal.AttributesValue;
@@ -1729,11 +1729,12 @@ declare namespace LLH {
         }
         namespace Language {
 
-            class LLLanguageComponent extends Component.LLComponentBase {
-                constructor(id?: Component.HTMLElementOrId);
+            class LLLanguageComponent extends Component.LLComponentBase<HTMLInputElement> {
+                constructor(id?: string | HTMLInputElement);
 
                 value: Core.LanguageType;
                 langSupports: Mixin.LanguageSupport[];
+                override element: HTMLInputElement;
 
                 onValueChange?: (newValue: Core.LanguageType) => void;
 
