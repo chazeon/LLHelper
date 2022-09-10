@@ -692,7 +692,7 @@ var LLComponentBase = (function () {
          if ((!e) || (!callback)) return;
          this.element.addEventListener(e, callback);
       }
-      isInDocument = function () {
+      isInDocument() {
          return !!(this.element && this.element.ownerDocument);
       }
    }
@@ -3103,7 +3103,7 @@ var LLUnit = {
 
    /**
     * @param {HTMLElement} ele 
-    * @param {LLH.Component.SubElements} subElements 
+    * @param {LLH.Component.SubElements} [subElements] 
     * @param {boolean} [isReplace]
     * @returns {HTMLElement} ele
     */
@@ -3219,7 +3219,7 @@ var LLUnit = {
 
    /**
     * @param {string} label 
-    * @param {LLH.Component.SubElements} subElements 
+    * @param {LLH.Component.SubElements} [subElements] 
     * @returns {HTMLElement}
     */
    createFormInlineGroup: function (label, subElements) {
@@ -7794,7 +7794,8 @@ var LLMicDisplayComponent = (function () {
    ];
    function createMicResult (controller) {
       var detailContainer = createElement('div');
-      var detailContainerComponent = 0;
+      /** @type {LLH.Component.LLComponentBase=} */
+      var detailContainerComponent = undefined;
       var detailLink = createElement('a', {'innerHTML': '等效UR等级: ', 'href': 'javascript:;'}, undefined, {'click': function () {
          if (!detailContainerComponent) {
             detailContainer.appendChild(LLUnit.createSimpleTable(detailMicData));
@@ -7831,8 +7832,7 @@ var LLMicDisplayComponent = (function () {
       element.appendChild(createMicResult(controller));
       this.set = controller.set;
    };
-   var cls = LLMicDisplayComponent_cls;
-   return cls;
+   return LLMicDisplayComponent_cls;
 })();
 
 var LLSaveStorageComponent = (function () {
@@ -7845,7 +7845,12 @@ var LLSaveStorageComponent = (function () {
    function loadStorageJSON() {
       var json;
       try {
-         json = JSON.parse(localStorage.getItem(localStorageKey));
+         var s = localStorage.getItem(localStorageKey);
+         if (s) {
+            json = JSON.parse(s);
+         } else {
+            json = {};
+         }
       } catch (e) {
          json = {};
       }
@@ -7924,6 +7929,7 @@ var LLSaveStorageComponent = (function () {
    }
 
    function createSaveStorage(controller) {
+      /** @type {HTMLInputElement} */
       var nameInput = createElement('input', {'type': 'text', 'className': 'form-control', 'placeholder': '给队伍取个名字'});
 
       var listContainer = createElement('div', {'className': 'list-group storage-list'});
@@ -8016,8 +8022,7 @@ var LLSaveStorageComponent = (function () {
       }
       element.appendChild(createSaveStorage(controller));
    };
-   var cls = LLSaveStorageComponent_cls;
-   return cls;
+   return LLSaveStorageComponent_cls;
 })();
 
 var LLDataVersionSelectorComponent = (function () {
@@ -8028,6 +8033,7 @@ var LLDataVersionSelectorComponent = (function () {
       {'value': 'mix', 'text': '混合（1763号卡开始为日服数据）'}
    ];
    function createVersionSelector(controller) {
+      /** @type {HTMLSelectElement} */
       var sel = createElement('select', {'className': 'form-control'});
       var selComp = new LLSelectComponent(sel);
       selComp.setOptions(versionSelectOptions);
@@ -8068,8 +8074,7 @@ var LLDataVersionSelectorComponent = (function () {
       };
       element.appendChild(createVersionSelector(controller));
    }
-   var cls = LLDataVersionSelectorComponent_cls;
-   return cls;
+   return LLDataVersionSelectorComponent_cls;
 })();
 
 var LLScoreDistributionParameter = (function () {
@@ -8130,7 +8135,7 @@ var LLScoreDistributionParameter = (function () {
     * @returns {LLH.Component.LLSelectComponent}
     */
    function createSelectComponent(options, defaultValue) {
-      var ret = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
+      var ret = new LLSelectComponent(LLUnit.createSelectElement({'className': 'form-control'}));
       ret.setOptions(options);
       ret.set(defaultValue);
       return ret;
@@ -8151,7 +8156,8 @@ var LLScoreDistributionParameter = (function () {
    function createDistributionTypeSelector(controller, mode) {
       var isLAMode = (mode == 'la');
       var detailContainer = createElement('div');
-      var detailContainerComponent = 0;
+      /** @type {LLH.Component.LLComponentBase=} */
+      var detailContainerComponent = undefined;
       var detailLink = createElement('a', {'innerHTML': '查看支持计算的技能/宝石', 'href': 'javascript:;'}, undefined, {'click': function () {
          if (!detailContainerComponent) {
             detailContainer.appendChild(LLUnit.createSimpleTable(distTypeDetail));
@@ -8161,8 +8167,10 @@ var LLScoreDistributionParameter = (function () {
          }
       }});
       detailLink.style.cursor = 'help';
-      var simParamCount = createElement('input', {'className': 'form-control', 'type': 'number', 'size': 5, 'value': 2000});
-      var simParamPerfectPercent = createElement('input', {'className': 'form-control num-size-3', 'type': 'number', 'size': 3, 'value': 90});
+      /** @type {HTMLInputElement} */
+      var simParamCount = createElement('input', {'className': 'form-control', 'type': 'number', 'size': 5, 'value': '2000'});
+      /** @type {HTMLInputElement} */
+      var simParamPerfectPercent = createElement('input', {'className': 'form-control num-size-3', 'type': 'number', 'size': 3, 'value': '90'});
       var simParamSpeedComponent = createSelectComponent(speedSelectOptions, '8');
       var simParamComboFeverPatternComponent = createSelectComponent(comboFeverPatternSelectOptions, '2');
       var simParamComboFeverLimitComponent = createSelectComponent(comboFeverLimitOptions, LLConstValue.SKILL_LIMIT_COMBO_FEVER_2 + '');
@@ -8182,7 +8190,7 @@ var LLScoreDistributionParameter = (function () {
          updateSubElements(simParamContainer, createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'}));
       }
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
-      var selComp = new LLSelectComponent(createElement('select', {'className': 'form-control'}));
+      var selComp = new LLSelectComponent(LLUnit.createSelectElement({'className': 'form-control'}));
       if (!isLAMode) {
          selComp.setOptions(distTypeSelectOptions);
       } else {
@@ -8223,14 +8231,14 @@ var LLScoreDistributionParameter = (function () {
       controller.setParameters = function (data) {
          if (!data) return;
          if (data.type) selComp.set(data.type);
-         if (data.count !== undefined) simParamCount.value = data.count;
-         if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent;
-         if (data.speed) simParamSpeedComponent.set(data.speed);
-         if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern);
-         if (data.combo_fever_limit) simParamComboFeverLimitComponent.set(data.combo_fever_limit);
-         if (data.over_heal_pattern !== undefined) simParamOverHealComponent.set(data.over_heal_pattern);
-         if (data.perfect_accuracy_pattern !== undefined) simParamPerfectAccuracyComponent.set(data.perfect_accuracy_pattern);
-         if (data.trigger_limit_pattern !== undefined) simParamTriggerLimitComponent.set(data.trigger_limit_pattern);
+         if (data.count !== undefined) simParamCount.value = data.count + '';
+         if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent + '';
+         if (data.speed) simParamSpeedComponent.set(data.speed + '');
+         if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern + '');
+         if (data.combo_fever_limit) simParamComboFeverLimitComponent.set(data.combo_fever_limit + '');
+         if (data.over_heal_pattern !== undefined) simParamOverHealComponent.set(data.over_heal_pattern + '');
+         if (data.perfect_accuracy_pattern !== undefined) simParamPerfectAccuracyComponent.set(data.perfect_accuracy_pattern + '');
+         if (data.trigger_limit_pattern !== undefined) simParamTriggerLimitComponent.set(data.trigger_limit_pattern + '');
       };
       return container;
    }
@@ -8309,7 +8317,7 @@ var LLScoreDistributionChart = (function () {
          ret['data'] = series.slice(1, 100).reverse();
       } else {
          console.error('Unknown series');
-         concole.log(series);
+         console.log(series);
          ret['data'] = series;
       }
       return ret;
@@ -8374,8 +8382,7 @@ var LLScoreDistributionChart = (function () {
       this.show = function() { baseComponent.show(); }
       this.hide = function() { baseComponent.hide(); }
    }
-   var cls = LLScoreDistributionChart_cls;
-   return cls;
+   return LLScoreDistributionChart_cls;
 })();
 
 var LLTeamComponent = (function () {
@@ -8405,14 +8412,15 @@ var LLTeamComponent = (function () {
 
    /** @param {LLH.Layout.Team.TeamSkillLevelCellController} controller */
    function skillLevelCreator(controller, col) {
+      /** @type {HTMLInputElement} */
       var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '1', 'min': '1', 'max': '8', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
       var inputComponent = new LLValuedComponent(inputElement);
       controller.get = function() {
          return parseInt(inputComponent.get());
       };
-      controller.set = function(v) { inputComponent.set(v); };
+      controller.set = function(v) { inputComponent.set(v + ''); };
       controller.setMaxLevel = function (maxLevel) {
-         inputElement.max = maxLevel;
+         inputElement.max = maxLevel + '';
       };
       inputComponent.onValueChange = function (newValue) {
          if (controller.onChange) {
@@ -8523,16 +8531,16 @@ var LLTeamComponent = (function () {
    /** @param {LLH.Layout.Team.TeamAccessoryIconCellController} controller */
    function accessoryIconCreator(controller, col) {
       var accessoryComponent = new LLAccessoryComponent(createElement('div'), {'size': 64});
-      /** @type {LLH.API.AccessoryDataType} */
+      /** @type {LLH.API.AccessoryDataType=} */
       var curAccessory = undefined;
       var curLevel = undefined;
       var curCardId = undefined;
       var isValid = true;
       var tooltipClassName = 'tooltiptext';
       var accTooltip = createElement('span');
-      var accContainer = createElement('div', {'className': 'lltooltip', 'style': {'display': 'flex', 'flex-flow': 'row'}}, [accessoryComponent.element, accTooltip]);
+      var accContainer = createElement('div', {'className': 'lltooltip', 'style': {'display': 'flex', 'flexFlow': 'row'}}, [accessoryComponent.element, accTooltip]);
       var validateAndUpdateIcon = function () {
-         if (LLConst.Accessory.canEquipAccessory(curAccessory, curLevel, curCardId)) {
+         if ((!curAccessory) || LLConst.Accessory.canEquipAccessory(curAccessory, curLevel, curCardId)) {
             if (!isValid) {
                accessoryComponent.element.style.filter = '';
                accTooltip.style.display = 'none';
@@ -8804,9 +8812,9 @@ var LLTeamComponent = (function () {
     * @returns {HTMLElement[]}
     */
    function normalGemListCreator(controller, position) {
-      /** @type {LLH.Core.AttributeType} */
+      /** @type {LLH.Core.AttributeType=} */
       var memberAttribute = undefined;
-      /** @type {LLH.Core.AttributeType} */
+      /** @type {LLH.Core.AttributeType=} */
       var mapAttribute = undefined;
       var listContainer = renderGemList(controller);
 
@@ -8975,6 +8983,9 @@ var LLTeamComponent = (function () {
          var textSpan = createElement('span', {'innerHTML': head});
          var visible = true;
          var toggleFold = function () {
+            if (!(controller.fold && controller.unfold)) {
+               return;
+            }
             if (visible) {
                controller.fold();
                arrowSpan.className = 'tri-right';
@@ -9083,7 +9094,7 @@ var LLTeamComponent = (function () {
 
    /**
     * @param {LLH.Layout.Team.LLTeamComponent} controller
-    * @param {LLH.Layout.Team.LLTeamComponent_Mode} mode
+    * @param {LLH.Layout.LayoutMode} mode
     */
    function createTeamTable(controller, mode) {
       var rows = [];
@@ -9539,13 +9550,13 @@ var LLCSkillComponent = (function () {
       var selectClass = {'className': 'form-control no-padding'};
       var addToColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
       var addFromColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
-      var majorPercentageComp = new LLSelectComponent(createElement('select', selectClass));
+      var majorPercentageComp = new LLSelectComponent(LLUnit.createSelectElement(selectClass));
       majorPercentageComp.setOptions(majorPercentageSelectOptions);
       majorPercentageComp.set('0');
-      var secondPercentageComp = new LLSelectComponent(createElement('select', selectClass));
+      var secondPercentageComp = new LLSelectComponent(LLUnit.createSelectElement(selectClass));
       secondPercentageComp.setOptions(secondPercentageSelectOptions);
       secondPercentageComp.set('0');
-      var secondLimitComp = new LLSelectComponent(createElement('select', selectClass));
+      var secondLimitComp = new LLSelectComponent(LLUnit.createSelectElement(selectClass));
       secondLimitComp.setOptions(getSecondLimitSelectOptions());
       var secondColorElement = createElement('span', {'innerHTML': '歌曲'});
       addToColorComp.onValueChange = function(v) {
@@ -9805,6 +9816,7 @@ var LLGemSelectorComponent = (function () {
          } else if (typeof(data) == 'string') {
             container.innerHTML = '';
          } else {
+            /** @type {LLH.Component.SubElements} */
             var elements = [LLConst.Gem.getGemFullDescription(data, language == 0)];
             if (showLvup && data.level_up_skill_data) {
                var nextData = data.level_up_skill_data;

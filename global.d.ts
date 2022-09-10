@@ -543,6 +543,8 @@ declare namespace LLH {
             scope?: string;
             border?: string;
             src?: string;
+            role?: string;
+            placeholder?: string;
         }
 
         interface LLComponentBase_Options {
@@ -1056,7 +1058,7 @@ declare namespace LLH {
         }
         interface Common {
             getRarityString(rarity: Core.RarityNumberType): Core.RarityStringType | undefined;
-            getAttributeColor(attribute: Core.AttributeAllType): string;
+            getAttributeColor(attribute?: Core.AttributeAllType): string;
             /** return 1.0~3.0 */
             getOverHealLevelBonus(maxHP: number, overHealLevel: number): number;
             getDefaultMaxSlot(rarity: Core.RarityStringType): number;
@@ -1588,7 +1590,7 @@ declare namespace LLH {
             interface TeamAccessoryIconCellController extends TeamMemberKeyGetSet<Internal.AccessorySaveDataType> {
                 updateAccessoryLevel(level: number): void;
                 updateMember(cardid: Core.CardIdOrStringType): void;
-                getAccessoryId(): Core.AccessoryIdStringType;
+                getAccessoryId(): Core.AccessoryIdStringType | undefined;
                 getAccessoryLevel(): number;
             }
             interface TeamTextCellController extends TeamMemberKeyGetSet<string> {
@@ -1669,7 +1671,7 @@ declare namespace LLH {
                 setMembers(members?: Internal.MemberSaveDataType[]): void;
                 getMember(i: IndexType): Internal.MemberSaveDataType;
                 getMembers(): Internal.MemberSaveDataType[];
-                setMemberGem(i: IndexType, gem: Model.LLSisGem): void;
+                setMemberGem(i: IndexType, gems: Model.LLSisGem[]): void;
                 setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType): void;
                 getCardId(i: IndexType): Core.CardIdType;
                 getCardIds(): Core.CardIdType[];
