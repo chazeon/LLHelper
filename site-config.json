@@ -1,10 +1,12 @@
 {
-    "version": "20220906",
+    "version": "20220910",
     "page_version": {
         "docs": "4",
         "llcardpool": "1",
+        "llcoverage": "1",
         "llnewaccessorydata": "2",
         "llnewsisdata": "2",
+        "llnewcarddata": "1",
         "llnewautounit": "2",
         "llnewunit": "4",
         "llnewunitla": "2",
