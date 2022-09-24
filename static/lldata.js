@@ -68,6 +68,11 @@ var LoadingUtil = {
    start: function (defers, merger) {
       return LoadingUtil.startImpl(defers, 'loadingbox', 'loadingbox_progress', merger);
    },
+   /**
+    * @template DoneT, FailT
+    * @param {LLH.Depends.Promise<DoneT, FailT>} defer 
+    * @returns {LLH.Depends.Promise<DoneT, FailT>}
+    */
    startSingle: function (defer) {
       return LoadingUtil.startImpl([defer], 'loadingbox', 'loadingbox_progress').then(function (data) { return data[0]; });
    },
@@ -257,6 +262,87 @@ var LLSaveLoadJsonGroup = (function () {
       }
    };
    return LLSaveLoadJsonGroup_cls;
+})();
+
+var SaveLoadJsonBase = (function () {
+   /**
+    * @template DataT
+    * @implements {LLH.Mixin.SaveLoadJson}
+    * @implements {LLH.Mixin.SaveLoadable<DataT>}
+    */
+   class SaveLoadJsonBase {
+      constructor() {}
+      /** @returns {DataT | undefined} */
+      saveData() {
+         return undefined;
+      }
+      /** @param {DataT} [data] */
+      loadData(data) {}
+      saveJson() {
+         return JSON.stringify(this.saveData());
+      }
+      /** @param {string} [jsonData] */
+      loadJson(jsonData) {
+         try {
+            if ((!jsonData) || jsonData == 'undefined') {
+               this.loadData();
+            } else {
+               var json = JSON.parse(jsonData);
+               this.loadData(json);
+            }
+         } catch (e) {
+            console.error('Failed to load json:');
+            console.error(e);
+            console.info(jsonData);
+         }
+      }
+   }
+
+   return SaveLoadJsonBase;
+})();
+
+var SaveLoadableGroup = (function () {
+   /**
+    * @template [DataT=LLH.Mixin.SaveLoadableGroupDataType]
+    * @extends {LLH.Mixin.SaveLoadJsonBase<DataT>}
+    */
+   class SaveLoadableGroup extends SaveLoadJsonBase {
+      constructor() {
+         super();
+         /** @type {{[key: string]: LLH.Mixin.SaveLoadable<any>}} */
+         this._saveLoadableMap = {};
+      }
+      /**
+       * @template SubDataT
+       * @param {string} key
+       * @param {LLH.Mixin.SaveLoadable<SubDataT>} saveLoadable
+       */
+      addSaveLoadable(key, saveLoadable) {
+         this._saveLoadableMap[key] = saveLoadable;
+      }
+      /** @override */
+      saveData() {
+         var ret = {};
+         for (var k in this._saveLoadableMap) {
+            ret[k] = this._saveLoadableMap[k].saveData();
+         }
+         return /** @type {DataT} */ (ret);
+      }
+      /**
+       * @override
+       * @param {DataT} [data]
+       */
+      loadData(data) {
+         for (var k in this._saveLoadableMap) {
+            if (data && data[k] !== undefined) {
+               this._saveLoadableMap[k].loadData(data[k]);
+            } else {
+               this._saveLoadableMap[k].loadData();
+            }
+         }
+      }
+   }
+   return SaveLoadableGroup;
 })();
 
 /*
@@ -1907,6 +1993,8 @@ var LLConst = (function () {
       3.98, 4.08, 4.19, 4.29]; // 60~63
    var DEFAULT_MAX_SLOT = {'UR': 8, 'SSR': 6, 'SR': 4, 'R': 2, 'N': 1};
    var DEFAULT_MIN_SLOT = {'UR': 4, 'SSR': 3, 'SR': 2, 'R': 1, 'N': 0};
+   var DEFAULT_KIZUNA_MEZAME = {'UR': 1000, 'SSR': 750, 'SR': 500, 'R': 200, 'N': 50};
+   var DEFAULT_KIZUNA_NORMAL = {'UR': 500, 'SSR': 375, 'SR': 250, 'R': 100, 'N': 25};
 
    /** @type {LLH.Core.MemberTagIdType[]} */
    var CSKILL_GROUPS = [];
@@ -1966,6 +2054,13 @@ var LLConst = (function () {
             desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
          }
          return desc;
+      },
+      getMaxKizuna: function (rarity, mezame) {
+         if (mezame) {
+            return DEFAULT_KIZUNA_MEZAME[rarity];
+         } else {
+            return DEFAULT_KIZUNA_NORMAL[rarity];
+         }
       }
    };
    constUtil.Common = CommonUtils;
@@ -3472,6 +3567,42 @@ var LLSkillContainer = (function() {
    return LLSkillContainer_cls;
 })();
 
+var LLSkillComponent = (function () {
+   class LLSkillComponent extends LLSkillContainer {
+      /** @param {LLH.Layout.Skill.LLSkillComponent_Options} [options] */
+      constructor(options) {
+         if (!options) options = {};
+         var container = LLUnit.getOrCreateElement(options.id, 'div');
+         var lvUp = LLUnit.createElement('input', {'type': 'button', 'value': '▲', 'style': {'width': '20px', 'height': '20px', 'padding': '0px'}});
+         var lvDown = LLUnit.createElement('input', {'type': 'button', 'value': '▼', 'style': {'width': '20px', 'height': '20px', 'padding': '0px'}});
+         var lvText = LLUnit.createElement('span', {'innerHTML': '1'});
+         var skillText = LLUnit.createElement('span');
+         if (options.showLabel) {
+            LLUnit.updateSubElements(container, [
+               '技能等级：', lvUp, ' Lv', lvText, ' ', lvDown, LLUnit.createElement('br'),
+               '技能效果：', skillText, LLUnit.createElement('br')
+            ]);
+         } else {
+            LLUnit.updateSubElements(container, [
+               lvUp, ' Lv', lvText, ' ', lvDown, LLUnit.createElement('br'),
+               skillText, LLUnit.createElement('br')
+            ]);
+         }
+         super({
+            'container': container,
+            'level': lvText,
+            'lvdown': lvDown,
+            'lvup': lvUp,
+            'text': skillText,
+            'showall': options.showAll
+         });
+         this.element = container;
+      }
+   }
+
+   return LLSkillComponent;
+})();
+
 var LLCardSelectorComponent = (function() {
    const createElement = LLUnit.createElement;
    const updateSubElements = LLUnit.updateSubElements;
@@ -3622,7 +3753,7 @@ var LLCardSelectorComponent = (function() {
       setLanguage(language) {
          this.getValuedComponent(MEM_ID_LANGUAGE).set(language);
       }
-      /** @returns {LLH.Core.CardIdOrStringType} */
+      /** @returns {LLH.Core.CardIdStringType} */
       getCardId() {
          return this.getValuedComponent(SEL_ID_CARD_CHOICE).get() || '';
       }
@@ -11373,4 +11504,122 @@ var LLCardPoolComponent = (function () {
       }
    }
    return LLCardPoolComponent;
+})();
+
+var LLCardStatusComponent = (function () {
+   const createElement = LLUnit.createElement;
+
+   /**
+    * @param {string} defaultValue
+    * @param {string} [color] 
+    * @returns {HTMLInputElement}
+    */
+   function createNumberInput(defaultValue, color) {
+      /** @type {LLH.Component.CreateElementOptions} */
+      var opt = {'type': 'number', 'className': 'form-control small-padding num-size-4', 'value': defaultValue, 'autocomplete': 'off'};
+      if (color) {
+         opt.style = {'color': color};
+      }
+      return createElement('input', opt);
+   }
+
+   class LLCardStatusComponent extends SaveLoadableGroup {
+      /** @param {LLH.Layout.CardStatus.LLCardStatusComponent_Options} [options] */
+      constructor(options) {
+         super();
+         if (!options) options = {};
+         this.element = LLUnit.getOrCreateElement(options.id, 'div');
+
+         this.mezameComp = new LLValuedComponent(createElement('input', {'type': 'checkbox'}));
+         this.smileComp = new LLValuedComponent(createNumberInput('0', 'red'));
+         this.pureComp = new LLValuedComponent(createNumberInput('0', 'green'));
+         this.coolComp = new LLValuedComponent(createNumberInput('0', 'blue'));
+         this.mainColorComp = new LLSelectComponent(LLUnit.createFormSelect());
+         this.mainColorComp.setOptions([
+            {'text': 'smile', 'value': 'smile', 'color': 'red'},
+            {'text': 'pure', 'value': 'pure', 'color': 'green'},
+            {'text': 'cool', 'value': 'cool', 'color': 'blue'}
+         ]);
+         this.kizunaComp = new LLValuedComponent(createNumberInput('0'));
+         this.hpComp = new LLValuedComponent(createNumberInput('1'));
+         this.avatarComp = new LLAvatarComponent({'smallAvatar': true});
+         this.skillComp = new LLSkillComponent({'showLabel': true});
+
+         /** @type {LLH.Core.CardIdStringType=} */
+         this.cardId = undefined;
+
+         var me = this;
+         this.mezameComp.onValueChange = function() { me.applyCardData(me.cardId); };
+
+         LLUnit.updateSubElements(this.element, [
+            this.mezameComp.element, '觉醒（特典卡需选择觉醒）', createElement('br'),
+            createElement('div', {'style': {'float': 'left'}}, [
+               LLUnit.createFormInlineGroup('裸smile：', [this.smileComp.element]),
+               LLUnit.createFormInlineGroup('裸pure：', [this.pureComp.element]),
+               LLUnit.createFormInlineGroup('裸cool：', [this.coolComp.element]),
+               LLUnit.createFormInlineGroup('主属性：', [this.mainColorComp.element]),
+               LLUnit.createFormInlineGroup('绊：', [this.kizunaComp.element]),
+               LLUnit.createFormInlineGroup('HP：', [this.hpComp.element]),
+            ]),
+            createElement('div', {'style': {'float': 'left'}}, [
+               this.avatarComp.element
+            ]),
+            createElement('div', {'style': {'clear': 'both'}}, [
+               this.skillComp.element
+            ])
+         ], true);
+      }
+      /** @param {LLH.Core.CardIdStringType} [cardId] */
+      applyCardData(cardId) {
+         /** @type {boolean} */
+         var mezame = this.mezameComp.get();
+         var me = this;
+         this.cardId = cardId;
+         if (cardId) {
+            this.avatarComp.setCard(cardId, mezame);
+            LoadingUtil.startSingle(LLCardData.getDetailedData(cardId)).then(function (card) {
+               me.mainColorComp.set(card.attribute);
+               me.skillComp.setCardData(card);
+               if (!mezame) {
+                  me.smileComp.set(card.smile + '');
+                  me.pureComp.set(card.pure + '');
+                  me.coolComp.set(card.cool + '');
+                  me.hpComp.set(card.hp + '');
+               } else {
+                  me.smileComp.set(card.smile2 + '');
+                  me.pureComp.set(card.pure2 + '');
+                  me.coolComp.set(card.cool2 + '');
+                  me.hpComp.set((card.hp + 1) + '');
+               }
+               me.kizunaComp.set(LLConst.Common.getMaxKizuna(card.rarity, mezame) + '');
+            }, defaultHandleFailedRequest);
+         } else {
+            this.avatarComp.setCard();
+            this.skillComp.setCardData();
+         }
+      }
+      /** @returns {LLH.Internal.MemberSaveDataType} */
+      getMemberData() {
+         var kizunaValue = parseInt(this.kizunaComp.get());
+         var mainAttribute = this.mainColorComp.get();
+         var kizunaSmile = 0, kizunaPure = 0, kizunaCool = 0;
+         if (mainAttribute == 'smile') {
+            kizunaSmile = kizunaValue;
+         } else if (mainAttribute == 'pure') {
+            kizunaPure = kizunaValue;
+         } else if (mainAttribute == 'cool') {
+            kizunaCool = kizunaValue;
+         }
+         return {
+            'cardid': this.cardId || '',
+            'mezame': (this.mezameComp.get() ? 1 : 0),
+            'hp': parseInt(this.hpComp.get()),
+            'smile': parseInt(this.smileComp.get()) + kizunaSmile,
+            'pure': parseInt(this.pureComp.get()) + kizunaPure,
+            'cool': parseInt(this.coolComp.get()) + kizunaCool,
+            'skilllevel': this.skillComp.skillLevel + 1
+         };
+      }
+   }
+   return LLCardStatusComponent;
 })();

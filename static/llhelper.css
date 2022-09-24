@@ -209,6 +209,9 @@ img.avatar {
 .filter-form.label-size-9 label {
    width: 120px;
 }
+.filter-form.label-size-6 label {
+   width: 90px;
+}
 .filter-form.label-size-12 label {
    width: 150px;
 }

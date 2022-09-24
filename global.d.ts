@@ -335,7 +335,7 @@ declare namespace LLH {
             cardid: Core.CardIdOrStringType; // int
             mezame: 0 | 1;
             skilllevel: number; // 1~8
-            maxcost: number; // 0~8
+            maxcost?: number; // 0~8
         }
 
         interface AttributesValue {
@@ -351,8 +351,8 @@ declare namespace LLH {
 
         interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
             hp: number; // int
-            gemlist: NormalGemCategoryKeyType[];
-            laGemList: Core.SisIdType[];
+            gemlist?: NormalGemCategoryKeyType[];
+            laGemList?: Core.SisIdType[];
             accessory?: AccessorySaveDataType;
         }
 
@@ -490,6 +490,30 @@ declare namespace LLH {
             loadJson(jsonData?: string): void;
         }
 
+        interface SaveLoadable<DataT> {
+            saveData(): DataT | undefined;
+            loadData(data?: DataT): void;
+        }
+
+        class SaveLoadJsonBase<DataT> implements SaveLoadJson, SaveLoadable<DataT> {
+            constructor();
+
+            saveData(): DataT | undefined;
+            loadData(data?: DataT): void;
+            saveJson(): string;
+            loadJson(jsonData?: string): void;
+        }
+
+        type SaveLoadableGroupDataType = {[key: string]: any};
+        class SaveLoadableGroup<DataT = SaveLoadableGroupDataType> extends SaveLoadJsonBase<DataT> {
+            constructor();
+
+            addSaveLoadable<SubDataT>(key: string, saveLoadable: SaveLoadable<SubDataT>): void;
+
+            override saveData(): DataT | undefined;
+            override loadData(data?: DataT): void;
+        }
+
         interface LanguageSupport {
             setLanguage(language: Core.LanguageType): void;
         }
@@ -512,6 +536,7 @@ declare namespace LLH {
         type BootCssColorStyleType = 'default' | 'primary' | 'success' | 'info' | 'warning' | 'danger';
         // type OptionalStyle = {[k: keyof CSSStyleDeclaration]: string};
         interface OptionalStyle {
+            clear?: string;
             color?: string;
             display?: string;
             flexFlow?: string;
@@ -869,7 +894,7 @@ declare namespace LLH {
             noShowN?: boolean;
             pools?: Pool.CardPoolsProcessedDataType;
         }
-        type LLCardSelectorComponent_OnCardChangeCallback = (cardId: Core.CardIdOrStringType) => void;
+        type LLCardSelectorComponent_OnCardChangeCallback = (cardId: Core.CardIdStringType) => void;
         class LLCardSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLCardSelectorComponent_Options);
 
@@ -878,7 +903,7 @@ declare namespace LLH {
             cards: API.CardDictDataType;
 
             setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
-            getCardId(): Core.CardIdOrStringType;
+            getCardId(): Core.CardIdStringType;
             getFilteredCardIdList(): Core.CardIdStringType[];
             updatePoolsOptions(): void;
             scrollIntoView(): void;
@@ -1065,6 +1090,7 @@ declare namespace LLH {
             getDefaultMinSlot(rarity: Core.RarityStringType): number;
             getCSkillGroups(): Core.MemberTagIdType[];
             getCardDescription(card: API.CardDataType, language: Core.LanguageType, mezame?: boolean): string;
+            getMaxKizuna(rarity: Core.RarityStringType, mezame?: Core.MezameType | boolean): number;
         }
         interface Attributes {
             makeAttributes(smile: number, pure: number, cool: number): Internal.AttributesValue;
@@ -1874,15 +1900,15 @@ declare namespace LLH {
         namespace Skill {
             interface LLSkillContainer_Options {
                 /** default 'skillcontainer' */
-                container?: string;
+                container?: Component.HTMLElementOrId;
                 /** default 'skilllvup' */
-                lvup?: string;
+                lvup?: Component.HTMLElementOrId;
                 /** default 'skilllvdown' */
-                lvdown?: string;
+                lvdown?: Component.HTMLElementOrId;
                 /** default 'skilllevel' */
-                level?: string;
+                level?: Component.HTMLElementOrId;
                 /** default 'skilltext' */
-                text?: string;
+                text?: Component.HTMLElementOrId;
                 showall?: boolean;
                 cardData?: API.CardDataType;
             }
@@ -1897,6 +1923,33 @@ declare namespace LLH {
                 setSkillLevel(lv: number): void;
                 setCardData(cardData?: API.CardDataType, skipRender?: boolean): void;
                 render(): void;
+            }
+
+            interface LLSkillComponent_Options {
+                id?: string;
+                /** whether or not show level over 8 */
+                showAll?: boolean;
+                /** whether or not show label on left side of the skill level and text */
+                showLabel?: boolean;
+            }
+            class LLSkillComponent extends LLSkillContainer {
+                constructor(options?: LLSkillComponent_Options);
+
+                element: HTMLElement;
+            }
+        }
+
+        namespace CardStatus {
+            interface LLCardStatusComponent_Options {
+                id?: Component.HTMLElementOrId;
+            }
+            class LLCardStatusComponent extends Mixin.SaveLoadableGroup {
+                constructor(options?: LLCardStatusComponent_Options);
+
+                applyCardData(cardId?: Core.CardIdStringType): void;
+                getMemberData(): Internal.MemberSaveDataType;
+
+                element: HTMLElement;
             }
         }
     }
