@@ -13,6 +13,8 @@ var comp_language;
 /** @type {LLH.Component.LLImageComponent} */
 var comp_cardavatar;
 var comp_avatar_team = [];
+/** @type {LLH.Persistence.LLSaveLoadJsonGroup} */
+var persister;
 
 function threetonumber(three) {
     var result = three
@@ -150,9 +152,7 @@ function check() {
     }
     containerheight = parseInt(document.getElementById('container').style.height) - 165;
     saveToCookie();
-    comp_cardselector.saveLocalStorage('llcoverage_cardselector');
-    comp_songselector.saveLocalStorage('llcoverage_songselector');
-    LLHelperLocalStorage.setData(LLHelperLocalStorageKeys.localStorageLanguageKey, comp_language.serialize());
+    persister.saveAll();
     document.getElementById('container').style.display = "";
     document.getElementById('separater').style.display = "";
     var song = comp_songselector.getSelectedSong();
@@ -245,9 +245,12 @@ function renderPage(loadDeferred) {
         legacyInit();
 
         // load
-        comp_language.deserialize(parseInt(LLHelperLocalStorage.getData(LLHelperLocalStorageKeys.localStorageLanguageKey, 0)));
-        comp_cardselector.loadLocalStorage('llcoverage_cardselector');
-        comp_songselector.loadLocalStorage('llcoverage_songselector');
+        persister = new LLSaveLoadJsonGroup();
+        persister.register(LLHelperLocalStorageKeys.localStorageLanguageKey, comp_language, '0');
+        persister.register('llcoverage_cardselector', comp_cardselector);
+        persister.register('llcoverage_songselector', comp_songselector);
+
+        persister.loadAll();
 
         // done
         LoadingUtil.stop();

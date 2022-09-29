@@ -509,6 +509,7 @@ declare namespace LLH {
             constructor();
 
             addSaveLoadable<SubDataT>(key: string, saveLoadable: SaveLoadable<SubDataT>): void;
+            getSaveLoadable<T extends SaveLoadable>(key: string): T | undefined;
 
             override saveData(): DataT | undefined;
             override loadData(data?: DataT): void;
@@ -575,7 +576,7 @@ declare namespace LLH {
         interface LLComponentBase_Options {
             listen?: {[e: string]: (event: Event) => void};
         }
-        class LLComponentBase<ElementType extends HTMLElement = HTMLElement> implements Mixin.SaveLoadJson {
+        class LLComponentBase<ElementType extends HTMLElement = HTMLElement, DataT = boolean> extends Mixin.SaveLoadJsonBase<DataT> {
             constructor(id?: ElementType | string, options?: LLComponentBase_Options);
 
             id?: string;
@@ -589,33 +590,36 @@ declare namespace LLH {
             setVisible(visible: boolean): void;
             setClassName(newClassName: string): void;
             setTooltips(tooltips: string): void;
-            serialize(): any;
-            deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
             isInDocument(): boolean;
 
-            // implements
-            saveJson(): string;
-            loadJson(jsonData?: string): void;
+            override saveData(): DataT | undefined;
+            override loadData(data?: DataT): void;
         }
         interface LLValuedComponent_Options extends LLComponentBase_Options {
             valueKey?: string;
         }
-        class LLValuedComponent<ElementType extends HTMLElement = HTMLElement> extends LLComponentBase<ElementType> {
+        class LLValuedComponent<ElementType extends HTMLElement = HTMLElement, ValueType = string> extends LLComponentBase<ElementType, ValueType> {
             constructor(id?: ElementType | string, options?: LLValuedComponent_Options);
 
-            value?: string;
+            value?: ValueType;
             valueKey: string;
-            onValueChange?: (newValue: string) => void;
+            onValueChange?: (newValue: ValueType) => void;
 
-            get(): string;
-            set(val: string): void;
+            get(): ValueType | undefined;
+            getOrElse(defaultValue: ValueType): ValueType;
+            set(val: ValueType): void;
 
-            override serialize(): string;
-            override deserialize(data: string): void;
+            override saveData(): ValueType | undefined;
+            override loadData(data?: ValueType): void;
         }
-        class LLValuedMemoryComponent extends LLValuedComponent {
-            constructor(initialValue: any);
+        class LLValuedMemoryComponent<ValueType = string> extends LLValuedComponent<HTMLElement, ValueType> {
+            constructor(initialValue: ValueType);
+
+            value: ValueType;
+
+            override get(): ValueType;
+            override set(val: ValueType): void;
         }
         interface LLSelectComponent_OptionDef {
             text: string;
@@ -711,23 +715,20 @@ declare namespace LLH {
 
             setAccessory(newAccessory?: Core.AccessoryIdStringType | API.AccessoryDataType, language?: Core.LanguageType): void;
         }
-        class LLComponentCollection implements Mixin.SaveLoadJson {
+        class LLComponentCollection<DataT = Mixin.SaveLoadableGroupDataType> extends Mixin.SaveLoadableGroup<DataT> {
             constructor();
 
-            components: {[name: string]: LLComponentBase};
+            add<E extends HTMLElement, D>(name: string, component: LLComponentBase<E, D>): void;
+            getComponent<T extends LLComponentBase>(name: string): T | undefined;
+            getValuedComponent<T extends LLValuedComponent>(name: string): T | undefined;
 
-            add(name: string, component: LLComponentBase): void;
-            getComponent(name: string): LLComponentBase | undefined;
-            serialize(): any;
-            deserialize(data: any): void;
-            saveJson(): string;
-            loadJson(json?: string): void;
             saveLocalStorage(key: string): void;
             loadLocalStorage(key: string): void;
             deleteLocalStorage(key: string): void;
+
         }
         /** returns false to filter out the option */
-        type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue: string, targetData?: any) => boolean;
+        type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue?: string, targetData?: any) => boolean;
         type LLFiltersComponent_OptionGroupType = {[id: string]: LLSelectComponent_OptionDef[]};
         interface LLFiltersComponent_FilterDef {
             callbacks?: {[targetName: string]: LLFiltersComponent_FilterCallback};
@@ -744,11 +745,11 @@ declare namespace LLH {
 
             filters: {[name: string]: LLFiltersComponent_FilterDef};
             freeze: boolean;
-            onValueChange?: (name: string, newValue: string) => void;
+            onValueChange?: (name: string, newValue: any) => void;
 
             setFreezed(isFreezed: boolean): void;
             isFreezed(): boolean;
-            addFilterable(name: string, component: LLValuedComponent, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
+            addFilterable<E extends HTMLElement, D>(name: string, component: LLValuedComponent<E, D>, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
             addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
             setFilterOptionGroupCallback(name: string, groupGetter: () => string, affectedBy: string[]): void;
             setFilterOptionGroups(name: string, groups: LLFiltersComponent_OptionGroupType): void;
@@ -756,7 +757,8 @@ declare namespace LLH {
             getFilter(name: string, createIfAbsent?: boolean): LLFiltersComponent_FilterDef;
             /** handle changes when specified component's value change, when not provided name, handle all component's filters */
             handleFilters(name?: string): void;
-            override deserialize(data: any): void;
+
+            override loadData(data?: Mixin.SaveLoadableGroupDataType): void;
         }
     }
 
@@ -853,7 +855,7 @@ declare namespace LLH {
             saveRawPools<IdType>(storageKey: string, rawPools: Internal.PoolsSaveDataType<IdType>): void;
             savePools<IdType>(storageKey: string, pools: PoolsProcessedDataType<IdType>): void;
             /** return error message if fail, or empty string if success */
-            addPool<IdType>(pools: PoolsProcessedDataType<IdType>, newPoolName: string): string;
+            addPool<IdType>(pools: PoolsProcessedDataType<IdType>, newPoolName?: string): string;
             /** return error message if fail, or empty string if success */
             removePoolByIndex<IdType>(pools: PoolsProcessedDataType<IdType>, index: number): void;
         }
@@ -1755,7 +1757,7 @@ declare namespace LLH {
         }
         namespace Language {
 
-            class LLLanguageComponent extends Component.LLComponentBase<HTMLInputElement> {
+            class LLLanguageComponent extends Component.LLComponentBase<HTMLInputElement, Core.LanguageType> {
                 constructor(id?: string | HTMLInputElement);
 
                 value: Core.LanguageType;
@@ -1768,10 +1770,8 @@ declare namespace LLH {
                 set(val: Core.LanguageType): void;
                 registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
 
-                override serialize(): number;
-                override deserialize(data: number): void;
-                override saveJson(): string;
-                override loadJson(jsonData?: string): void;
+                override saveData(): Core.LanguageType | undefined;
+                override loadData(data?: Core.LanguageType): void;
             }
         }
         namespace ScoreDistParam {

@@ -320,6 +320,14 @@ var SaveLoadableGroup = (function () {
       addSaveLoadable(key, saveLoadable) {
          this._saveLoadableMap[key] = saveLoadable;
       }
+      /**
+       * @template {LLH.Mixin.SaveLoadable} T
+       * @param {string} key 
+       * @returns {T}
+       */
+      getSaveLoadable(key) {
+         return /** @type {T} */ (this._saveLoadableMap[key]);
+      }
       /** @override */
       saveData() {
          var ret = {};
@@ -551,13 +559,17 @@ var LLSimpleKeyData = (function () {
 /** @type {LLH.LLData<LLH.API.CardDataType>} */
 var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
    ['id', 'typeid', 'support', 'rarity', 'attribute', 'special', 'type', 'skilleffect', 'triggertype', 'triggerrequire', 'eponym', 'jpeponym', 'hp', 'album']);
+/** @type {LLH.LLData<LLH.API.SongDataType>} */
 var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
+/** @type {LLH.LLData<LLH.API.SisDataType>} */
 var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
+/** @type {LLH.LLData<LLH.API.AccessoryDataType>} */
 var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
    ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level', 'trigger_type', 'trigger_effect_type']);
+/** @type {LLH.LLSimpleKeyData<LLH.API.MetaDataType>} */
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -681,15 +693,17 @@ var LLMapNoteData = (function () {
 
 var LLComponentBase = (function () {
    /**
-    * @implements {LLH.Mixin.SaveLoadJson}
     * @template {HTMLElement} [ElementType = HTMLElement]
+    * @template [DataT = boolean]
+    * @extends {SaveLoadJsonBase<DataT>}
     */
-   class LLComponentBase_cls {
+   class LLComponentBase_cls extends SaveLoadJsonBase {
       /**
        * @param {ElementType | string} [id] 
        * @param {LLH.Component.LLComponentBase_Options} [options] 
        */
       constructor(id, options) {
+         super();
          this.id = undefined;
          this.exist = false;
          this.visible = false;
@@ -750,24 +764,18 @@ var LLComponentBase = (function () {
          if (this.element.title == tooltips) return;
          this.element.title = tooltips;
       }
-      serialize() {
+      saveData() {
          if (!this.element) return undefined;
-         return this.visible;
+         return /** @type {DataT} */ (this.visible);
       }
-      deserialize(v) {
-         if (v) {
+      /** @param {DataT} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         if (data) {
             this.show();
          } else {
             this.hide();
          }
-      }
-      saveJson() {
-         return JSON.stringify(this.serialize());
-      }
-      /** @param {string} json */
-      loadJson(json) {
-         var me = this;
-         LLSaveLoadJsonHelper.commonLoadJson(v => me.deserialize(v), json);
       }
       /**
        * @param {string} e 
@@ -789,7 +797,8 @@ var LLComponentBase = (function () {
 var LLValuedComponent = (function() {
    /**
     * @template {HTMLElement} [ElementType = HTMLElement]
-    * @extends {LLComponentBase<ElementType>}
+    * @template [ValueType = string]
+    * @extends {LLComponentBase<ElementType, ValueType>}
     */
    class LLValuedComponent_cls extends LLComponentBase {
       /**
@@ -798,10 +807,11 @@ var LLValuedComponent = (function() {
        */
       constructor(id, options) {
          super(id, options);
-         /** @type {((newValue: string) => void) | undefined} */
+         /** @type {((newValue: ValueType) => void) | undefined} */
          this.onValueChange = undefined;
+         /** @type {ValueType=} */
+         this.value = undefined;
          if (!this.element) {
-            this.value = undefined;
             this.valueKey = 'innerHTML';
             return this;
          }
@@ -832,7 +842,13 @@ var LLValuedComponent = (function() {
       get() {
          return this.value;
       }
-      /** @param {string} v */
+      /** @param {ValueType} defaultValue */
+      getOrElse(defaultValue) {
+         var ret = this.get();
+         if (ret === undefined) return defaultValue;
+         return ret;
+      }
+      /** @param {ValueType} v */
       set(v) {
          if (!this.element) return;
          if (v == this.value) return;
@@ -840,28 +856,34 @@ var LLValuedComponent = (function() {
          this.value = v;
          if (this.onValueChange) this.onValueChange(v);
       }
-      /** @override */
-      serialize() {
+      saveData() {
          return this.get();
       }
-      /**
-       * @override
-       * @param {*} v 
-       */
-      deserialize(v) {
-         this.set(v);
-      };
+      /** @param {ValueType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         this.set(data);
+      }
    }
 
    return LLValuedComponent_cls;
 })();
 
 var LLValuedMemoryComponent = (function() {
+   /**
+    * @template [ValueType = string]
+    * @extends {LLValuedComponent<HTMLElement, ValueType>}
+    */
    class LLValuedMemoryComponent_cls extends LLValuedComponent {
+      /** @param {ValueType} initialValue */
       constructor(initialValue) {
          super();
          this.value = initialValue;
       }
+      get() {
+         return this.value;
+      }
+      /** @param {ValueType} v */
       set(v) {
          if (v == this.value) return;
          this.value = v;
@@ -948,7 +970,7 @@ var LLSelectComponent = (function() {
             this.element.options.add(newOption);
             if (oldValue == option.value) foundOldValue = true;
          }
-         if (foundOldValue) {
+         if (foundOldValue && oldValue !== undefined) {
             this.set(oldValue);
          } else {
             this.set(this.element.value);
@@ -1212,66 +1234,37 @@ var LLYesNoDialogComponent = (function() {
 
 var LLComponentCollection = (function() {
    /**
-    * @implements {LLH.Mixin.SaveLoadJson}
+    * @template [DataT=LLH.Mixin.SaveLoadableGroupDataType]
+    * @extends {LLH.Mixin.SaveLoadableGroup<DataT>}
     */
-   class LLComponentCollection_cls {
+   class LLComponentCollection_cls extends SaveLoadableGroup {
       constructor() {
-         /** @type {{[name: string]: LLH.Component.LLComponentBase}} */
-         this.components = {};
+         super();
       }
       /**
+       * @template {HTMLElement} E
+       * @template D
        * @param {string} name 
-       * @param {LLH.Component.LLComponentBase} component 
+       * @param {LLH.Component.LLComponentBase<E, D>} component 
        */
       add(name, component) {
-         this.components[name] = component;
+         this.addSaveLoadable(name, component);
       }
       /**
        * @template {LLH.Component.LLComponentBase} T
        * @param {string} name
-       * @returns {T}
+       * @returns {T | undefined}
        */
       getComponent(name) {
-         return /** @type {T} */ (this.components[name]);
+         return /** @type {T} */ this.getSaveLoadable(name);
       }
       /**
        * @template {LLH.Component.LLValuedComponent} T
        * @param {string} name
-       * @returns {T}
+       * @returns {T | undefined}
        */
       getValuedComponent(name) {
-         return /** @type {T} */ (this.components[name]);
-      }
-      serialize() {
-         var ret = {};
-         for (var i in this.components) {
-            var val = this.components[i].serialize();
-            if (val !== undefined) {
-               ret[i] = val;
-            }
-         }
-         return ret;
-      }
-      deserialize(v) {
-         if (!v) return;
-         for (var i in this.components) {
-            var val = v[i];
-            if (val !== undefined) {
-               this.components[i].deserialize(val);
-            }
-         }
-      }
-      saveJson() {
-         return JSON.stringify(this.serialize());
-      }
-      loadJson(data) {
-         if (data && data != 'undefined') {
-            try {
-               this.deserialize(JSON.parse(data));
-            } catch (e) {
-               console.error(e);
-            }
-         }
+         return /** @type {T} */ this.getSaveLoadable(name);
       }
       saveLocalStorage(key) {
          LLHelperLocalStorage.setData(key, this.saveJson());
@@ -1295,7 +1288,7 @@ var LLFiltersComponent = (function() {
          /** @type {{[name: string]: LLH.Component.LLFiltersComponent_FilterDef}} */
          this.filters = {};
          this.freeze = false;
-         /** @type {((name: string, newValue: string) => void) | undefined} */
+         /** @type {((name: string, newValue: any) => void) | undefined} */
          this.onValueChange = undefined;
       }
       /** @param {boolean} isFreezed */
@@ -1306,8 +1299,10 @@ var LLFiltersComponent = (function() {
          return this.freeze;
       };
       /**
+       * @template {HTMLElement} E
+       * @template D
        * @param {string} name 
-       * @param {LLH.Component.LLValuedComponent} component 
+       * @param {LLH.Component.LLValuedComponent<E, D>} component 
        * @param {(opt: LLH.Component.LLSelectComponent_OptionDef) => any} [dataGetter] 
        */
       addFilterable(name, component, dataGetter) {
@@ -1416,11 +1411,11 @@ var LLFiltersComponent = (function() {
             }
          }
       }
-      /** @override */
-      deserialize(v) {
-         if (!v) return;
+      /** @param {LLH.Mixin.SaveLoadableGroupDataType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
          this.setFreezed(true);
-         super.deserialize(v);
+         super.loadData(data);
          this.setFreezed(false);
          this.handleFilters();
       }
@@ -1445,7 +1440,7 @@ var LLFiltersComponent = (function() {
       if (checkCallbacks && filter.reverseCallbacks) {
          /** @type {LLH.Component.LLFiltersComponent_FilterCallback[]} */
          var filterCallbacks = [];
-         /** @type {string[]} */
+         /** @type {(string | undefined)[]} */
          var values = [];
          /** @type {LLH.Component.LLValuedComponent | undefined} */
          var comp = undefined;
@@ -3497,25 +3492,27 @@ var LLSkillContainer = (function() {
          this.skillLevel = 0; // base 0, range 0-7
          this.cardData = undefined;
          options = options || {};
-         options.container = options.container || 'skillcontainer';
-         options.lvup = options.lvup || 'skilllvup';
-         options.lvdown = options.lvdown || 'skilllvdown';
-         options.level = options.level || 'skilllevel';
-         options.text = options.text || 'skilltext';
-         options.showall = options.showall || false;
+
+         this.showAll = options.showall || false;
+         this.lvUpComponent = new LLComponentBase(options.lvup || 'skilllvup');
+         this.lvDownComponent = new LLComponentBase(options.lvdown || 'skilllvdown');
+         this.containerComponent = new LLComponentBase(options.container || 'skillcontainer');
+         this.levelComponent = new LLValuedComponent(options.level || 'skilllevel');
+         this.textComponent = new LLValuedComponent(options.text || 'skilltext');
+
          var me = this;
-         this.showAll = options.showall;
-         this.add(SEL_ID_CONTAINER, new LLComponentBase(options.container));
-         this.add(SEL_ID_LVUP, new LLComponentBase(options.lvup));
-         this.getComponent(SEL_ID_LVUP).on('click', function (e) {
+         this.lvUpComponent.on('click', function (e) {
             me.setSkillLevel(me.skillLevel+1);
          });
-         this.add(SEL_ID_LVDOWN, new LLComponentBase(options.lvdown));
-         this.getComponent(SEL_ID_LVDOWN).on('click', function (e) {
+         this.lvDownComponent.on('click', function (e) {
             me.setSkillLevel(me.skillLevel-1);
          });
-         this.add(SEL_ID_LEVEL, new LLValuedComponent(options.level));
-         this.add(SEL_ID_TEXT, new LLValuedComponent(options.text));
+
+         this.add(SEL_ID_CONTAINER, this.containerComponent);
+         this.add(SEL_ID_LVUP, this.lvUpComponent);
+         this.add(SEL_ID_LVDOWN, this.lvDownComponent);
+         this.add(SEL_ID_LEVEL, this.levelComponent);
+         this.add(SEL_ID_TEXT, this.textComponent);
          this.setCardData(options.cardData, true);
          this.render();
       }
@@ -3555,11 +3552,11 @@ var LLSkillContainer = (function() {
       }
       render() {
          if ((!this.cardData) || this.cardData.skill == 0 || this.cardData.skill == null) {
-            this.getComponent(SEL_ID_CONTAINER).hide();
+            this.containerComponent.hide();
          } else {
-            this.getComponent(SEL_ID_CONTAINER).show();
-            this.getValuedComponent(SEL_ID_TEXT).set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
-            this.getValuedComponent(SEL_ID_LEVEL).set((this.skillLevel+1).toFixed());
+            this.containerComponent.show();
+            this.textComponent.set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
+            this.levelComponent.set((this.skillLevel+1).toFixed());
          }
       }
    }
@@ -3623,11 +3620,13 @@ var LLCardSelectorComponent = (function() {
    const SEL_ID_CARD_POOL = 'cardpool';
    const MEM_ID_LANGUAGE = 'language';
 
+   /** @param {LLH.Core.SkillTriggerType} triggerId */
    var makeTriggerTypeOption = function (triggerId) {
-      return {'value': triggerId, 'text': LLConst.Skill.getSkillTriggerText(parseInt(triggerId))};
+      return {'value': triggerId + '', 'text': LLConst.Skill.getSkillTriggerText(triggerId)};
    };
+   /** @param {LLH.Core.SkillEffectType} effectId */
    var makeEffectTypeOption = function (effectId) {
-      return {'value': effectId, 'text': LLConst.Skill.getEffectBrief(parseInt(effectId))};
+      return {'value': effectId + '', 'text': LLConst.Skill.getEffectBrief(effectId)};
    };
 
    /**
@@ -3665,6 +3664,9 @@ var LLCardSelectorComponent = (function() {
          var selSetName = createFormSelect();
          var selCardPool = (this.pools ? createFormSelect() : undefined);
          var checkShowNCard = createElement('input', {'type': 'checkbox'});
+
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+         this._triggerTypeComponent = new LLSelectComponent(selTriggerType);
    
          me.addFilterable(SEL_ID_CARD_CHOICE, new LLSelectComponent(selCardChoice), function (opt) {
             var index = opt.value;
@@ -3675,7 +3677,7 @@ var LLCardSelectorComponent = (function() {
          me.addFilterable(SEL_ID_CHARA, new LLSelectComponent(selChara));
          me.addFilterable(SEL_ID_UNIT_GRADE, new LLSelectComponent(selUnitGrade));
          me.addFilterable(SEL_ID_ATTRIBUTE, new LLSelectComponent(selAttribute));
-         me.addFilterable(SEL_ID_TRIGGER_TYPE, new LLSelectComponent(selTriggerType));
+         me.addFilterable(SEL_ID_TRIGGER_TYPE, this._triggerTypeComponent);
          me.addFilterable(SEL_ID_TRIGGER_REQUIRE, new LLSelectComponent(selTriggerRequire));
          me.addFilterable(SEL_ID_SKILL_TYPE, new LLSelectComponent(selSkillType));
          me.addFilterable(SEL_ID_SPECIAL, new LLSelectComponent(selSpecial));
@@ -3684,15 +3686,15 @@ var LLCardSelectorComponent = (function() {
          if (selCardPool) {
             me.addFilterable(SEL_ID_CARD_POOL, new LLSelectComponent(selCardPool));
          }
-         me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         me.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
    
          var languageGroupGetter = function () {
-            return me.getValuedComponent(MEM_ID_LANGUAGE).get(); 
+            return me._languageComponent.get() + ''; 
          }
          me.setFilterOptionGroupCallback(SEL_ID_CARD_CHOICE, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_CHARA, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_SET_NAME, languageGroupGetter, [MEM_ID_LANGUAGE]);
-         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => me.getValuedComponent(SEL_ID_TRIGGER_TYPE).get(), [SEL_ID_TRIGGER_TYPE]);
+         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => (me._triggerTypeComponent.get() || ''), [SEL_ID_TRIGGER_TYPE]);
    
          me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.rarity == v));
          me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (LLConst.Member.getMemberName(d.typeid) == v));
@@ -3705,10 +3707,10 @@ var LLCardSelectorComponent = (function() {
             }
             return false;
          });
-         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Member.isMemberInGroup(parseInt(d.typeid), v));
-         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (v == '') || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, (opt, v, d) => (!v) || (!d) || LLConst.Member.isMemberInGroup(parseInt(d.typeid), v));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (!v) || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
          me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_SET_NAME, function (opt, v) {
-            if (v == '' || opt.value === '') return true;
+            if ((!v) || opt.value === '') return true;
             var members = me.albumGroupMemberCache[opt.value];
             if (!members) return false;
             for (var i = 0; i < members.length; i++) {
@@ -3720,10 +3722,10 @@ var LLCardSelectorComponent = (function() {
          me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggertype == v));
          me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggerrequire == v));
          me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.skilleffect == v));
-         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (parseInt(d.special) == parseInt(v)));
-         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, /** @type {LLH.API.CardDataType=} */ d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
+         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(d.special) == parseInt(v)));
+         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, /** @type {LLH.API.CardDataType=} */ d) => (!v) || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
          if (selCardPool) {
-            me.addFilterCallback(SEL_ID_CARD_POOL, SEL_ID_CARD_CHOICE, (opt, v) => (v == '') || (!opt.value) || (!me.pools) || me.pools[parseInt(v)].itemSet.has(opt.value));
+            me.addFilterCallback(SEL_ID_CARD_POOL, SEL_ID_CARD_CHOICE, (opt, v) => (!v) || (!opt.value) || (!me.pools) || me.pools[parseInt(v)].itemSet.has(opt.value));
          }
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
          me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
@@ -3751,7 +3753,7 @@ var LLCardSelectorComponent = (function() {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getValuedComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
       /** @returns {LLH.Core.CardIdStringType} */
       getCardId() {
@@ -10266,7 +10268,7 @@ var LLLanguageComponent = (function() {
    }
 
    /**
-    * @extends {LLH.Component.LLComponentBase<HTMLInputElement>}
+    * @extends {LLH.Component.LLComponentBase<HTMLInputElement, LLH.Core.LanguageType>}
     */
    class LLLanguageComponent_cls extends LLComponentBase {
       /** @param {string | HTMLInputElement} [id] */
@@ -10302,33 +10304,14 @@ var LLLanguageComponent = (function() {
       registerLanguageChange(langSupport) {
          this.langSupports.push(langSupport);
       }
-      /** @override */
-      serialize() {
+      saveData() {
          return this.get();
       }
-      /**
-       * @override
-       * @param {LLH.Core.LanguageType} v
-       */
-      deserialize(v) {
-         this.set(v);
+      /** @param {LLH.Core.LanguageType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         this.set(data);
       }
-      /** @override */
-      saveJson() {
-         return this.serialize() + '';
-      }
-      /**
-       * @override
-       * @param {string} json 
-       */
-      loadJson(json) {
-         if (json) {
-            var intValue = parseInt(json);
-            if (intValue == LLConstValue.LANGUAGE_CN || intValue == LLConstValue.LANGUAGE_JP) {
-               this.set(intValue);
-            }
-         }
-      };
    }
 
    return LLLanguageComponent_cls;
@@ -11257,7 +11240,7 @@ var LLCardPoolComponent = (function () {
       controller = {
          'getPools': function() { return pools; },
          'getSelectedPool': function() {
-            var id = poolSelect.get();
+            var id = poolSelect.getOrElse(NEW_POOL_VALUE);
             if (NEW_POOL_VALUE == id) {
                return undefined;
             } else {
@@ -11323,7 +11306,7 @@ var LLCardPoolComponent = (function () {
             return cardSet.size;
          },
          'removeSelectedPool': function() {
-            var curSelect = poolSelect.get();
+            var curSelect = poolSelect.getOrElse(NEW_POOL_VALUE);
             if (curSelect == NEW_POOL_VALUE) return;
             var index = parseInt(curSelect);
             LLPoolUtil.removePoolByIndex(pools, index);
@@ -11338,7 +11321,7 @@ var LLCardPoolComponent = (function () {
       };
 
       reloadSelect();
-      poolSelect.onValueChange(poolSelect.get());
+      poolSelect.onValueChange(poolSelect.getOrElse(NEW_POOL_VALUE));
 
       return controller;
    }
@@ -11509,6 +11492,12 @@ var LLCardPoolComponent = (function () {
 var LLCardStatusComponent = (function () {
    const createElement = LLUnit.createElement;
 
+   const SMILE_DEFAULT = '0';
+   const PURE_DEFAULT = '0';
+   const COOL_DEFAULT = '0';
+   const KIZUNA_DEFAULT = '0';
+   const HP_DEFAULT = '1';
+
    /**
     * @param {string} defaultValue
     * @param {string} [color] 
@@ -11530,18 +11519,19 @@ var LLCardStatusComponent = (function () {
          if (!options) options = {};
          this.element = LLUnit.getOrCreateElement(options.id, 'div');
 
+         /** @type {LLH.Component.LLValuedComponent<HTMLElement, boolean>} */
          this.mezameComp = new LLValuedComponent(createElement('input', {'type': 'checkbox'}));
-         this.smileComp = new LLValuedComponent(createNumberInput('0', 'red'));
-         this.pureComp = new LLValuedComponent(createNumberInput('0', 'green'));
-         this.coolComp = new LLValuedComponent(createNumberInput('0', 'blue'));
+         this.smileComp = new LLValuedComponent(createNumberInput(SMILE_DEFAULT, 'red'));
+         this.pureComp = new LLValuedComponent(createNumberInput(PURE_DEFAULT, 'green'));
+         this.coolComp = new LLValuedComponent(createNumberInput(COOL_DEFAULT, 'blue'));
          this.mainColorComp = new LLSelectComponent(LLUnit.createFormSelect());
          this.mainColorComp.setOptions([
             {'text': 'smile', 'value': 'smile', 'color': 'red'},
             {'text': 'pure', 'value': 'pure', 'color': 'green'},
             {'text': 'cool', 'value': 'cool', 'color': 'blue'}
          ]);
-         this.kizunaComp = new LLValuedComponent(createNumberInput('0'));
-         this.hpComp = new LLValuedComponent(createNumberInput('1'));
+         this.kizunaComp = new LLValuedComponent(createNumberInput(KIZUNA_DEFAULT));
+         this.hpComp = new LLValuedComponent(createNumberInput(HP_DEFAULT));
          this.avatarComp = new LLAvatarComponent({'smallAvatar': true});
          this.skillComp = new LLSkillComponent({'showLabel': true});
 
@@ -11571,7 +11561,6 @@ var LLCardStatusComponent = (function () {
       }
       /** @param {LLH.Core.CardIdStringType} [cardId] */
       applyCardData(cardId) {
-         /** @type {boolean} */
          var mezame = this.mezameComp.get();
          var me = this;
          this.cardId = cardId;
@@ -11600,7 +11589,7 @@ var LLCardStatusComponent = (function () {
       }
       /** @returns {LLH.Internal.MemberSaveDataType} */
       getMemberData() {
-         var kizunaValue = parseInt(this.kizunaComp.get());
+         var kizunaValue = parseInt(this.kizunaComp.getOrElse(KIZUNA_DEFAULT));
          var mainAttribute = this.mainColorComp.get();
          var kizunaSmile = 0, kizunaPure = 0, kizunaCool = 0;
          if (mainAttribute == 'smile') {
@@ -11613,10 +11602,10 @@ var LLCardStatusComponent = (function () {
          return {
             'cardid': this.cardId || '',
             'mezame': (this.mezameComp.get() ? 1 : 0),
-            'hp': parseInt(this.hpComp.get()),
-            'smile': parseInt(this.smileComp.get()) + kizunaSmile,
-            'pure': parseInt(this.pureComp.get()) + kizunaPure,
-            'cool': parseInt(this.coolComp.get()) + kizunaCool,
+            'hp': parseInt(this.hpComp.getOrElse(HP_DEFAULT)),
+            'smile': parseInt(this.smileComp.getOrElse(SMILE_DEFAULT)) + kizunaSmile,
+            'pure': parseInt(this.pureComp.getOrElse(PURE_DEFAULT)) + kizunaPure,
+            'cool': parseInt(this.coolComp.getOrElse(COOL_DEFAULT)) + kizunaCool,
             'skilllevel': this.skillComp.skillLevel + 1
          };
       }
