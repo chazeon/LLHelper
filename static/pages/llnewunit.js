@@ -1,10 +1,7 @@
 var import_unit_json = undefined;
-var mezame = 0;
 
 /** @type {LLMapNoteData} */
 var data_mapnote;
-/** @type {LLSkillContainer} */
-var comp_skill;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
 /** @type {LLH.Selector.LLSongSelectorComponent} */
@@ -12,13 +9,13 @@ var comp_songselector;
 var comp_gemselector = 0;
 /** @type {LLH.Selector.LLAccessorySelectorComponent} */
 var comp_accessory_selector;
-var comp_cardavatar = 0;
 /** @type {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
 var comp_distribution_param;
 var comp_distribution_chart = 0;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
 var comp_team;
-var comp_result = 0;
+/** @type {LLH.Layout.UnitResult.LLUnitResultComponent} */
+var comp_result;
 /** @type {LLH.Layout.Language.LLLanguageComponent} */
 var comp_language;
 /** @type {LLH.Persistence.LLSaveLoadJsonGroup} */
@@ -26,13 +23,7 @@ var persister;
 
 var enable_make_test_case = 0;
 
-function toMezame() {
-    mezame = 1 - mezame
-    LLUnit.applycarddata();
-}
-
 function clearall() {
-    setCookie("mezame" + "unit", mezame, -1)
     persister.clearAll();
     window.location.href = "/llnewunit"
 }
@@ -72,10 +63,6 @@ function precalcu() {
     document.getElementById("unitform").target = ''
 }
 
-function saveToCookie() {
-    setCookie("mezame" + "unit", mezame, 1)
-}
-
 function check() {
     if (!comp_songselector.getSelectedSongSetting()) {
         comp_result.showError('请选择谱面');
@@ -86,7 +73,6 @@ function check() {
         return;
     }
     comp_result.hideError();
-    saveToCookie();
     persister.saveAll();
     var distParam = comp_distribution_param.saveData();
     if (distParam.type == 'sim') {
@@ -202,12 +188,10 @@ function renderPage(loadDeferred) {
         var comp_card_status = new LLCardStatusComponent({'id': 'card_status_container'});
         comp_songselector = new LLSongSelectorComponent('song_filter', { 'songs': songData, 'includeMapInfo': true, 'friendCSkill': comp_cskill_friend });
         data_mapnote = new LLMapNoteData();
-        comp_skill = new LLSkillContainer();
         comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey) });
         comp_cardselector.onCardChange = function (cardId) {
             comp_card_status.applyCardData(cardId);
         };
-        comp_cardavatar = new LLImageComponent('imageselect');
         comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
         comp_accessory_selector = new LLAccessorySelectorComponent('accessory_selector', {
             'accessoryData': accessoryData,
@@ -253,13 +237,9 @@ function renderPage(loadDeferred) {
             }
         });
 
-
-        mezame = getCookie("mezameunit")
-        if (mezame == "") mezame = 0; else mezame = parseInt(mezame);
-        document.getElementById("mezame").checked = mezame
-
         // load
         persister = new LLSaveLoadJsonGroup();
+        persister.register(LLHelperLocalStorageKeys.localStorageMezameKey, comp_card_status);
         persister.register(LLHelperLocalStorageKeys.localStorageDistParamKey, comp_distribution_param, undefined, true);
         persister.register(LLHelperLocalStorageKeys.localStorageLLNewUnitTeamKey, comp_team);
         persister.register(LLHelperLocalStorageKeys.localStorageLanguageKey, comp_language, '0');

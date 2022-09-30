@@ -169,7 +169,8 @@ const LLHelperLocalStorageKeys = {
    'localStorageCardSelectKey': 'llhelper_card_select__',
    'localStorageLanguageKey': 'llhelper_language__',
    'localStorageAccessorySelectKey': 'llhelper_accessory_select__',
-   'localStorageCardPoolKey': 'llhelper_card_pool__'
+   'localStorageCardPoolKey': 'llhelper_card_pool__',
+   'localStorageMezameKey': 'llhelper_mezame__'
 };
 
 /** @type {LLH.Persistence.LLHelperLocalStorage} */
@@ -323,7 +324,7 @@ var SaveLoadableGroup = (function () {
       /**
        * @template {LLH.Mixin.SaveLoadable} T
        * @param {string} key 
-       * @returns {T}
+       * @returns {T | undefined}
        */
       getSaveLoadable(key) {
          return /** @type {T} */ (this._saveLoadableMap[key]);
@@ -3026,40 +3027,6 @@ var LLUnit = {
       if (n === undefined) return '';
       if (precision === undefined) precision = 2;
       return LLUnit.numberToString(n*100, precision) + '%';
-   },
-
-   // kizuna from twintailos.js, skilllevel from each page
-   applycarddata: function () {
-      var index = comp_cardselector.getCardId();
-      var mezame = (document.getElementById("mezame").checked ? 1 : 0);
-      if (index != "") {
-         LLUnit.setAvatarSrcList(comp_cardavatar, parseInt(index), mezame);
-         LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function(card) {
-            document.getElementById("main").value = card.attribute
-            comp_skill.setCardData(card);
-
-            var infolist2 = ["smile", "pure", "cool"]
-            var i;
-            if (!mezame){
-               for (i in infolist2){
-                  document.getElementById(infolist2[i]).value = card[infolist2[i]]
-               }
-               document.getElementById("hp").value = parseInt(card.hp);
-               document.getElementById("mezame").value = "未觉醒";
-            }
-            else{
-               for (i in infolist2){
-                  document.getElementById(infolist2[i]).value = card[infolist2[i]+"2"]
-               }
-               document.getElementById("hp").value = parseInt(card.hp)+1;
-               document.getElementById("mezame").value = "已觉醒"
-            }
-            document.getElementById("kizuna").value = kizuna[card.rarity][mezame]
-         }, defaultHandleFailedRequest);
-      } else {
-         LLUnit.setAvatarSrcList(comp_cardavatar, 0, mezame);
-         comp_skill.setCardData();
-      }
    },
 
    /**
@@ -11497,6 +11464,7 @@ var LLCardStatusComponent = (function () {
    const COOL_DEFAULT = '0';
    const KIZUNA_DEFAULT = '0';
    const HP_DEFAULT = '1';
+   const SAVE_KEY_MEZAME = 'mezame';
 
    /**
     * @param {string} defaultValue
@@ -11537,6 +11505,8 @@ var LLCardStatusComponent = (function () {
 
          /** @type {LLH.Core.CardIdStringType=} */
          this.cardId = undefined;
+
+         this.addSaveLoadable(SAVE_KEY_MEZAME, this.mezameComp);
 
          var me = this;
          this.mezameComp.onValueChange = function() { me.applyCardData(me.cardId); };

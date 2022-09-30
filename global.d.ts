@@ -1857,7 +1857,7 @@ declare namespace LLH {
 
                 onCountChange?: LLSubMemberComponent_OnCountChangeCallback;
 
-                add(member: Internal.SubMemberSaveDataType, skipCountChange: boolean): void;
+                add(member: Internal.SubMemberSaveDataType, skipCountChange?: boolean): void;
                 remove(start: number, n: number): void;
                 count(): number;
                 empty(): boolean;
