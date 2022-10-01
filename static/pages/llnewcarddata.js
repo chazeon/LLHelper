@@ -10,9 +10,9 @@ kizuna["SR"] = [250, 500]
 kizuna["UR"] = [500, 1000]
 kizuna["SSR"] = [375, 750]
 
-/** @type {LLH.Layout.Skill.LLSkillContainer} */
+/** @type {LLH.Layout.Skill.LLSkillComponent} */
 var comp_skill;
-/** @type {LLH.Layout.Skill.LLSkillContainer} */
+/** @type {LLH.Layout.Skill.LLSkillComponent} */
 var comp_skill2;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
@@ -297,15 +297,8 @@ function renderPage(loadDeferred) {
     function init(cardData, metaData) {
         LLConst.initMetadata(metaData);
         // init 2 skill containers
-        comp_skill = new LLSkillContainer({'showall': true});
-        comp_skill2 = new LLSkillContainer({
-           'container': 'skillcontainer2',
-           'lvup': 'skilllvup2',
-           'lvdown': 'skilllvdown2',
-           'level': 'skilllevel2',
-           'text': 'skilltext2',
-           'showall': true
-        });
+        comp_skill = new LLSkillComponent({'id': 'skillcontainer', 'showAll': true});
+        comp_skill2 = new LLSkillComponent({'id': 'skillcontainer2', 'showAll': true});
         var origSetSkillLevel = comp_skill.setSkillLevel;
         var newSetSkillLevel = function (lv) {
            if (this.skillLevel == lv) return;
