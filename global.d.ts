@@ -509,7 +509,7 @@ declare namespace LLH {
             constructor();
 
             addSaveLoadable<SubDataT>(key: string, saveLoadable: SaveLoadable<SubDataT>): void;
-            getSaveLoadable<T extends SaveLoadable>(key: string): T | undefined;
+            getSaveLoadable<SubDataT, T extends SaveLoadable<SubDataT>>(key: string): T | undefined;
 
             override saveData(): DataT | undefined;
             override loadData(data?: DataT): void;
@@ -887,6 +887,9 @@ declare namespace LLH {
             controller: LLCardPoolComponent_PoolsSelectController;
             pools: CardPoolsProcessedDataType;
             cardSelector: Selector.LLCardSelectorComponent;
+
+            // implement
+            setLanguage(language: Core.LanguageType): void;
         }
     }
 
@@ -1839,7 +1842,7 @@ declare namespace LLH {
         }
 
         namespace SubMember {
-            interface LLSubMemberComponent_MemberContainerController implements Misc.Swappable<Internal.SubMemberSaveDataType> {
+            interface LLSubMemberComponent_MemberContainerController extends Misc.Swappable<Internal.SubMemberSaveDataType> {
                 getMember(): Internal.SubMemberSaveDataType;
                 setMember(member: Internal.SubMemberSaveDataType): void;
                 startSwapping(): Internal.SubMemberSaveDataType;

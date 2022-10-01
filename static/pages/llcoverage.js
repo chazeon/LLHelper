@@ -1,6 +1,6 @@
 var mezame = 0;
 
-/** @type {LLH.Layout.Skill.LLSkillContainer} */
+/** @type {LLH.Layout.Skill.LLSkillComponent} */
 var comp_skill;
 /** @type {LLH.Misc.LLMapNoteData} */
 var data_mapnote;
@@ -10,8 +10,9 @@ var comp_cardselector;
 var comp_songselector;
 /** @type {LLH.Layout.Language.LLLanguageComponent} */
 var comp_language;
-/** @type {LLH.Component.LLImageComponent} */
+/** @type {LLH.Component.LLAvatarComponent} */
 var comp_cardavatar;
+/** @type {LLH.Component.LLAvatarComponent[]} */
 var comp_avatar_team = [];
 /** @type {LLH.Persistence.LLSaveLoadJsonGroup} */
 var persister;
@@ -52,6 +53,7 @@ function offsetzero() {
 
 function changecolor() {
     var index = comp_cardselector.getCardId();
+    /** @type {LLH.Core.MezameType} */
     var mezame = (document.getElementById("mezame").checked ? 1 : 0);
     if (index != "") {
         LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function (curCard) {
@@ -66,7 +68,7 @@ function changecolor() {
     } else {
         comp_skill.setCardData();
     }
-    LLUnit.setAvatarSrcList(comp_cardavatar, index, mezame);
+    comp_cardavatar.setCard(index, mezame);
 }
 
 function toMezame() {
@@ -82,8 +84,9 @@ function applysongdata(songSettingId, songSetting) {
 function copyTo(n) {
     var index = comp_cardselector.getCardId();
     if (index == "") return;
+    /** @type {LLH.Core.MezameType} */
     var mezame = (document.getElementById("mezame").checked ? 1 : 0);
-    LLUnit.setAvatarSrcList(comp_avatar_team[n], index, mezame);
+    comp_avatar_team[n].setCard(index, mezame);
     comp_avatar_team[n].show();
     LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function (curCard) {
         if (!curCard.skill) return;
@@ -107,7 +110,7 @@ function copyTo(n) {
 }
 
 function decopyTo(n) {
-    LLUnit.setAvatarSrcList(comp_avatar_team[n], '', 0);
+    comp_avatar_team[n].setCard();
     if (n > 0) comp_avatar_team[n].hide();
     document.getElementById("member" + String(n))[0].selected = true;
     document.getElementById("skilllevel" + String(n)).innerHTML = 1;
@@ -197,9 +200,9 @@ function renderPage(loadDeferred) {
         document.getElementById("mezame").checked = mezame
         for (i = 0; i < 9; i++) {
             if (document.getElementById("member" + String(i)).value != 0) {
-                var curCardid = parseInt(document.getElementById('cardid' + String(i)).value);
-                var curMezame = parseInt(document.getElementById('mezame' + String(i)).value);
-                LLUnit.setAvatarSrcList(comp_avatar_team[i], curCardid, curMezame);
+                var curCardid = document.getElementById('cardid' + String(i)).value;
+                var curMezame = !!parseInt(document.getElementById('mezame' + String(i)).value);
+                comp_avatar_team[i].setCard(curCardid, curMezame);
                 comp_avatar_team[i].show();
             }
         }
@@ -217,7 +220,7 @@ function renderPage(loadDeferred) {
         comp_songselector = new LLSongSelectorComponent('song_filter', { 'songs': songData });
         comp_songselector.onSongSettingChange = applysongdata;
         data_mapnote = new LLMapNoteData();
-        comp_skill = new LLSkillContainer();
+        comp_skill = new LLSkillComponent({'id': 'skillcontainer', 'showLabel': true});
         comp_cardselector = new LLCardSelectorComponent('card_filter_container', { 'cards': cardData, 'noShowN': true, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey) });
         comp_cardselector.getComponent('rarity').filterOptions(function (opt) {
             return !(opt.value == 'N' || opt.value == 'R');
@@ -233,9 +236,9 @@ function renderPage(loadDeferred) {
             }));
         });
 
-        comp_cardavatar = new LLImageComponent('imageselect');
+        comp_cardavatar = new LLAvatarComponent({'id': 'imageselect', 'smallAvatar': true});
         for (var i = 0; i < 9; i++) {
-            comp_avatar_team.push(new LLImageComponent('avatar' + i));
+            comp_avatar_team.push(new LLAvatarComponent({'id': 'avatar' + i, 'smallAvatar': true}));
         }
 
         comp_language = new LLLanguageComponent('language');

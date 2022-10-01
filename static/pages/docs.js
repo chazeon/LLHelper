@@ -387,8 +387,8 @@ function renderPage(loadDeferred) {
                     needCards[effect][note].push(curCard);
                 }
                 var headerRow = ['#图标'];
-                for (var i = 0; i < effects.length; i++) {
-                    headerRow.push('#' + LLConst.Skill.getEffectBrief(effects[i]));
+                for (var j = 0; j < effects.length; j++) {
+                    headerRow.push('#' + LLConst.Skill.getEffectBrief(effects[j]));
                 }
                 var tableData = [headerRow];
                 for (var i in notes) {
@@ -400,10 +400,8 @@ function renderPage(loadDeferred) {
                             var matchedCards = needCards[curEffect][i];
                             for (var k = 0; k < matchedCards.length; k++) {
                                 var curCard = matchedCards[k];
-                                var image = createElement('img', { 'className': 'avatar' });
-                                var imageComp = new LLImageComponent(image);
-                                LLUnit.setAvatarSrcList(imageComp, parseInt(curCard.id), 1);
-                                cardImages.push(image);
+                                var avatarComp = new LLAvatarComponent({'smallAvatar': true, 'cardId': curCard.id, 'mezame': true});
+                                cardImages.push(avatarComp.element);
                             }
                             curRow.push(cardImages);
                         } else {

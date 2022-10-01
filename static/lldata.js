@@ -3336,18 +3336,6 @@ var LLUnit = {
       selOptions.push({'value': 'cool',  'text': 'Cool',  'color': 'blue'});
       selectComponent.setOptions(selOptions);
       return selectComponent;
-   },
-
-   setAvatarSrcList: function (imgComp, cardid, mezame) {
-      imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
-      if (cardid) {
-         imgComp.setAltText(LLConst.Common.getCardDescription((LLCardData.getAllCachedBriefData() || {'id': cardid})[cardid], LLConstValue.LANGUAGE_CN, mezame));
-      } else {
-         imgComp.setAltText('');
-      }
-      LLImageServerSwitch.registerCallback(imgComp, function () {
-         imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
-      });
    }
 };
 
