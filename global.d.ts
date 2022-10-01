@@ -728,7 +728,8 @@ declare namespace LLH {
 
         }
         /** returns false to filter out the option */
-        type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue?: string, targetData?: any) => boolean;
+        type LLFiltersComponent_FilterCallback<FilterValueT = string, TargetDataT = any>
+            = (targetOption: LLSelectComponent_OptionDef, filterValue?: FilterValueT, targetData?: TargetDataT) => boolean;
         type LLFiltersComponent_OptionGroupType = {[id: string]: LLSelectComponent_OptionDef[]};
         interface LLFiltersComponent_FilterDef {
             callbacks?: {[targetName: string]: LLFiltersComponent_FilterCallback};
@@ -750,7 +751,7 @@ declare namespace LLH {
             setFreezed(isFreezed: boolean): void;
             isFreezed(): boolean;
             addFilterable<E extends HTMLElement, D>(name: string, component: LLValuedComponent<E, D>, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
-            addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
+            addFilterCallback<FilterValueT = string, TargetDataT = any>(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback<FilterValueT, TargetDataT>): void;
             setFilterOptionGroupCallback(name: string, groupGetter: () => string, affectedBy: string[]): void;
             setFilterOptionGroups(name: string, groups: LLFiltersComponent_OptionGroupType): void;
             setFilterOptions(name: string, options: LLSelectComponent_OptionDef[]): void;
@@ -926,6 +927,8 @@ declare namespace LLH {
             friendCSkill?: Layout.CenterSkill.LLCSkillComponent;
             mode?: Layout.LayoutMode;
         }
+        type LLSongSelectorComponent_SongSettingChangeCallback = (songSettingId: Core.SongSettingIdType, songSetting: Internal.ProcessedSongSettingDataType) => void;
+        type LLSongSelectorComponent_SongColorChangeCallback = (attribute: Core.AttributeType) => void;
         class LLSongSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLSongSelectorComponent_Options)
 
@@ -948,8 +951,8 @@ declare namespace LLH {
             updateMapInfo(songSetting: Internal.ProcessedSongSettingDataType): void;
 
             // optional callback
-            onSongSettingChange?: (songSettingId: Core.SongSettingIdType, songSetting: Internal.ProcessedSongSettingDataType) => void;
-            onSongColorChange?: (attribute: Core.AttributeType) => void;
+            onSongSettingChange?: LLSongSelectorComponent_SongSettingChangeCallback;
+            onSongColorChange?: LLSongSelectorComponent_SongColorChangeCallback;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -1413,9 +1416,9 @@ declare namespace LLH {
              * effect value
              * for SYNC & ATTRIBUTE_UP effect: increased attribute after sync/attribute up
              */
-            v: number;
+            v?: number;
             /** sync target */
-            st: number;
+            st?: number;
         }
         class LLSimulateContext_LastActiveSkill {
             /** member id */
@@ -1463,7 +1466,7 @@ declare namespace LLH {
             a: boolean;
             st: LLSimulateContext_SkillStaticInfo;
             /** active effect info */
-            ae: LLSimulateContext_EffectStaticInfo;
+            ae?: LLSimulateContext_EffectStaticInfo;
         }
         class LLSimulateContext_SkillDynamicInfo {
             staticInfo: LLSimulateContext_SkillStaticInfo;

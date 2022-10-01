@@ -1328,9 +1328,11 @@ var LLFiltersComponent = (function() {
          return this.filters[name];
       }
       /**
+       * @template [FilterValueT = string]
+       * @template [TargetDataT = any]
        * @param {string} sourceName 
        * @param {string} targetName 
-       * @param {LLH.Component.LLFiltersComponent_FilterCallback} callback 
+       * @param {LLH.Component.LLFiltersComponent_FilterCallback<FilterValueT, TargetDataT>} callback 
        */
       addFilterCallback(sourceName, targetName, callback) {
          var sourceFilter = this.getFilter(sourceName, true);
@@ -1341,8 +1343,8 @@ var LLFiltersComponent = (function() {
          if (!targetFilter.reverseCallbacks) {
             targetFilter.reverseCallbacks = {};
          }
-         sourceFilter.callbacks[targetName] = callback;
-         targetFilter.reverseCallbacks[sourceName] = callback;
+         sourceFilter.callbacks[targetName] = /** @type {LLH.Component.LLFiltersComponent_FilterCallback} */ (callback);
+         targetFilter.reverseCallbacks[sourceName] = /** @type {LLH.Component.LLFiltersComponent_FilterCallback} */ (callback);
       }
       /**
        * @param {string} name 
@@ -3584,6 +3586,14 @@ var LLCardSelectorComponent = (function() {
       return {'value': effectId + '', 'text': LLConst.Skill.getEffectBrief(effectId)};
    };
 
+   /** @param {(filterValue: string, targetData: LLH.API.CardDataType) => boolean} callback */
+   const makeCardFilter = function (callback) {
+      /** @type {LLH.Component.LLFiltersComponent_FilterCallback<string, LLH.API.CardDataType>} */
+      return function (opt, v, d) {
+         return (!v) || (!d) || callback(v, d);
+      };
+   };
+
    /**
     * @implements {LLH.Mixin.LanguageSupport}
     */
@@ -3620,10 +3630,11 @@ var LLCardSelectorComponent = (function() {
          var selCardPool = (this.pools ? createFormSelect() : undefined);
          var checkShowNCard = createElement('input', {'type': 'checkbox'});
 
+         this._cardChoiceComponent = new LLSelectComponent(selCardChoice);
          this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
          this._triggerTypeComponent = new LLSelectComponent(selTriggerType);
    
-         me.addFilterable(SEL_ID_CARD_CHOICE, new LLSelectComponent(selCardChoice), function (opt) {
+         me.addFilterable(SEL_ID_CARD_CHOICE, this._cardChoiceComponent, function (opt) {
             var index = opt.value;
             if (!index) return undefined;
             return me.cards[index];
@@ -3651,8 +3662,8 @@ var LLCardSelectorComponent = (function() {
          me.setFilterOptionGroupCallback(SEL_ID_SET_NAME, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => (me._triggerTypeComponent.get() || ''), [SEL_ID_TRIGGER_TYPE]);
    
-         me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.rarity == v));
-         me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (LLConst.Member.getMemberName(d.typeid) == v));
+         me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.rarity == v)));
+         me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (LLConst.Member.getMemberName(d.typeid) == v)));
          me.addFilterCallback(SEL_ID_CHARA, SEL_ID_SET_NAME, function (opt, v) {
             if (v == '' || opt.value === '') return true;
             var members = me.albumGroupMemberCache[opt.value];
@@ -3662,7 +3673,7 @@ var LLCardSelectorComponent = (function() {
             }
             return false;
          });
-         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, (opt, v, d) => (!v) || (!d) || LLConst.Member.isMemberInGroup(parseInt(d.typeid), v));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => LLConst.Member.isMemberInGroup(d.typeid, v)));
          me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (!v) || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
          me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_SET_NAME, function (opt, v) {
             if ((!v) || opt.value === '') return true;
@@ -3673,17 +3684,17 @@ var LLCardSelectorComponent = (function() {
             }
             return false;
          });
-         me.addFilterCallback(SEL_ID_ATTRIBUTE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.attribute == v));
-         me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggertype == v));
-         me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggerrequire == v));
-         me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.skilleffect == v));
-         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(d.special) == parseInt(v)));
-         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, /** @type {LLH.API.CardDataType=} */ d) => (!v) || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
+         me.addFilterCallback(SEL_ID_ATTRIBUTE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.attribute == v)));
+         me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => ((d.triggertype + '') == v)));
+         me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.triggerrequire == v)));
+         me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => ((d.skilleffect + '') == v)));
+         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.special == parseInt(v))));
+         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v))));
          if (selCardPool) {
             me.addFilterCallback(SEL_ID_CARD_POOL, SEL_ID_CARD_CHOICE, (opt, v) => (!v) || (!opt.value) || (!me.pools) || me.pools[parseInt(v)].itemSet.has(opt.value));
          }
-         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
-         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, /** @type {boolean=} */ v, /** @type {LLH.API.CardDataType=} */ d) => (v == true) || (!d) || (d.rarity != 'N'));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, /** @type {boolean=} */ v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
    
          /** @type {LLH.Component.SubElements} */
          var generalFilters = [selRarity, selChara, selUnitGrade, selAttribute, selSpecial];
@@ -3712,17 +3723,15 @@ var LLCardSelectorComponent = (function() {
       }
       /** @returns {LLH.Core.CardIdStringType} */
       getCardId() {
-         return this.getValuedComponent(SEL_ID_CARD_CHOICE).get() || '';
+         return this._cardChoiceComponent.getOrElse('');
       }
       /** @returns {LLH.Core.CardIdStringType[]} */
       getFilteredCardIdList() {
-         /** @type {LLH.Component.LLSelectComponent} */
-         var cardSelect = this.getValuedComponent(SEL_ID_CARD_CHOICE);
-         var selectedCard = cardSelect.get();
+         var selectedCard = this._cardChoiceComponent.get();
          if (selectedCard) {
             return [selectedCard];
          } else {
-            return cardSelect.filteredOptions.map((x) => x.value).filter((x) => !!x);
+            return this._cardChoiceComponent.filteredOptions.map((x) => x.value).filter((x) => !!x);
          }
       }
       /**
@@ -3780,7 +3789,7 @@ var LLCardSelectorComponent = (function() {
          }
          me.setFilterOptionGroups(SEL_ID_CARD_CHOICE, {'0': cardOptionsCN, '1': cardOptionsJP});
          me.albumGroupMemberCache = albumGroupMemberCache;
-         if (resetSelection) me.getValuedComponent(SEL_ID_CARD_CHOICE).set('');
+         if (resetSelection) this._cardChoiceComponent.set('');
    
          // build set name options from album groups
          var setNameOptionsCN = [{'value': '', 'text': '相册名'}];
@@ -3912,7 +3921,7 @@ var LLCardSelectorComponent = (function() {
          me.handleFilters();
       }
       scrollIntoView() {
-         var element = this.getComponent(SEL_ID_CARD_CHOICE).element;
+         var element = this._cardChoiceComponent.element;
          if (element) {
             element.scrollIntoView(true);
          }
@@ -3950,11 +3959,11 @@ var LLSongSelectorComponent = (function() {
    var MEM_ID_LANGUAGE = 'language';
 
    /**
-    * @param {number} defaultValue 
+    * @param {string} defaultValue 
     * @returns {HTMLInputElement}
     */
    function createFormNumber(defaultValue) {
-      return /** @type {HTMLInputElement} */ (createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue}));
+      return createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue});
    }
 
    /**
@@ -3964,24 +3973,24 @@ var LLSongSelectorComponent = (function() {
    function initMapInfo(me, container) {
       var isLAMode = (me.mode == 'la');
       var selMapAtt = createFormSelect();
-      var numMapCombo = createFormNumber(300);
-      var numMapPerfect = createFormNumber(285);
-      var numMapTime = createFormNumber(100);
-      var numMapStarPerfect = createFormNumber(47);
-      var numBuffTapUp = (!isLAMode ? createFormNumber(0) : undefined);
-      var numBuffSkillUp = (!isLAMode ? createFormNumber(0) : undefined);
-      var numDebuffSkillRateDown = (isLAMode ? createFormNumber(0) : undefined);
-      var numDebuffHpDownValue = (isLAMode ? createFormNumber(0): undefined);
-      var numDebuffHpDownInterval = (isLAMode ? createFormNumber(0): undefined);
+      var numMapCombo = createFormNumber('300');
+      var numMapPerfect = createFormNumber('285');
+      var numMapTime = createFormNumber('100');
+      var numMapStarPerfect = createFormNumber('47');
+      var numBuffTapUp = (!isLAMode ? createFormNumber('0') : undefined);
+      var numBuffSkillUp = (!isLAMode ? createFormNumber('0') : undefined);
+      var numDebuffSkillRateDown = (isLAMode ? createFormNumber('0') : undefined);
+      var numDebuffHpDownValue = (isLAMode ? createFormNumber('0'): undefined);
+      var numDebuffHpDownInterval = (isLAMode ? createFormNumber('0'): undefined);
       me.addFilterable(SEL_ID_MAP_ATT, new LLSelectComponent(selMapAtt));
       me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
-         if (v == '') return true;
+         if (!v) return true;
          var songData = me.songs[v];
          if ((!songData) || songData.attribute == 'all') return true;
          return (opt.value == songData.attribute);
       });
       me.addFilterCallback(SEL_ID_DIFF_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
-         if (v == '') return true;
+         if (!v) return true;
          var songSetting = me.songSettings[v];
          if (!songSetting) return true;
          var songData = me.songs[songSetting.song];
@@ -4026,10 +4035,12 @@ var LLSongSelectorComponent = (function() {
          });
          llmap.setAttribute(me.getSongAttribute());
          llmap.setSongDifficultyData(parseInt(numMapCombo.value), parseInt(numMapStarPerfect.value), parseInt(numMapTime.value), parseInt(numMapPerfect.value), parseInt(numMapStarPerfect.value));
-         if (isLAMode) {
+         if (numDebuffSkillRateDown && numDebuffHpDownValue && numDebuffHpDownInterval) {
             llmap.setLADebuff(parseFloat(numDebuffSkillRateDown.value), parseInt(numDebuffHpDownValue.value), parseFloat(numDebuffHpDownInterval.value));
-         } else {
+         } else if (numBuffTapUp && numBuffSkillUp) {
             llmap.setMapBuff(parseFloat(numBuffTapUp.value), parseFloat(numBuffSkillUp.value));
+         } else {
+            console.error('Failed to set map buff/debuff');
          }
          llmap.setWeights(customWeights || songSetting.positionweight);
          return llmap;
@@ -4054,6 +4065,10 @@ var LLSongSelectorComponent = (function() {
          this.songs = {};
          /** @type {LLH.Internal.ProcessedSongSettingDictDataType} */
          this.songSettings = {};
+         /** @type {LLH.Selector.LLSongSelectorComponent_SongSettingChangeCallback=} */
+         this.onSongSettingChange = undefined;
+         /** @type {LLH.Selector.LLSongSelectorComponent_SongColorChangeCallback=} */
+         this.onSongColorChange = undefined;
 
          var container = LLUnit.getElement(id);
 
@@ -4067,12 +4082,16 @@ var LLSongSelectorComponent = (function() {
          var selSongSwing = createFormSelect();
          var selSongStarDiff = createFormSelect();
 
-         me.addFilterable(SEL_ID_DIFF_CHOICE, new LLSelectComponent(selDiffChoice), function (opt) {
+         this._diffChoiceComponent = new LLSelectComponent(selDiffChoice);
+         this._songChoiceComponent = new LLSelectComponent(selSongChoice);
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+
+         me.addFilterable(SEL_ID_DIFF_CHOICE, this._diffChoiceComponent, function (opt) {
             var settingId = opt.value;
             if (!settingId) return undefined;
             return me.songSettings[settingId];
          });
-         me.addFilterable(SEL_ID_SONG_CHOICE, new LLSelectComponent(selSongChoice), function (opt) {
+         me.addFilterable(SEL_ID_SONG_CHOICE, this._songChoiceComponent, function (opt) {
             var songId = opt.value;
             if (!songId) return undefined;
             return me.songs[songId];
@@ -4084,52 +4103,59 @@ var LLSongSelectorComponent = (function() {
          me.addFilterable(SEL_ID_SONG_AC, new LLSelectComponent(selSongAc));
          me.addFilterable(SEL_ID_SONG_SWING, new LLSelectComponent(selSongSwing));
          me.addFilterable(SEL_ID_SONG_STAR_DIFF, new LLSelectComponent(selSongStarDiff));
-         me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         me.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
 
-         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me.getValuedComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
-         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me.getValuedComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me._languageComponent.get() + '', [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me._languageComponent.get() + '', [MEM_ID_LANGUAGE]);
 
          /**
           * @param {string} name
           * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.API.SongDataType) => boolean} songChecker
           */
          var addSongAndSettingFilterBySong = function (name, songChecker) {
-            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, d));
-            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, me.songs[d.song]));
+            me.addFilterCallback(name, SEL_ID_SONG_CHOICE,
+               (opt, v, /** @type {LLH.API.SongDataType=} */ d) => (!v) || (!d) || songChecker(opt, v, d));
+            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE,
+               (opt, v, /** @type {LLH.Internal.ProcessedSongSettingDataType=} */ d) => (!v) || (!d) || songChecker(opt, v, me.songs[d.song]));
          };
          /**
           * @param {string} name 
           * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.Internal.ProcessedSongSettingDataType) => boolean} songSettingChecker 
           */
          var addSongAndSettingFilterBySongSetting = function (name, songSettingChecker) {
-            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, function (opt, v, d) {
-               if (v == '' || (!d)) return true;
+            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, function (opt, v, /** @type {LLH.API.SongDataType=} */ d) {
+               if ((!v) || (!d)) return true;
                for (var k in d.settings) {
-                  if (songSettingChecker(opt, v, d.settings[k])) return true;
+                  var songSetting = /** @type {LLH.Internal.ProcessedSongSettingDataType} */ (d.settings[k]);
+                  if (songSettingChecker(opt, v, songSetting)) return true;
                }
                return false;
             });
-            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songSettingChecker(opt, v, d));
+            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE,
+               (opt, v, /** @type {LLH.Internal.ProcessedSongSettingDataType=} */ d) => (!v) || (!d) || songSettingChecker(opt, v, d));
          };
-         me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.song == v));
+         me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE,
+            (opt, v, /** @type {LLH.Internal.ProcessedSongSettingDataType=} */ d) => (!v) || (!d) || (d.song == v));
          addSongAndSettingFilterBySong(SEL_ID_SONG_ATT, (opt, v, d) => (d.attribute == 'all' || (d.attribute == v)));
-         addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => (d.group == v));
+         addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => ((d.group + '') == v));
          addSongAndSettingFilterBySong(TEXT_ID_SONG_SEARCH, function (opt, v, d) {
             v = v.toLowerCase();
             return (d.name.toLowerCase().indexOf(v) >= 0) || (d.jpname.toLowerCase().indexOf(v) >= 0);
          });
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_DIFF, (opt, v, d) => (d.difficulty == v));
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_AC, (opt, v, d) => (d.isac == v));
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_SWING, (opt, v, d) => (d.isswing == v));
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_STAR_DIFF, (opt, v, d) => (d.stardifficulty == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_DIFF, (opt, v, d) => ((d.difficulty + '') == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_AC, (opt, v, d) => ((d.isac + '') == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_SWING, (opt, v, d) => ((d.isswing + '') == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_STAR_DIFF, (opt, v, d) => ((d.stardifficulty + '') == v));
 
+         /** @type {(name: string, newValue: string) => void} */
          me.onValueChange = function (name, newValue) {
             if (name == SEL_ID_DIFF_CHOICE) {
                if (options.includeMapInfo) me.updateMapInfo(me.getSelectedSongSetting());
                if (me.onSongSettingChange) me.onSongSettingChange(newValue, me.getSelectedSongSetting());
             } else if (name == SEL_ID_MAP_ATT) {
-               if (me.friendCSkill) me.friendCSkill.setMapColor(newValue);
-               if (me.onSongColorChange) me.onSongColorChange(newValue);
+               var songAttribute = /** @type {LLH.Core.AttributeType} */ (newValue);
+               if (me.friendCSkill) me.friendCSkill.setMapColor(songAttribute);
+               if (me.onSongColorChange) me.onSongColorChange(songAttribute);
             }
          };
 
@@ -4171,7 +4197,7 @@ var LLSongSelectorComponent = (function() {
          for (i in songs) {
             if (!songs[i].settings) continue;
             for (j in songs[i].settings) {
-               songSettings[j] = songs[i].settings[j];
+               songSettings[j] = /** @type {LLH.Internal.ProcessedSongSettingDataType} */ (songs[i].settings[j]);
                songSettings[j].song = i;
             }
          }
@@ -4205,7 +4231,7 @@ var LLSongSelectorComponent = (function() {
             songSettingOptionsCN.push({'value': liveId, 'text': cnName, 'color': color});
             songSettingOptionsJP.push({'value': liveId, 'text': jpName, 'color': color});
    
-            songSettingAvailableStarDiff[parseInt(curSongSetting.stardifficulty)] = 1;
+            songSettingAvailableStarDiff[curSongSetting.stardifficulty] = 1;
          }
          me.setFilterOptionGroups(SEL_ID_DIFF_CHOICE, {'0': songSettingOptionsCN, '1': songSettingOptionsJP});
    
@@ -4280,13 +4306,13 @@ var LLSongSelectorComponent = (function() {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
       /** @returns {LLH.Core.SongIdType} */
       getSelectedSongId() {
-         var curSongId = this.getComponent(SEL_ID_SONG_CHOICE).get();
+         var curSongId = this._songChoiceComponent.get();
          if (curSongId) return curSongId;
-         var curSongSettingId = this.getComponent(SEL_ID_DIFF_CHOICE).get();
+         var curSongSettingId = this._diffChoiceComponent.get();
          if (curSongSettingId && this.songSettings[curSongSettingId]) {
             return this.songSettings[curSongSettingId].song || '';
          }
@@ -4297,20 +4323,21 @@ var LLSongSelectorComponent = (function() {
       }
       /** @returns {LLH.Core.SongSettingIdType} */
       getSelectedSongSettingId() {
-         return this.getComponent(SEL_ID_DIFF_CHOICE).get();
+         return this._diffChoiceComponent.getOrElse('');
       }
       getSelectedSongSetting() {
          return this.songSettings[this.getSelectedSongSettingId()];
       }
       /** @returns {LLH.Core.AttributeAllType} */
       getSongAttribute() {
-         var me = this;
-         if (!me.includeMapInfo) {
-            var curSong = me.getSelectedSong();
+         /** @type {LLH.Component.LLSelectComponent=} */
+         var mapAttrComponent = this.getValuedComponent(SEL_ID_MAP_ATT);
+         if (!mapAttrComponent) {
+            var curSong = this.getSelectedSong();
             if (curSong) return curSong.attribute;
             return 'all';
          } else {
-            return me.getComponent(SEL_ID_MAP_ATT).get();
+            return /** @type {LLH.Core.AttributeAllType} */ (mapAttrComponent.getOrElse('all'));
          }
       }
       /** @param {LLH.Internal.ProcessedSongSettingDataType} songSetting */
@@ -4323,6 +4350,7 @@ var LLSongSelectorComponent = (function() {
        */
       getMap(customWeight) {
          console.error('Unexpected call to getMap on LLSongSelectorCompoent excluding map info');
+         return new LLMap();
       }
    }
    return LLSongSelectorComponent_cls;
@@ -4394,7 +4422,7 @@ var LLMap = (function () {
     */
    class LLMap_cls {
       /**
-       * @param {LLH.Model.LLMap_Options} options 
+       * @param {LLH.Model.LLMap_Options} [options] 
        */
       constructor(options) {
          /** @type {LLH.Model.LLMap_SaveData} */
@@ -5571,7 +5599,7 @@ var LLSimulateContext = (function() {
                var realMemberId = this.lastActiveSkill.m;
                var realSkillStatic = this.skillsDynamic[realMemberId].staticInfo;
                var realSkillEffect = (this.lastActiveSkill.a ? realSkillStatic.accessoryEffect : realSkillStatic.skillEffect);
-               if (realSkillEffect.effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
+               if (realSkillEffect && realSkillEffect.effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
                   return true;
                }
             }
@@ -5583,7 +5611,7 @@ var LLSimulateContext = (function() {
             if (this.effects[LLConstValue.SKILL_EFFECT_LEVEL_UP] && this.lastFrameForLevelUp == this.currentFrame) {
                return true;
             }
-         } else if (skillEffect == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
+         } else if (skillEffect == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP && effectInfo.attributeUpTargets) {
             // 若队伍中所有满足条件的卡都已经在属性提升状态, 则无法发动
             for (var i = 0; i < effectInfo.attributeUpTargets.length; i++) {
                var targetMemberId = effectInfo.attributeUpTargets[i];
@@ -5592,7 +5620,7 @@ var LLSimulateContext = (function() {
                }
             }
             return true;
-         } else if (skillEffect == LLConstValue.SKILL_EFFECT_SYNC) {
+         } else if (skillEffect == LLConstValue.SKILL_EFFECT_SYNC && effectInfo.syncTargetsBy) {
             // 若队伍中没有同步对象，则无法发动
             if (effectInfo.syncTargetsBy[memberId].length < 1) return true;
          }
