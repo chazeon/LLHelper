@@ -621,25 +621,25 @@ declare namespace LLH {
             override get(): ValueType;
             override set(val: ValueType): void;
         }
-        interface LLSelectComponent_OptionDef {
+        interface LLSelectComponent_OptionDef<ValueType extends string = string> {
             text: string;
-            value: string;
+            value: ValueType;
             color?: string;
             background?: string;
         }
         /** returns true if keep the option, false to filter out the option */
-        type LLSelectComponent_FilterCallback = (opt: LLSelectComponent_OptionDef) => boolean;
-        class LLSelectComponent extends LLValuedComponent<HTMLSelectElement> {
+        type LLSelectComponent_FilterCallback<ValueType extends string = string> = (opt: LLSelectComponent_OptionDef<ValueType>) => boolean;
+        class LLSelectComponent<ValueType extends string = string> extends LLValuedComponent<HTMLSelectElement, ValueType> {
             constructor(id: HTMLSelectElement | string, options?: LLValuedComponent_Options);
 
-            options: LLSelectComponent_OptionDef[];
-            filteredOptions: LLSelectComponent_OptionDef[];
-            filter?: LLSelectComponent_FilterCallback;
+            options: LLSelectComponent_OptionDef<ValueType>[];
+            filteredOptions: LLSelectComponent_OptionDef<ValueType>[];
+            filter?: LLSelectComponent_FilterCallback<ValueType>;
 
-            setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
-            filterOptions(filter?: LLSelectComponent_FilterCallback): void;
+            setOptions(options: LLSelectComponent_OptionDef<ValueType>[], filter?: LLSelectComponent_FilterCallback<ValueType>): void;
+            filterOptions(filter?: LLSelectComponent_FilterCallback<ValueType>): void;
 
-            override set(val: string): void;
+            override set(val: ValueType): void;
         }
         interface LLImageComponent_Options extends LLComponentBase_Options {
             srcList?: string[];
@@ -1097,6 +1097,8 @@ declare namespace LLH {
             getDefaultMaxSlot(rarity: Core.RarityStringType): number;
             getDefaultMinSlot(rarity: Core.RarityStringType): number;
             getCSkillGroups(): Core.MemberTagIdType[];
+            getZeroCSkill(): Internal.CSkillDataType;
+            copyCSkill(fromCSkill: Internal.CSkillDataType, toCSkill?: Internal.CSkillDataType): Internal.CSkillDataType;
             getCardDescription(card: API.CardDataType, language: Core.LanguageType, mezame?: boolean): string;
             getMaxKizuna(rarity: Core.RarityStringType, mezame?: Core.MezameType | boolean): number;
         }
@@ -1549,8 +1551,8 @@ declare namespace LLH {
             memberSkillOrder: number[];
             lastFrameForLevelUp: number;
             activeSkills: LLSimulateContext_ActiveSkill[];
-            lastActiveSkill: LLSimulateContext_LastActiveSkill;
-            effects: {[type: number]: number};
+            lastActiveSkill?: LLSimulateContext_LastActiveSkill;
+            effects: {[type: Core.SkillEffectType]: number};
             isAccuracyState: boolean;
             isFullCombo: boolean;
             /** seconds, time when hp dropped to 0 */
@@ -1565,7 +1567,7 @@ declare namespace LLH {
             processDeactiveSkills(): void;
             getMinDeactiveTime(): void;
             markTriggerActive(memberId: number, bActive: boolean, effectInfo?: LLSimulateContext_EffectStaticInfo): void;
-            isSkillNoEffect(memberId: number, effectInfo: LLSimulateContext_EffectStaticInfo): boolean;
+            isSkillNoEffect(memberId: number, effectInfo?: LLSimulateContext_EffectStaticInfo): boolean;
             getSkillPossibility(memberId: number, isAccessory: boolean): number;
             onSkillActive(membereId: number, isAccessory: boolean): boolean;
             getNextTriggerChances(): number[];
@@ -1886,7 +1888,7 @@ declare namespace LLH {
                 title?: string;
             }
 
-            interface LLCSkillComponent_Controller {
+            interface LLCSkillComponent_Controller extends Controller.ControllerBase {
                 setCSkill(card: Internal.CSkillDataType): void;
                 getCSkill(): Internal.CSkillDataType;
                 setMapColor(color: Core.AttributeType): void;

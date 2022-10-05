@@ -897,7 +897,8 @@ var LLValuedMemoryComponent = (function() {
 
 var LLSelectComponent = (function() {
    /**
-    * @extends {LLValuedComponent<HTMLSelectElement>}
+    * @template {string} [ValueType = string]
+    * @extends {LLValuedComponent<HTMLSelectElement, ValueType>}
     */
    class LLSelectComponent_cls extends LLValuedComponent {
       /**
@@ -906,11 +907,11 @@ var LLSelectComponent = (function() {
        */
       constructor(id, options) {
          super(id, options);
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         /** @type {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} */
          this.options = [];
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} read only*/
+         /** @type {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} read only*/
          this.filteredOptions = [];
-         /** @type {LLH.Component.LLSelectComponent_FilterCallback | undefined} */
+         /** @type {LLH.Component.LLSelectComponent_FilterCallback<ValueType> | undefined} */
          this.filter = undefined;
          if (!this.element) {
             return this;
@@ -918,14 +919,14 @@ var LLSelectComponent = (function() {
          var orig_opts = this.element.options;
          for (var i = 0; i < orig_opts.length; i++) {
             this.options.push({
-               value: orig_opts[i].value,
+               value: /** @type {ValueType} */ (orig_opts[i].value),
                text: orig_opts[i].text
             });
          }
       }
       /**
        * @override
-       * @param {string} v 
+       * @param {ValueType} v 
        */
       set(v) {
          if (!this.element) return;
@@ -944,21 +945,21 @@ var LLSelectComponent = (function() {
          }
       }
       /**
-       * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
-       * @param {LLH.Component.LLSelectComponent_FilterCallback} [filter] 
+       * @param {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} options 
+       * @param {LLH.Component.LLSelectComponent_FilterCallback<ValueType>} [filter] 
        */
       setOptions(options, filter) {
          if (!this.exist) return;
          this.options = options || [];
          this.filterOptions(filter);
       }
-      /** @param {LLH.Component.LLSelectComponent_FilterCallback} [filter] */
+      /** @param {LLH.Component.LLSelectComponent_FilterCallback<ValueType>} [filter] */
       filterOptions(filter) {
          if (!this.element) return;
          if (!filter) filter = this.filter;
          var oldValue = this.get();
          var foundOldValue = false;
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         /** @type {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} */
          var filteredOptions = [];
          this.element.options.length = 0;
          for (var i in this.options) {
@@ -974,7 +975,7 @@ var LLSelectComponent = (function() {
          if (foundOldValue && oldValue !== undefined) {
             this.set(oldValue);
          } else {
-            this.set(this.element.value);
+            this.set(/** @type {ValueType} */ (this.element.value));
          }
          this.filter = filter;
          this.filteredOptions = filteredOptions;
@@ -2028,6 +2029,33 @@ var LLConst = (function () {
       getCSkillGroups: function () {
          mCheckInited('cskill_groups');
          return CSKILL_GROUPS;
+      },
+      getZeroCSkill: function () {
+         return {
+            'attribute': 'smile',
+            'Cskillattribute': 'smile',
+            'Cskillpercentage': 0,
+            'Csecondskilllimit': LLConstValue.GROUP_UNKNOWN,
+            'Csecondskillattribute': 0
+         };
+      },
+      copyCSkill: function (fromCSkill, toCSkill) {
+         if (!toCSkill) {
+            return {
+               'attribute': fromCSkill.attribute,
+               'Cskillattribute': fromCSkill.Cskillattribute,
+               'Cskillpercentage': fromCSkill.Cskillpercentage,
+               'Csecondskilllimit': fromCSkill.Csecondskilllimit,
+               'Csecondskillattribute': fromCSkill.Csecondskillattribute
+            };
+         } else {
+            toCSkill.attribute = fromCSkill.attribute;
+            toCSkill.Cskillattribute = fromCSkill.Cskillattribute;
+            toCSkill.Cskillpercentage = fromCSkill.Cskillpercentage;
+            toCSkill.Csecondskilllimit = fromCSkill.Csecondskilllimit;
+            toCSkill.Csecondskillattribute = fromCSkill.Csecondskillattribute;
+            return toCSkill;
+         }
       },
       getCardDescription: function (card, language, mezame) {
          var desc = String(card.id);
@@ -3326,13 +3354,12 @@ var LLUnit = {
       return tableElement;
    },
 
-   createColorSelectComponent: function (emptyName, options) {
+   /** @param {LLH.Component.CreateElementOptions} [options] */
+   createColorSelectComponent: function (options) {
+      /** @type {LLH.Component.LLSelectComponent<LLH.Core.AttributeType>} */
       var selectComponent = new LLSelectComponent(LLUnit.createSelectElement(options));
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      /** @type {LLH.Component.LLSelectComponent_OptionDef<LLH.Core.AttributeType>[]} */
       var selOptions = [];
-      if (emptyName !== undefined) {
-         selOptions.push({'value': '', 'text': emptyName});
-      }
       selOptions.push({'value': 'smile', 'text': 'Smile', 'color': 'red'});
       selOptions.push({'value': 'pure',  'text': 'Pure',  'color': 'green'});
       selOptions.push({'value': 'cool',  'text': 'Cool',  'color': 'blue'});
@@ -5430,6 +5457,8 @@ var LLSimulateContext = (function() {
          this.triggers = {};
          this.memberSkillOrder = [];
          this.lastFrameForLevelUp = -1;
+         this.isFullCombo = false;
+         this.laGemTotalBonus = 1;
    
          var skillOrder = []; // [ [i, priority], ...]
          var lvupSkillPriority = 1;
@@ -5478,8 +5507,10 @@ var LLSimulateContext = (function() {
          }
    
          this.activeSkills = [];
+         /** @type {LLH.Model.LLSimulateContext_LastActiveSkill=} */
          this.lastActiveSkill = undefined;
          // effect_type: effect_value
+         /** @type {{[type: LLH.Core.SkillEffectType]: number}} */
          var eff = {};
          eff[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] = 0; // active count
          eff[LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL] = 0; // active count
@@ -5580,9 +5611,10 @@ var LLSimulateContext = (function() {
       }
       /**
        * @param {number} memberId 
-       * @param {LLH.Model.LLSimulateContext_EffectStaticInfo} effectInfo 
+       * @param {LLH.Model.LLSimulateContext_EffectStaticInfo} [effectInfo] 
        */
       isSkillNoEffect(memberId, effectInfo) {
+         if (effectInfo === undefined) return true;
          var skillEffect = effectInfo.effectType;
          // 在一些情况下技能会无效化
          if (skillEffect == LLConstValue.SKILL_EFFECT_REPEAT) {
@@ -5691,7 +5723,7 @@ var LLSimulateContext = (function() {
          }
          var skillDynamic = this.skillsDynamic[memberId];
          var skillEffect = (isAccessory ? skillDynamic.staticInfo.accessoryEffect : skillDynamic.staticInfo.skillEffect);
-         var effectType = skillEffect.effectType;
+         var effectType = (skillEffect ? skillEffect.effectType : LLConstValue.SKILL_EFFECT_NONE);
          var realMemberId = memberId;
          var realAccessory = isAccessory;
          // update chain trigger
@@ -5715,7 +5747,7 @@ var LLSimulateContext = (function() {
                } else {
                   skillEffect = this.skillsDynamic[realMemberId].staticInfo.skillEffect;
                }
-               effectType = skillEffect.effectType;
+               effectType = (skillEffect ? skillEffect.effectType : LLConstValue.SKILL_EFFECT_NONE);
                // 国服翻译有问题, 说复读技能发动时前一个发动的技能是复读时无效
                // 但是日服的复读技能介绍并没有提到这一点, 而是复读上一个非复读技能
                // 这导致了日服出现的复读boost卡组能获得超高得分的事件, 而llh依照国服翻译无法模拟这一情况
@@ -5739,18 +5771,23 @@ var LLSimulateContext = (function() {
                this.setLastActiveSkill(memberId, levelBoost, this.currentFrame, isAccessory);
             }
          }
+         if (!skillEffect) return false;
          // take effect
          // should not be a REPEAT skill
          var effectTime = 0;
          var effectValue = 0;
          if (realAccessory) {
             var accessoryDetail = this.members[realMemberId].getAccessoryDetail(levelBoost);
-            effectTime = accessoryDetail.time;
-            effectValue = accessoryDetail.effect_value;
+            if (accessoryDetail !== undefined) {
+               effectTime = accessoryDetail.time;
+               effectValue = accessoryDetail.effect_value;
+            }
          } else {
             var skillDetail = this.members[realMemberId].getSkillDetail(levelBoost);
-            effectTime = skillDetail.time;
-            effectValue = skillDetail.score;
+            if (skillDetail !== undefined) {
+               effectTime = skillDetail.time;
+               effectValue = skillDetail.score;
+            }
          }
          if (effectType == LLConstValue.SKILL_EFFECT_ACCURACY_SMALL) {
             this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] += 1;
@@ -5779,6 +5816,10 @@ var LLSimulateContext = (function() {
             this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER] += effectValue;
             this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
          } else if (effectType == LLConstValue.SKILL_EFFECT_SYNC) {
+            if (skillEffect.syncTargetsBy === undefined) {
+               console.error('Undefined syncTargetsBy');
+               return false;
+            }
             // exclude the member that activate the skill, not the one owning the skill
             var syncTargets = skillEffect.syncTargetsBy[memberId];
             var syncTarget = syncTargets[Math.floor(Math.random() * syncTargets.length)];
@@ -5799,12 +5840,14 @@ var LLSimulateContext = (function() {
             this.setLastFrameForLevelUp();
          } else if (effectType == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
             var attrBuff = 0;
-            for (var i = 0; i < skillEffect.attributeUpTargets.length; i++) {
-               var targetMemberId = skillEffect.attributeUpTargets[i];
-               var targetDynamic = this.skillsDynamic[targetMemberId];
-               if (targetDynamic.attributeUp === undefined) {
-                  targetDynamic.attributeUp = Math.ceil(this.members[targetMemberId].attrStrength * (effectValue-1));
-                  attrBuff += targetDynamic.attributeUp;
+            if (skillEffect.attributeUpTargets !== undefined) {
+               for (var i = 0; i < skillEffect.attributeUpTargets.length; i++) {
+                  var targetMemberId = skillEffect.attributeUpTargets[i];
+                  var targetDynamic = this.skillsDynamic[targetMemberId];
+                  if (targetDynamic.attributeUp === undefined) {
+                     targetDynamic.attributeUp = Math.ceil(this.members[targetMemberId].attrStrength * (effectValue-1));
+                     attrBuff += targetDynamic.attributeUp;
+                  }
                }
             }
             this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP] += attrBuff;
@@ -5865,17 +5908,19 @@ var LLSimulateContext = (function() {
          for (var i = 0; i < this.memberSkillOrder.length; i++) {
             var memberId = this.memberSkillOrder[i];
             var curTrigger = this.skillsDynamic[memberId].trigger;
+            if (curTrigger === undefined) continue;
             var curTriggerType = this.members[memberId].card.triggertype;
             // active skill
             if (curTrigger.a) {
                // 复读到持续性技能的话不会保留机会到持续性技能结束
-               if (curTrigger.ae.effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
+               if (curTrigger.ae && curTrigger.ae.effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
                   triggerChecks[curTriggerType](this, curTrigger);
                }
                continue;
             }
             // trigger limit
-            if (curTrigger.st.triggerLimit > 0 && this.skillsActiveCount[memberId] >= curTrigger.st.triggerLimit) {
+            var triggerLimit = curTrigger.st.triggerLimit;
+            if (triggerLimit !== undefined && triggerLimit > 0 && this.skillsActiveCount[memberId] >= triggerLimit) {
                continue;
             }
             // inactive skill, check trigger chance
@@ -5922,6 +5967,7 @@ var LLSimulateContext = (function() {
          for (i = 0; i < this.members.length; i++) {
             var member = this.members[i];
             for (j = 0; j < member.laGems.length; j++) {
+               /** @type {LLH.API.SisDataType=} */
                var gemData = member.laGems[j].gemData;
                while (gemData) {
                   if (this.isLAGemTakeEffect(gemData)) {
@@ -5941,11 +5987,11 @@ var LLSimulateContext = (function() {
          if (laGem.group) {
             return (laGem.group == this.staticData.nonetTeam);
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_HP_PERCENT) {
-            return ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
+            return (laGem.trigger_value !== undefined) && ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_FULL_COMBO) {
             return this.isFullCombo;
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_OVERHEAL) {
-            return (this.currentHPData.overHealLevel >= laGem.trigger_value);
+            return (laGem.trigger_value !== undefined) && (this.currentHPData.overHealLevel >= laGem.trigger_value);
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_SMILE) {
             return (this.staticData.sameColorTeam == 'smile');
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_PURE) {
@@ -5953,7 +5999,7 @@ var LLSimulateContext = (function() {
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_COOL) {
             return (this.staticData.sameColorTeam == 'cool');
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_PERFECT_COUNT) {
-            return (this.currentPerfect >= laGem.trigger_value);
+            return (laGem.trigger_value !== undefined) && (this.currentPerfect >= laGem.trigger_value);
          } else if (!laGem.trigger_ref) {
             return true;
          }
@@ -6241,6 +6287,7 @@ var LLTeam = (function() {
             teamgem.push(curGems);
          }
          //全体宝石和主唱技能加成
+         /** @type {LLH.Internal.CSkillDataType[]} */
          var cskills = [this.members[4].card];
          if (mapdata.friendCSkill) cskills.push(mapdata.friendCSkill);
          for (i = 0; i < 9; i++) {
@@ -9595,13 +9642,7 @@ var LLTeamComponent = (function () {
 
 var LLCSkillComponent = (function () {
    var createElement = LLUnit.createElement;
-   var defaultCSkill = {
-      'attribute': 'smile',
-      'Cskillattribute': 'smile',
-      'Cskillpercentage': 0,
-      'Csecondskilllimit': LLConstValue.GROUP_UNKNOWN,
-      'Csecondskillattribute': 0
-   };
+   var defaultCSkill = LLConst.Common.getZeroCSkill();
    var majorPercentageSelectOptions = [
       {'value': '0', 'text': '0'},
       {'value': '3', 'text': '3'},
@@ -9621,54 +9662,51 @@ var LLCSkillComponent = (function () {
       {'value': '9', 'text': '9'}
    ];
    function getSecondLimitSelectOptions() {
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
       var ret = [];
       var groups = LLConst.Common.getCSkillGroups();
       for (var i = 0; i < groups.length; i++) {
-         ret.push({'value': groups[i], 'text': LLConst.Group.getGroupName(groups[i])});
+         ret.push({'value': groups[i] + '', 'text': LLConst.Group.getGroupName(groups[i])});
       }
       return ret;
    };
 
-   function copyCSkill(cFrom, cTo) {
-      cTo.attribute = cFrom.attribute;
-      cTo.Cskillattribute = cFrom.Cskillattribute;
-      cTo.Cskillpercentage = cFrom.Cskillpercentage;
-      cTo.Csecondskilllimit = cFrom.Csecondskilllimit;
-      cTo.Csecondskillattribute = cFrom.Csecondskillattribute;
-   }
    /**
-    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} controller 
     * @param {string} title 
-    * @returns {HTMLElement}
+    * @returns {LLH.Layout.CenterSkill.LLCSkillComponent_Controller}
     */
-   function createTextDisplay(controller, title) {
+   function createTextDisplay(title) {
       var textElement = createElement('span', {'innerHTML': title + 'N/A'});
-      var cskill = {};
-      copyCSkill(defaultCSkill, cskill);
-      controller.setCSkill = function(cs) {
-         if (cs.attribute) {
-            textElement.innerHTML = title + LLUnit.getCardCSkillText(cs, false);
-            copyCSkill(cs, cskill);
-         } else {
-            textElement.innerHTML = title + 'N/A';
-            copyCSkill(defaultCSkill, cskill);
-         }
+      var cskill = LLConst.Common.copyCSkill(defaultCSkill);
+      /** @type {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} */
+      var controller = {
+         'setCSkill': function(cs) {
+            if (cs.attribute) {
+               textElement.innerHTML = title + LLUnit.getCardCSkillText(cs, false);
+               LLConst.Common.copyCSkill(cs, cskill);
+            } else {
+               textElement.innerHTML = title + 'N/A';
+               LLConst.Common.copyCSkill(defaultCSkill, cskill);
+            }
+         },
+         'getCSkill': function() {
+            return cskill;
+         },
+         'setMapColor': function(color) {
+            // do nothing
+         },
+         'element': textElement
       };
-      controller.getCSkill = function() {
-         return cskill;
-      };
-      controller.setMapColor = function(color) {}; // do nothing
-      return textElement;
+      return controller;
    }
    /**
-    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} controller 
     * @param {string} title 
-    * @returns {HTMLElement}
+    * @returns {LLH.Layout.CenterSkill.LLCSkillComponent_Controller}
     */
-   function createEditable(controller, title) {
+   function createEditable(title) {
       var selectClass = {'className': 'form-control no-padding'};
-      var addToColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
-      var addFromColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
+      var addToColorComp = LLUnit.createColorSelectComponent(selectClass);
+      var addFromColorComp = LLUnit.createColorSelectComponent(selectClass);
       var majorPercentageComp = new LLSelectComponent(LLUnit.createSelectElement(selectClass));
       majorPercentageComp.setOptions(majorPercentageSelectOptions);
       majorPercentageComp.set('0');
@@ -9681,76 +9719,80 @@ var LLCSkillComponent = (function () {
       addToColorComp.onValueChange = function(v) {
          secondColorElement.innerHTML = v;
       };
-      controller.setCSkill = function(cs) {
-         addToColorComp.set(cs.attribute || 'smile');
-         secondColorElement.innerHTML = cs.attribute || 'smile';
-         addFromColorComp.set(cs.Cskillattribute || 'smile');
-         majorPercentageComp.set(cs.Cskillpercentage || '0');
-         if (cs.Csecondskilllimit) {
-            secondLimitComp.set(cs.Csecondskilllimit);
-         }
-         secondPercentageComp.set(cs.Csecondskillattribute || '0');
-      };
-      controller.getCSkill = function() {
-         return {
-            'attribute': addToColorComp.get(),
-            'Cskillattribute': addFromColorComp.get(),
-            'Cskillpercentage': parseInt(majorPercentageComp.get()),
-            'Csecondskilllimit': parseInt(secondLimitComp.get()),
-            'Csecondskillattribute': parseInt(secondPercentageComp.get())
-         };
-      };
-      controller.setMapColor = function(color) {
-         if (addFromColorComp.get() == addToColorComp.get()) {
-            addFromColorComp.set(color);
-         }
-         addToColorComp.set(color);
-         secondColorElement.innerHTML = color;
-      };
-      return createElement('div', {'className': 'form-inline'}, [
-         title,
-         addToColorComp.element,
-         '属性提升',
-         addFromColorComp.element,
-         '的',
-         majorPercentageComp.element,
-         '%+',
-         secondLimitComp.element,
-         '的社员进一步将',
-         secondColorElement,
-         '属性提升',
-         secondPercentageComp.element,
-         '%'
-      ]);
-   }
-
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Options} [options]
-    */
-   function LLCSkillComponent_cls(id, options) {
-      var element = LLUnit.getElement(id);
-      var opt = options || {};
-      var editable = opt.editable || false;
-      var title = opt.title || '主唱技能';
-      title = title + '：';
       /** @type {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} */
-      var controller = {};
-      var innerElement = (editable ? createEditable(this, title) : createTextDisplay(this, title));
-      element.appendChild(innerElement);
-      this.controller = controller;
+      var controller = {
+         'setCSkill': function(cs) {
+            addToColorComp.set(cs.attribute || 'smile');
+            secondColorElement.innerHTML = cs.attribute || 'smile';
+            addFromColorComp.set(cs.Cskillattribute || 'smile');
+            majorPercentageComp.set((cs.Cskillpercentage + '') || '0');
+            if (cs.Csecondskilllimit) {
+               secondLimitComp.set(cs.Csecondskilllimit + '');
+            }
+            secondPercentageComp.set((cs.Csecondskillattribute + '') || '0');
+         },
+         'getCSkill': function() {
+            return {
+               'attribute': addToColorComp.getOrElse('smile'),
+               'Cskillattribute': addFromColorComp.getOrElse('smile'),
+               'Cskillpercentage': parseInt(majorPercentageComp.getOrElse('0')),
+               'Csecondskilllimit': parseInt(secondLimitComp.getOrElse('0')),
+               'Csecondskillattribute': parseInt(secondPercentageComp.getOrElse('0'))
+            };
+         },
+         'setMapColor': function(color) {
+            if (addFromColorComp.get() == addToColorComp.get()) {
+               addFromColorComp.set(color);
+            }
+            addToColorComp.set(color);
+            secondColorElement.innerHTML = color;
+         },
+         'element': createElement('div', {'className': 'form-inline'}, [
+            title,
+            addToColorComp.element,
+            '属性提升',
+            addFromColorComp.element,
+            '的',
+            majorPercentageComp.element,
+            '%+',
+            secondLimitComp.element,
+            '的社员进一步将',
+            secondColorElement,
+            '属性提升',
+            secondPercentageComp.element,
+            '%'
+         ])
+      };
+      return controller;
    }
 
-   LLCSkillComponent_cls.prototype.setCSkill = function (cskill) {
-      this.controller.setCSkill(cskill);
-   };
-   LLCSkillComponent_cls.prototype.getCSkill = function () {
-      return this.controller.getCSkill();
-   };
-   LLCSkillComponent_cls.prototype.setMapColor = function (color) {
-      this.controller.setMapColor(color);
-   };
+   class LLCSkillComponent_cls {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Options} [options]
+       */
+      constructor(id, options) {
+         var element = LLUnit.getElement(id);
+         var opt = options || {};
+         var editable = opt.editable || false;
+         var title = opt.title || '主唱技能';
+         title = title + '：';
+         var controller = (editable ? createEditable(title) : createTextDisplay(title));
+         LLUnit.updateSubElements(element, controller.element);
+         this.controller = controller;
+      }
+      /** @param {LLH.Internal.CSkillDataType} cskill */
+      setCSkill(cskill) {
+         this.controller.setCSkill(cskill);
+      }
+      getCSkill() {
+         return this.controller.getCSkill();
+      }
+      /** @param {LLH.Core.AttributeType} color */
+      setMapColor(color) {
+         this.controller.setMapColor(color);
+      }
+   }
 
    return LLCSkillComponent_cls;
 })();
