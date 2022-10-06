@@ -2057,6 +2057,14 @@ var LLConst = (function () {
             return toCSkill;
          }
       },
+      getOrMakeDummyCardData: function (card, cardId) {
+         if (card) return card;
+         var cardData = {
+            'id': parseInt((cardId || -1) + '')
+         };
+         // TODO: make a better dummy data
+         return /** @type {LLH.API.CardDataType} */ (cardData);
+      },
       getCardDescription: function (card, language, mezame) {
          var desc = String(card.id);
          var albumGroup = constUtil.Album.getAlbumGroupByAlbumId(card.album);
@@ -10281,8 +10289,6 @@ var LLGemSelectorComponent = (function () {
 })();
 
 var LLLanguageComponent = (function() {
-   var createElement = LLUnit.createElement;
-
    /** @param {LLH.Layout.Language.LLLanguageComponent} me */
    function toggleLanguage(me) {
       if (me.value == LLConstValue.LANGUAGE_CN) {
@@ -10420,93 +10426,99 @@ var LLAccessorySelectorComponent = (function () {
    var SEL_ID_ACCESSORY_LEVEL = 'accessory_level';
    var MEM_ID_LANGUAGE = 'language';
 
-   /** @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller */
-   function renderAccessoryDetail(controller) {
+   function renderAccessoryDetail() {
       var cardAvatar1Component = new LLAvatarComponent();
       var cardAvatar2Component = new LLAvatarComponent();
       cardAvatar1Component.hide();
       cardAvatar2Component.hide();
       var accessoryComponent = new LLAccessoryComponent(createElement('div'));
       var container = createElement('div');
-      controller.set = function (data, language) {
-         if (!data) {
-            container.innerHTML = '';
-         } else {
-            var levelRows = [
-               createElement('tr', undefined, [
-                  createElement('th', undefined, '等级'),
-                  createElement('th', undefined, 'smile'),
-                  createElement('th', undefined, 'pure'),
-                  createElement('th', undefined, 'cool'),
-                  createElement('th', undefined, '技能'),
-               ])
-            ];
-            if (data.levels) {
-               for (var i = 1; i <= data.levels.length; i++) {
-                  var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
-                  levelRows.push(createElement('tr', undefined, [
-                     createElement('td', undefined, i + ''),
-                     createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
-                     createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
-                     createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
-                     createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
-                  ]));
+      /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController} */
+      var controller = {
+         set: function (data, language) {
+            if (!data) {
+               container.innerHTML = '';
+            } else {
+               var levelRows = [
+                  createElement('tr', undefined, [
+                     createElement('th', undefined, '等级'),
+                     createElement('th', undefined, 'smile'),
+                     createElement('th', undefined, 'pure'),
+                     createElement('th', undefined, 'cool'),
+                     createElement('th', undefined, '技能'),
+                  ])
+               ];
+               if (data.levels) {
+                  for (var i = 1; i <= data.levels.length; i++) {
+                     var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
+                     levelRows.push(createElement('tr', undefined, [
+                        createElement('td', undefined, i + ''),
+                        createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
+                        createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
+                        createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
+                        createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
+                     ]));
+                  }
                }
+               updateSubElements(container, [
+                  createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
+                     createElement('tbody', undefined, levelRows)
+                  )
+               ], true);
             }
-            updateSubElements(container, [
-               createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
-                  createElement('tbody', undefined, levelRows)
-               )
-            ], true);
-         }
-         accessoryComponent.setAccessory(data, language);
-         if (data && data.unit_id) {
-            cardAvatar1Component.setCard(data.unit_id, false);
-            cardAvatar2Component.setCard(data.unit_id, true);
-            cardAvatar1Component.show();
-            cardAvatar2Component.show();
-         } else {
-            cardAvatar1Component.hide();
-            cardAvatar2Component.hide();
-         }
-         container.scrollIntoView();
+            accessoryComponent.setAccessory(data, language);
+            if (data && data.unit_id) {
+               cardAvatar1Component.setCard(data.unit_id, false);
+               cardAvatar2Component.setCard(data.unit_id, true);
+               cardAvatar1Component.show();
+               cardAvatar2Component.show();
+            } else {
+               cardAvatar1Component.hide();
+               cardAvatar2Component.hide();
+            }
+            container.scrollIntoView();
+         },
+         'element': createElement('div', undefined, [
+            createElement('div', {'style': {'display': 'flex', 'flexFlow': 'row'}}, [
+               accessoryComponent.element,
+               cardAvatar1Component.element,
+               cardAvatar2Component.element
+            ]),
+            container
+         ])
       };
-      return createElement('div', undefined, [
-         createElement('div', {'style': {'display': 'flex', 'flexFlow': 'row'}}, [
-            accessoryComponent.element,
-            cardAvatar1Component.element,
-            cardAvatar2Component.element
-         ]),
-         container
-      ]);
+      return controller;
    }
 
-   /** @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} controller */
-   function renderAccessoryBrief(controller) {
+   function renderAccessoryBrief() {
       var constraintElement = createElement('span');
       var briefElement = createElement('span');
       var accessoryComponent = new LLAccessoryComponent(createElement('div'), {'size': 64});
-      controller.set = function (data, level, language) {
-         if (!data) {
-            constraintElement.innerHTML = '';
-            briefElement.innerHTML = '';
-         } else {
-            if (!data.unit_id) {
-               constraintElement.innerHTML = '通用';
-            } else if (level == 8 && data.unit_type_id) {
-               constraintElement.innerHTML = '仅限' + LLConst.Member.getMemberName(data.unit_type_id, language) + '装备';
+      /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController} */
+      var controller = {
+         'set': function (data, level, language) {
+            if (!data) {
+               constraintElement.innerHTML = '';
+               briefElement.innerHTML = '';
             } else {
-               constraintElement.innerHTML = '仅限该卡装备：' + LLConst.Common.getCardDescription(data.card, language);
+               if (!data.unit_id) {
+                  constraintElement.innerHTML = '通用';
+               } else if (level == 8 && data.unit_type_id) {
+                  constraintElement.innerHTML = '仅限' + LLConst.Member.getMemberName(data.unit_type_id, language) + '装备';
+               } else {
+                  constraintElement.innerHTML = '仅限该卡装备：' + LLConst.Common.getCardDescription(LLConst.Common.getOrMakeDummyCardData(data.card, data.unit_id), language);
+               }
+               briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
             }
-            briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
-         }
-         accessoryComponent.setAccessory(data, language);
-      };
-      return createElement('div', undefined, [
-         accessoryComponent.element,
-         '饰品装备限制：', constraintElement, createElement('br'),
-         '饰品技能：', briefElement
-      ]);
+            accessoryComponent.setAccessory(data, language);
+         },
+         'element': createElement('div', undefined, [
+            accessoryComponent.element,
+            '饰品装备限制：', constraintElement, createElement('br'),
+            '饰品技能：', briefElement
+         ])
+      }
+      return controller;
    }
 
    /**
@@ -10522,17 +10534,24 @@ var LLAccessorySelectorComponent = (function () {
          var container = LLUnit.getElement(id);
          var me = this;
          if (!options) options = {};
+         /** @type {LLH.Internal.ProcessedAccessoryDictDataType=} */
          this.accessoryData = undefined;
          this.showDetail = options.showDetail || false;
          this.showLevelSelect = options.showLevelSelect || false;
          this.excludeMaterial = options.excludeMaterial || false;
-   
+
          var accessoryChoice = createFormSelect();
          var accessoryRarity = createFormSelect();
          var accessoryMainAttribute = createFormSelect();
          var accessoryType = createFormSelect();
          var accessoryEffectType = createFormSelect();
-         this.addFilterable(SEL_ID_ACCESSORY_CHOICE, new LLSelectComponent(accessoryChoice), function (opt) {
+
+         this._accessoryChoiceComponent = new LLSelectComponent(accessoryChoice);
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+         /** @type {LLH.Component.LLSelectComponent=} */
+         this._accessoryLevelComponent = undefined;
+
+         this.addFilterable(SEL_ID_ACCESSORY_CHOICE, this._accessoryChoiceComponent, function (opt) {
             if (opt.value && me.accessoryData && me.accessoryData[opt.value]) {
                return me.accessoryData[opt.value];
             } else {
@@ -10543,8 +10562,8 @@ var LLAccessorySelectorComponent = (function () {
          this.addFilterable(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, new LLSelectComponent(accessoryMainAttribute));
          this.addFilterable(SEL_ID_ACCESSORY_TYPE, new LLSelectComponent(accessoryType));
          this.addFilterable(SEL_ID_ACCESSORY_EFFECT_TYPE, new LLSelectComponent(accessoryEffectType));
-         this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
-         this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         this.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
+         this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me._languageComponent.get() + '', [MEM_ID_LANGUAGE]);
          this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
          this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && d.main_attribute == 'all')));
          this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!d) || (((!v) || (v == d.type)) && !(d.is_material && me.excludeMaterial)));
@@ -10555,83 +10574,84 @@ var LLAccessorySelectorComponent = (function () {
             createFormInlineGroup('饰品：', accessoryChoice)
          ], true);
    
-         /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController} */
-         var briefController = {};
+         /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController=} */
+         var briefController = undefined;
          if (this.showLevelSelect) {
             var accessoryLevel = createFormSelect();
-            this.addFilterable(SEL_ID_ACCESSORY_LEVEL, new LLSelectComponent(accessoryLevel));
+            this._accessoryLevelComponent = new LLSelectComponent(accessoryLevel);
+            this.addFilterable(SEL_ID_ACCESSORY_LEVEL, this._accessoryLevelComponent);
             this.addFilterCallback(SEL_ID_ACCESSORY_CHOICE, SEL_ID_ACCESSORY_LEVEL, (opt, v) => (!v) || (!me.accessoryData) || (!me.accessoryData[v]) || me.accessoryData[v].max_level >= parseInt(opt.value));
-            updateSubElements(container, [
-               createFormInlineGroup('饰品等级：', accessoryLevel),
-               renderAccessoryBrief(briefController)
-            ], false);
+            briefController = renderAccessoryBrief();
+            updateSubElements(container, createFormInlineGroup('饰品等级：', accessoryLevel));
+            updateSubElements(container, briefController.element);
          }
-         /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController} */
-         var detailController = {};
+         /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController=} */
+         var detailController = undefined;
          if (this.showDetail) {
-            updateSubElements(container, [
-               createElement('h3', undefined, '饰品详细信息'),
-               renderAccessoryDetail(detailController)
-            ], false);
+            detailController = renderAccessoryDetail();
+            updateSubElements(container, createElement('h3', undefined, '饰品详细信息'));
+            updateSubElements(container, detailController.element);
          }
    
          /**
-          * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} contDetail
-          * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} contBrief
+          * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController | undefined} contDetail
+          * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController | undefined} contBrief
           * @param {LLH.Core.AccessoryIdStringType} accessoryId
           * @param {number} accessoryLevel
           * @param {LLH.Core.LanguageType} language
           */
          var setDetail = function (contDetail, contBrief, accessoryId, accessoryLevel, language) {
-            var hasDetail = (contDetail && contDetail.set);
-            var hasBrief = (contBrief && contBrief.set);
-            if (hasDetail || hasBrief) {
-               var curAccessory = undefined;
-               if (me.accessoryData && me.accessoryData[accessoryId]) {
-                  curAccessory = me.accessoryData[accessoryId]
-               }
+            if (contDetail || contBrief) {
                if (accessoryId) {
                   LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
-                     LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
-                     me.accessoryData[accessoryId] = accessory;
-                     if (hasDetail) {
-                        contDetail.set(accessory, language);
+                     var processedAccessory = LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData || {});
+                     if (!me.accessoryData) {
+                        me.accessoryData = {};
                      }
-                     if (hasBrief) {
-                        contBrief.set(accessory, accessoryLevel, language);
+                     me.accessoryData[accessoryId] = processedAccessory;
+                     if (contDetail) {
+                        contDetail.set(processedAccessory, language);
+                     }
+                     if (contBrief) {
+                        contBrief.set(processedAccessory, accessoryLevel, language);
                      }
                   });
                } else {
-                  if (hasDetail) {
-                     contDetail.set(curAccessory, language);
+                  if (contDetail) {
+                     contDetail.set(undefined, language);
                   }
-                  if (hasBrief) {
-                     contBrief.set(curAccessory, accessoryLevel, language);
+                  if (contBrief) {
+                     contBrief.set(undefined, accessoryLevel, language);
                   }
                }
             }
          };
-   
+
+         /** @type {(name: string, newValue: any) => void} */
          this.onValueChange = function (name, newValue) {
-            var curId, curLanguage, curLevel = 1, updateDetail = false;
+            /** @type {LLH.Core.AccessoryIdStringType} */
+            var curId;
+            /** @type {LLH.Core.LanguageType} */
+            var curLanguage;
+            var curLevel = 1, updateDetail = false;
             if (name == SEL_ID_ACCESSORY_CHOICE) {
                curId = newValue;
                updateDetail = true;
             } else {
-               curId = me.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+               curId = me._accessoryChoiceComponent.getOrElse('');
             }
             if (name == MEM_ID_LANGUAGE) {
                curLanguage = newValue;
                updateDetail = true;
             } else {
-               curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+               curLanguage = me._languageComponent.get();
             }
-            if (me.showLevelSelect) {
+            if (me.showLevelSelect && me._accessoryLevelComponent) {
                if (name == SEL_ID_ACCESSORY_LEVEL) {
-                  curLevel = newValue;
+                  curLevel = parseInt(newValue);
                   updateDetail = true;
                } else {
-                  curLevel = me.getComponent(SEL_ID_ACCESSORY_LEVEL).get();
+                  curLevel = parseInt(me._accessoryLevelComponent.getOrElse('1'));
                }
             }
             if (updateDetail) {
@@ -10642,18 +10662,18 @@ var LLAccessorySelectorComponent = (function () {
          this.setAccessoryData(options.accessoryData, options.cardData);
       }
       /**
-       * @param {LLH.API.AccessoryDictDataType} accessoryData 
-       * @param {LLH.API.CardDictDataType} cardData 
+       * @param {LLH.API.AccessoryDictDataType} [accessoryData] 
+       * @param {LLH.API.CardDictDataType} [cardData] 
        */
       setAccessoryData(accessoryData, cardData) {
-         if (accessoryData && cardData) {
-            accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
-         }
-   
          var i;
    
          this.setFreezed(true);
-         this.accessoryData = accessoryData;
+         if (accessoryData && cardData) {
+            this.accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
+         } else {
+            this.accessoryData = {};
+         }
          this.cardData = cardData;
    
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
@@ -10722,23 +10742,23 @@ var LLAccessorySelectorComponent = (function () {
          this.setFilterOptions(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, mainAttributeOptions);
          this.setFilterOptions(SEL_ID_ACCESSORY_TYPE, typeOptions);
          this.setFilterOptions(SEL_ID_ACCESSORY_EFFECT_TYPE, effectTypeOptions);
-         this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, [accessoryOptions, accessoryOptionsJp]);
+         this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, {'0': accessoryOptions, '1': accessoryOptionsJp});
    
          this.setFreezed(false);
          this.handleFilters();
       }
       /** @returns {LLH.Core.AccessoryIdStringType} */
       getAccessoryId() {
-         return this.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+         return this._accessoryChoiceComponent.getOrElse('');
       }
       getAccessoryLevel() {
-         if (this.showLevelSelect) {
-            return parseInt(this.getComponent(SEL_ID_ACCESSORY_LEVEL).get());
+         if (this.showLevelSelect && this._accessoryLevelComponent) {
+            return parseInt(this._accessoryLevelComponent.getOrElse('1'));
          } else {
             return 1;
          }
       }
-      /** @returns {LLH.Internal.AccessorySaveDataType} */
+      /** @returns {LLH.Internal.AccessorySaveDataType | undefined} */
       getAccessorySaveData() {
          var accessoryId = this.getAccessoryId();
          var level = this.getAccessoryLevel();
@@ -10753,7 +10773,7 @@ var LLAccessorySelectorComponent = (function () {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
    }
 

@@ -989,11 +989,11 @@ declare namespace LLH {
             showLevelSelect?: boolean;
             excludeMaterial?: boolean;
         }
-        interface LLAccessorySelectorComponent_DetailController {
-            set(data: Internal.ProcessedAccessoryDataType, language: Core.LanguageType): void;
+        interface LLAccessorySelectorComponent_DetailController extends Controller.ControllerBase {
+            set(data: Internal.ProcessedAccessoryDataType | undefined, language: Core.LanguageType): void;
         }
-        interface LLAccessorySelectorComponent_BriefController {
-            set(data: Internal.ProcessedAccessoryDataType, level: number, language: Core.LanguageType): void;
+        interface LLAccessorySelectorComponent_BriefController extends Controller.ControllerBase {
+            set(data: Internal.ProcessedAccessoryDataType | undefined, level: number, language: Core.LanguageType): void;
         }
 
         class LLAccessorySelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
@@ -1005,10 +1005,10 @@ declare namespace LLH {
             showLevelSelect: boolean;
             excludeMaterial: boolean;
 
-            setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
+            setAccessoryData(accessoryData?: API.AccessoryDictDataType, cardData?: API.CardDictDataType): void;
             getAccessoryId(): Core.AccessoryIdStringType;
             getAccessoryLevel(): number; // level range 1~8
-            getAccessorySaveData(): Internal.AccessorySaveDataType;
+            getAccessorySaveData(): Internal.AccessorySaveDataType | undefined;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -1099,6 +1099,7 @@ declare namespace LLH {
             getCSkillGroups(): Core.MemberTagIdType[];
             getZeroCSkill(): Internal.CSkillDataType;
             copyCSkill(fromCSkill: Internal.CSkillDataType, toCSkill?: Internal.CSkillDataType): Internal.CSkillDataType;
+            getOrMakeDummyCardData(card?: API.CardDataType, cardId?: Core.CardIdOrStringType): API.CardDataType;
             getCardDescription(card: API.CardDataType, language: Core.LanguageType, mezame?: boolean): string;
             getMaxKizuna(rarity: Core.RarityStringType, mezame?: Core.MezameType | boolean): number;
         }
