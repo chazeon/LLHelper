@@ -55,6 +55,9 @@ declare namespace LLH {
         type SkillEffectType = number;
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
+
+        type LevelLimitPatternIdType = string;
+        type LevelLimitLevelType = string;
     }
     namespace API {
         /** <value> | "<min>~<max>" */
@@ -206,11 +209,15 @@ declare namespace LLH {
         }
         type UnitTypeDictDataType = {[id: string]: UnitTypeDataType};
 
+        type LevelLimitDictDataType = {[level: Core.LevelLimitLevelType]: number};
+        type LevelLimitPatternDictDataType = {[id: Core.LevelLimitPatternIdType]: LevelLimitDictDataType};
+
         interface MetaDataType {
             album: AlbumDictDataType;
             member_tag: MemberTagDictDataType;
             unit_type: UnitTypeDictDataType;
             cskill_groups: Core.MemberTagIdType[];
+            level_limit?: LevelLimitPatternDictDataType;
         }
 
         interface AccessoryLevelDataType {
@@ -335,7 +342,7 @@ declare namespace LLH {
             cardid: Core.CardIdOrStringType; // int
             mezame: 0 | 1;
             skilllevel: number; // 1~8
-            maxcost: number; // 0~8
+            maxcost?: number; // 0~8
         }
 
         interface AttributesValue {
@@ -351,8 +358,8 @@ declare namespace LLH {
 
         interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
             hp: number; // int
-            gemlist: NormalGemCategoryKeyType[];
-            laGemList: Core.SisIdType[];
+            gemlist?: NormalGemCategoryKeyType[];
+            laGemList?: Core.SisIdType[];
             accessory?: AccessorySaveDataType;
         }
 
@@ -490,6 +497,31 @@ declare namespace LLH {
             loadJson(jsonData?: string): void;
         }
 
+        interface SaveLoadable<DataT> {
+            saveData(): DataT | undefined;
+            loadData(data?: DataT): void;
+        }
+
+        class SaveLoadJsonBase<DataT> implements SaveLoadJson, SaveLoadable<DataT> {
+            constructor();
+
+            saveData(): DataT | undefined;
+            loadData(data?: DataT): void;
+            saveJson(): string;
+            loadJson(jsonData?: string): void;
+        }
+
+        type SaveLoadableGroupDataType = {[key: string]: any};
+        class SaveLoadableGroup<DataT = SaveLoadableGroupDataType> extends SaveLoadJsonBase<DataT> {
+            constructor();
+
+            addSaveLoadable<SubDataT>(key: string, saveLoadable: SaveLoadable<SubDataT>): void;
+            getSaveLoadable<SubDataT, T extends SaveLoadable<SubDataT>>(key: string): T | undefined;
+
+            override saveData(): DataT | undefined;
+            override loadData(data?: DataT): void;
+        }
+
         interface LanguageSupport {
             setLanguage(language: Core.LanguageType): void;
         }
@@ -512,6 +544,7 @@ declare namespace LLH {
         type BootCssColorStyleType = 'default' | 'primary' | 'success' | 'info' | 'warning' | 'danger';
         // type OptionalStyle = {[k: keyof CSSStyleDeclaration]: string};
         interface OptionalStyle {
+            clear?: string;
             color?: string;
             display?: string;
             flexFlow?: string;
@@ -550,7 +583,7 @@ declare namespace LLH {
         interface LLComponentBase_Options {
             listen?: {[e: string]: (event: Event) => void};
         }
-        class LLComponentBase<ElementType extends HTMLElement = HTMLElement> implements Mixin.SaveLoadJson {
+        class LLComponentBase<ElementType extends HTMLElement = HTMLElement, DataT = boolean> extends Mixin.SaveLoadJsonBase<DataT> {
             constructor(id?: ElementType | string, options?: LLComponentBase_Options);
 
             id?: string;
@@ -564,53 +597,56 @@ declare namespace LLH {
             setVisible(visible: boolean): void;
             setClassName(newClassName: string): void;
             setTooltips(tooltips: string): void;
-            serialize(): any;
-            deserialize(data: any): void;
             on(eventName: string, callback: (event: Event) => void): void;
             isInDocument(): boolean;
 
-            // implements
-            saveJson(): string;
-            loadJson(jsonData?: string): void;
+            override saveData(): DataT | undefined;
+            override loadData(data?: DataT): void;
         }
         interface LLValuedComponent_Options extends LLComponentBase_Options {
             valueKey?: string;
         }
-        class LLValuedComponent<ElementType extends HTMLElement = HTMLElement> extends LLComponentBase<ElementType> {
+        class LLValuedComponent<ElementType extends HTMLElement = HTMLElement, ValueType = string> extends LLComponentBase<ElementType, ValueType> {
             constructor(id?: ElementType | string, options?: LLValuedComponent_Options);
 
-            value?: string;
+            value?: ValueType;
             valueKey: string;
-            onValueChange?: (newValue: string) => void;
+            onValueChange?: (newValue: ValueType) => void;
 
-            get(): string;
-            set(val: string): void;
+            get(): ValueType | undefined;
+            getOrElse(defaultValue: ValueType): ValueType;
+            set(val: ValueType): void;
 
-            override serialize(): string;
-            override deserialize(data: string): void;
+            override saveData(): ValueType | undefined;
+            override loadData(data?: ValueType): void;
         }
-        class LLValuedMemoryComponent extends LLValuedComponent {
-            constructor(initialValue: any);
+        class LLValuedMemoryComponent<ValueType = string> extends LLValuedComponent<HTMLElement, ValueType> {
+            constructor(initialValue: ValueType);
+
+            value: ValueType;
+
+            override get(): ValueType;
+            override set(val: ValueType): void;
         }
-        interface LLSelectComponent_OptionDef {
+        interface LLSelectComponent_OptionDef<ValueType extends string = string> {
             text: string;
-            value: string;
+            value: ValueType;
             color?: string;
             background?: string;
         }
         /** returns true if keep the option, false to filter out the option */
-        type LLSelectComponent_FilterCallback = (opt: LLSelectComponent_OptionDef) => boolean;
-        class LLSelectComponent extends LLValuedComponent<HTMLSelectElement> {
+        type LLSelectComponent_FilterCallback<ValueType extends string = string> = (opt: LLSelectComponent_OptionDef<ValueType>) => boolean;
+        class LLSelectComponent<ValueType extends string = string> extends LLValuedComponent<HTMLSelectElement, ValueType> {
             constructor(id: HTMLSelectElement | string, options?: LLValuedComponent_Options);
 
-            options: LLSelectComponent_OptionDef[];
-            filteredOptions: LLSelectComponent_OptionDef[];
-            filter?: LLSelectComponent_FilterCallback;
+            options: LLSelectComponent_OptionDef<ValueType>[];
+            filteredOptions: LLSelectComponent_OptionDef<ValueType>[];
+            filter?: LLSelectComponent_FilterCallback<ValueType>;
 
-            setOptions(options: LLSelectComponent_OptionDef[], filter?: LLSelectComponent_FilterCallback): void;
-            filterOptions(filter?: LLSelectComponent_FilterCallback): void;
+            setOptions(options: LLSelectComponent_OptionDef<ValueType>[], filter?: LLSelectComponent_FilterCallback<ValueType>): void;
+            filterOptions(filter?: LLSelectComponent_FilterCallback<ValueType>): void;
 
-            override set(val: string): void;
+            override set(val: ValueType): void;
         }
         interface LLImageComponent_Options extends LLComponentBase_Options {
             srcList?: string[];
@@ -686,23 +722,21 @@ declare namespace LLH {
 
             setAccessory(newAccessory?: Core.AccessoryIdStringType | API.AccessoryDataType, language?: Core.LanguageType): void;
         }
-        class LLComponentCollection implements Mixin.SaveLoadJson {
+        class LLComponentCollection<DataT = Mixin.SaveLoadableGroupDataType> extends Mixin.SaveLoadableGroup<DataT> {
             constructor();
 
-            components: {[name: string]: LLComponentBase};
+            add<E extends HTMLElement, D>(name: string, component: LLComponentBase<E, D>): void;
+            getComponent<T extends LLComponentBase>(name: string): T | undefined;
+            getValuedComponent<T extends LLValuedComponent>(name: string): T | undefined;
 
-            add(name: string, component: LLComponentBase): void;
-            getComponent(name: string): LLComponentBase | undefined;
-            serialize(): any;
-            deserialize(data: any): void;
-            saveJson(): string;
-            loadJson(json?: string): void;
             saveLocalStorage(key: string): void;
             loadLocalStorage(key: string): void;
             deleteLocalStorage(key: string): void;
+
         }
         /** returns false to filter out the option */
-        type LLFiltersComponent_FilterCallback = (targetOption: LLSelectComponent_OptionDef, filterValue: string, targetData?: any) => boolean;
+        type LLFiltersComponent_FilterCallback<FilterValueT = string, TargetDataT = any>
+            = (targetOption: LLSelectComponent_OptionDef, filterValue?: FilterValueT, targetData?: TargetDataT) => boolean;
         type LLFiltersComponent_OptionGroupType = {[id: string]: LLSelectComponent_OptionDef[]};
         interface LLFiltersComponent_FilterDef {
             callbacks?: {[targetName: string]: LLFiltersComponent_FilterCallback};
@@ -719,19 +753,20 @@ declare namespace LLH {
 
             filters: {[name: string]: LLFiltersComponent_FilterDef};
             freeze: boolean;
-            onValueChange?: (name: string, newValue: string) => void;
+            onValueChange?: (name: string, newValue: any) => void;
 
             setFreezed(isFreezed: boolean): void;
             isFreezed(): boolean;
-            addFilterable(name: string, component: LLValuedComponent, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
-            addFilterCallback(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback): void;
+            addFilterable<E extends HTMLElement, D>(name: string, component: LLValuedComponent<E, D>, dataGetter?: (opt: LLSelectComponent_OptionDef) => any): void;
+            addFilterCallback<FilterValueT = string, TargetDataT = any>(sourceName: string, targetName: string, callback: LLFiltersComponent_FilterCallback<FilterValueT, TargetDataT>): void;
             setFilterOptionGroupCallback(name: string, groupGetter: () => string, affectedBy: string[]): void;
             setFilterOptionGroups(name: string, groups: LLFiltersComponent_OptionGroupType): void;
             setFilterOptions(name: string, options: LLSelectComponent_OptionDef[]): void;
             getFilter(name: string, createIfAbsent?: boolean): LLFiltersComponent_FilterDef;
             /** handle changes when specified component's value change, when not provided name, handle all component's filters */
             handleFilters(name?: string): void;
-            override deserialize(data: any): void;
+
+            override loadData(data?: Mixin.SaveLoadableGroupDataType): void;
         }
     }
 
@@ -828,7 +863,7 @@ declare namespace LLH {
             saveRawPools<IdType>(storageKey: string, rawPools: Internal.PoolsSaveDataType<IdType>): void;
             savePools<IdType>(storageKey: string, pools: PoolsProcessedDataType<IdType>): void;
             /** return error message if fail, or empty string if success */
-            addPool<IdType>(pools: PoolsProcessedDataType<IdType>, newPoolName: string): string;
+            addPool<IdType>(pools: PoolsProcessedDataType<IdType>, newPoolName?: string): string;
             /** return error message if fail, or empty string if success */
             removePoolByIndex<IdType>(pools: PoolsProcessedDataType<IdType>, index: number): void;
         }
@@ -860,6 +895,9 @@ declare namespace LLH {
             controller: LLCardPoolComponent_PoolsSelectController;
             pools: CardPoolsProcessedDataType;
             cardSelector: Selector.LLCardSelectorComponent;
+
+            // implement
+            setLanguage(language: Core.LanguageType): void;
         }
     }
 
@@ -869,7 +907,7 @@ declare namespace LLH {
             noShowN?: boolean;
             pools?: Pool.CardPoolsProcessedDataType;
         }
-        type LLCardSelectorComponent_OnCardChangeCallback = (cardId: Core.CardIdOrStringType) => void;
+        type LLCardSelectorComponent_OnCardChangeCallback = (cardId: Core.CardIdStringType) => void;
         class LLCardSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLCardSelectorComponent_Options);
 
@@ -878,7 +916,7 @@ declare namespace LLH {
             cards: API.CardDictDataType;
 
             setCardData(cards: API.CardDictDataType, resetCardSelection?: boolean): void;
-            getCardId(): Core.CardIdOrStringType;
+            getCardId(): Core.CardIdStringType;
             getFilteredCardIdList(): Core.CardIdStringType[];
             updatePoolsOptions(): void;
             scrollIntoView(): void;
@@ -896,6 +934,8 @@ declare namespace LLH {
             friendCSkill?: Layout.CenterSkill.LLCSkillComponent;
             mode?: Layout.LayoutMode;
         }
+        type LLSongSelectorComponent_SongSettingChangeCallback = (songSettingId: Core.SongSettingIdType, songSetting: Internal.ProcessedSongSettingDataType) => void;
+        type LLSongSelectorComponent_SongColorChangeCallback = (attribute: Core.AttributeType) => void;
         class LLSongSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLSongSelectorComponent_Options)
 
@@ -918,8 +958,8 @@ declare namespace LLH {
             updateMapInfo(songSetting: Internal.ProcessedSongSettingDataType): void;
 
             // optional callback
-            onSongSettingChange?: (songSettingId: Core.SongSettingIdType, songSetting: Internal.ProcessedSongSettingDataType) => void;
-            onSongColorChange?: (attribute: Core.AttributeType) => void;
+            onSongSettingChange?: LLSongSelectorComponent_SongSettingChangeCallback;
+            onSongColorChange?: LLSongSelectorComponent_SongColorChangeCallback;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -956,11 +996,11 @@ declare namespace LLH {
             showLevelSelect?: boolean;
             excludeMaterial?: boolean;
         }
-        interface LLAccessorySelectorComponent_DetailController {
-            set(data: Internal.ProcessedAccessoryDataType, language: Core.LanguageType): void;
+        interface LLAccessorySelectorComponent_DetailController extends Controller.ControllerBase {
+            set(data: Internal.ProcessedAccessoryDataType | undefined, language: Core.LanguageType): void;
         }
-        interface LLAccessorySelectorComponent_BriefController {
-            set(data: Internal.ProcessedAccessoryDataType, level: number, language: Core.LanguageType): void;
+        interface LLAccessorySelectorComponent_BriefController extends Controller.ControllerBase {
+            set(data: Internal.ProcessedAccessoryDataType | undefined, level: number, language: Core.LanguageType): void;
         }
 
         class LLAccessorySelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
@@ -972,10 +1012,10 @@ declare namespace LLH {
             showLevelSelect: boolean;
             excludeMaterial: boolean;
 
-            setAccessoryData(accessoryData: API.AccessoryDictDataType, cardData: API.CardDictDataType): void;
+            setAccessoryData(accessoryData?: API.AccessoryDictDataType, cardData?: API.CardDictDataType): void;
             getAccessoryId(): Core.AccessoryIdStringType;
             getAccessoryLevel(): number; // level range 1~8
-            getAccessorySaveData(): Internal.AccessorySaveDataType;
+            getAccessorySaveData(): Internal.AccessorySaveDataType | undefined;
 
             // implements LanguageSupport
             setLanguage(language: Core.LanguageType): void;
@@ -1064,7 +1104,11 @@ declare namespace LLH {
             getDefaultMaxSlot(rarity: Core.RarityStringType): number;
             getDefaultMinSlot(rarity: Core.RarityStringType): number;
             getCSkillGroups(): Core.MemberTagIdType[];
+            getZeroCSkill(): Internal.CSkillDataType;
+            copyCSkill(fromCSkill: Internal.CSkillDataType, toCSkill?: Internal.CSkillDataType): Internal.CSkillDataType;
+            getOrMakeDummyCardData(card?: API.CardDataType, cardId?: Core.CardIdOrStringType): API.CardDataType;
             getCardDescription(card: API.CardDataType, language: Core.LanguageType, mezame?: boolean): string;
+            getMaxKizuna(rarity: Core.RarityStringType, mezame?: Core.MezameType | boolean): number;
         }
         interface Attributes {
             makeAttributes(smile: number, pure: number, cool: number): Internal.AttributesValue;
@@ -1111,6 +1155,11 @@ declare namespace LLH {
             getSongDifficultyName(diff: Core.SongDifficultyType, language: Core.LanguageType): string;
             getDefaultSong(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongDataType;
             getDefaultSongSetting(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongSettingDataType;
+        }
+        interface Level {
+            getLevelLimitPatterns(): Core.LevelLimitPatternIdType[];
+            getLevelLimit(patternId: Core.LevelLimitPatternIdType): API.LevelLimitDictDataType | undefined;
+            getLevelLimitAttributeDiff(patternId: Core.LevelLimitPatternIdType, level: Core.LevelLimitLevelType): number;
         }
     }
 
@@ -1382,9 +1431,9 @@ declare namespace LLH {
              * effect value
              * for SYNC & ATTRIBUTE_UP effect: increased attribute after sync/attribute up
              */
-            v: number;
+            v?: number;
             /** sync target */
-            st: number;
+            st?: number;
         }
         class LLSimulateContext_LastActiveSkill {
             /** member id */
@@ -1432,7 +1481,7 @@ declare namespace LLH {
             a: boolean;
             st: LLSimulateContext_SkillStaticInfo;
             /** active effect info */
-            ae: LLSimulateContext_EffectStaticInfo;
+            ae?: LLSimulateContext_EffectStaticInfo;
         }
         class LLSimulateContext_SkillDynamicInfo {
             staticInfo: LLSimulateContext_SkillStaticInfo;
@@ -1515,8 +1564,8 @@ declare namespace LLH {
             memberSkillOrder: number[];
             lastFrameForLevelUp: number;
             activeSkills: LLSimulateContext_ActiveSkill[];
-            lastActiveSkill: LLSimulateContext_LastActiveSkill;
-            effects: {[type: number]: number};
+            lastActiveSkill?: LLSimulateContext_LastActiveSkill;
+            effects: {[type: Core.SkillEffectType]: number};
             isAccuracyState: boolean;
             isFullCombo: boolean;
             /** seconds, time when hp dropped to 0 */
@@ -1531,7 +1580,7 @@ declare namespace LLH {
             processDeactiveSkills(): void;
             getMinDeactiveTime(): void;
             markTriggerActive(memberId: number, bActive: boolean, effectInfo?: LLSimulateContext_EffectStaticInfo): void;
-            isSkillNoEffect(memberId: number, effectInfo: LLSimulateContext_EffectStaticInfo): boolean;
+            isSkillNoEffect(memberId: number, effectInfo?: LLSimulateContext_EffectStaticInfo): boolean;
             getSkillPossibility(memberId: number, isAccessory: boolean): number;
             onSkillActive(membereId: number, isAccessory: boolean): boolean;
             getNextTriggerChances(): number[];
@@ -1657,7 +1706,7 @@ declare namespace LLH {
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
-                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType | undefined;
                 onCenterChanged?: () => void;
 
                 mode?: LayoutMode;
@@ -1672,7 +1721,7 @@ declare namespace LLH {
                 getMember(i: IndexType): Internal.MemberSaveDataType;
                 getMembers(): Internal.MemberSaveDataType[];
                 setMemberGem(i: IndexType, gems: Model.LLSisGem[]): void;
-                setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType): void;
+                setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType | undefined): void;
                 getCardId(i: IndexType): Core.CardIdType;
                 getCardIds(): Core.CardIdType[];
                 getAccessoryId(i: IndexType): Core.AccessoryIdStringType;
@@ -1719,7 +1768,7 @@ declare namespace LLH {
                 // callbacks
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
-                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType | undefined;
                 onCenterChanged?: () => void;
 
                 // implements
@@ -1729,7 +1778,7 @@ declare namespace LLH {
         }
         namespace Language {
 
-            class LLLanguageComponent extends Component.LLComponentBase<HTMLInputElement> {
+            class LLLanguageComponent extends Component.LLComponentBase<HTMLInputElement, Core.LanguageType> {
                 constructor(id?: string | HTMLInputElement);
 
                 value: Core.LanguageType;
@@ -1742,10 +1791,8 @@ declare namespace LLH {
                 set(val: Core.LanguageType): void;
                 registerLanguageChange(langSupport: Mixin.LanguageSupport): void;
 
-                override serialize(): number;
-                override deserialize(data: number): void;
-                override saveJson(): string;
-                override loadJson(jsonData?: string): void;
+                override saveData(): Core.LanguageType | undefined;
+                override loadData(data?: Core.LanguageType): void;
             }
         }
         namespace ScoreDistParam {
@@ -1813,7 +1860,7 @@ declare namespace LLH {
         }
 
         namespace SubMember {
-            interface LLSubMemberComponent_MemberContainerController implements Misc.Swappable<Internal.SubMemberSaveDataType> {
+            interface LLSubMemberComponent_MemberContainerController extends Misc.Swappable<Internal.SubMemberSaveDataType> {
                 getMember(): Internal.SubMemberSaveDataType;
                 setMember(member: Internal.SubMemberSaveDataType): void;
                 startSwapping(): Internal.SubMemberSaveDataType;
@@ -1831,7 +1878,7 @@ declare namespace LLH {
 
                 onCountChange?: LLSubMemberComponent_OnCountChangeCallback;
 
-                add(member: Internal.SubMemberSaveDataType, skipCountChange: boolean): void;
+                add(member: Internal.SubMemberSaveDataType, skipCountChange?: boolean): void;
                 remove(start: number, n: number): void;
                 count(): number;
                 empty(): boolean;
@@ -1854,7 +1901,7 @@ declare namespace LLH {
                 title?: string;
             }
 
-            interface LLCSkillComponent_Controller {
+            interface LLCSkillComponent_Controller extends Controller.ControllerBase {
                 setCSkill(card: Internal.CSkillDataType): void;
                 getCSkill(): Internal.CSkillDataType;
                 setMapColor(color: Core.AttributeType): void;
@@ -1874,15 +1921,15 @@ declare namespace LLH {
         namespace Skill {
             interface LLSkillContainer_Options {
                 /** default 'skillcontainer' */
-                container?: string;
+                container?: Component.HTMLElementOrId;
                 /** default 'skilllvup' */
-                lvup?: string;
+                lvup?: Component.HTMLElementOrId;
                 /** default 'skilllvdown' */
-                lvdown?: string;
+                lvdown?: Component.HTMLElementOrId;
                 /** default 'skilllevel' */
-                level?: string;
+                level?: Component.HTMLElementOrId;
                 /** default 'skilltext' */
-                text?: string;
+                text?: Component.HTMLElementOrId;
                 showall?: boolean;
                 cardData?: API.CardDataType;
             }
@@ -1897,6 +1944,33 @@ declare namespace LLH {
                 setSkillLevel(lv: number): void;
                 setCardData(cardData?: API.CardDataType, skipRender?: boolean): void;
                 render(): void;
+            }
+
+            interface LLSkillComponent_Options {
+                id?: string;
+                /** whether or not show level over 8 */
+                showAll?: boolean;
+                /** whether or not show label on left side of the skill level and text */
+                showLabel?: boolean;
+            }
+            class LLSkillComponent extends LLSkillContainer {
+                constructor(options?: LLSkillComponent_Options);
+
+                element: HTMLElement;
+            }
+        }
+
+        namespace CardStatus {
+            interface LLCardStatusComponent_Options {
+                id?: Component.HTMLElementOrId;
+            }
+            class LLCardStatusComponent extends Component.LLFiltersComponent {
+                constructor(options?: LLCardStatusComponent_Options);
+
+                applyCardData(cardId?: Core.CardIdStringType): void;
+                getMemberData(): Internal.MemberSaveDataType;
+
+                element: HTMLElement;
             }
         }
     }
@@ -1918,6 +1992,8 @@ declare namespace LLH {
     class LLSimpleKeyData<T> {
         constructor(url: string, keys: string[]);
 
+        keys: string[];
+
         get(keys?: string[], url?: string): Depends.Promise<T, void>;
     }
     
@@ -1935,6 +2011,7 @@ declare namespace LLH {
         Attributes: ConstUtil.Attributes;
         Live: ConstUtil.Live;
         Song: ConstUtil.Song;
+        Level: ConstUtil.Level;
     }
 
     namespace Test {

@@ -68,6 +68,11 @@ var LoadingUtil = {
    start: function (defers, merger) {
       return LoadingUtil.startImpl(defers, 'loadingbox', 'loadingbox_progress', merger);
    },
+   /**
+    * @template DoneT, FailT
+    * @param {LLH.Depends.Promise<DoneT, FailT>} defer 
+    * @returns {LLH.Depends.Promise<DoneT, FailT>}
+    */
    startSingle: function (defer) {
       return LoadingUtil.startImpl([defer], 'loadingbox', 'loadingbox_progress').then(function (data) { return data[0]; });
    },
@@ -164,7 +169,8 @@ const LLHelperLocalStorageKeys = {
    'localStorageCardSelectKey': 'llhelper_card_select__',
    'localStorageLanguageKey': 'llhelper_language__',
    'localStorageAccessorySelectKey': 'llhelper_accessory_select__',
-   'localStorageCardPoolKey': 'llhelper_card_pool__'
+   'localStorageCardPoolKey': 'llhelper_card_pool__',
+   'localStorageMezameKey': 'llhelper_mezame__'
 };
 
 /** @type {LLH.Persistence.LLHelperLocalStorage} */
@@ -257,6 +263,95 @@ var LLSaveLoadJsonGroup = (function () {
       }
    };
    return LLSaveLoadJsonGroup_cls;
+})();
+
+var SaveLoadJsonBase = (function () {
+   /**
+    * @template DataT
+    * @implements {LLH.Mixin.SaveLoadJson}
+    * @implements {LLH.Mixin.SaveLoadable<DataT>}
+    */
+   class SaveLoadJsonBase {
+      constructor() {}
+      /** @returns {DataT | undefined} */
+      saveData() {
+         return undefined;
+      }
+      /** @param {DataT} [data] */
+      loadData(data) {}
+      saveJson() {
+         return JSON.stringify(this.saveData());
+      }
+      /** @param {string} [jsonData] */
+      loadJson(jsonData) {
+         try {
+            if ((!jsonData) || jsonData == 'undefined') {
+               this.loadData();
+            } else {
+               var json = JSON.parse(jsonData);
+               this.loadData(json);
+            }
+         } catch (e) {
+            console.error('Failed to load json:');
+            console.error(e);
+            console.info(jsonData);
+         }
+      }
+   }
+
+   return SaveLoadJsonBase;
+})();
+
+var SaveLoadableGroup = (function () {
+   /**
+    * @template [DataT=LLH.Mixin.SaveLoadableGroupDataType]
+    * @extends {LLH.Mixin.SaveLoadJsonBase<DataT>}
+    */
+   class SaveLoadableGroup extends SaveLoadJsonBase {
+      constructor() {
+         super();
+         /** @type {{[key: string]: LLH.Mixin.SaveLoadable<any>}} */
+         this._saveLoadableMap = {};
+      }
+      /**
+       * @template SubDataT
+       * @param {string} key
+       * @param {LLH.Mixin.SaveLoadable<SubDataT>} saveLoadable
+       */
+      addSaveLoadable(key, saveLoadable) {
+         this._saveLoadableMap[key] = saveLoadable;
+      }
+      /**
+       * @template {LLH.Mixin.SaveLoadable} T
+       * @param {string} key 
+       * @returns {T | undefined}
+       */
+      getSaveLoadable(key) {
+         return /** @type {T} */ (this._saveLoadableMap[key]);
+      }
+      /** @override */
+      saveData() {
+         var ret = {};
+         for (var k in this._saveLoadableMap) {
+            ret[k] = this._saveLoadableMap[k].saveData();
+         }
+         return /** @type {DataT} */ (ret);
+      }
+      /**
+       * @override
+       * @param {DataT} [data]
+       */
+      loadData(data) {
+         for (var k in this._saveLoadableMap) {
+            if (data && data[k] !== undefined) {
+               this._saveLoadableMap[k].loadData(data[k]);
+            } else {
+               this._saveLoadableMap[k].loadData();
+            }
+         }
+      }
+   }
+   return SaveLoadableGroup;
 })();
 
 /*
@@ -415,63 +510,81 @@ var LLData = (function () {
 })();
 
 var LLSimpleKeyData = (function () {
-   function LLSimpleKeyData_cls(url, keys) {
-      this.url = url;
-      this.keys = keys;
-      this.cache = {};
-   }
-   LLSimpleKeyData_cls.prototype.get = function(keys, url) {
-      if (keys === undefined) keys = this.keys;
-      if (url === undefined) url = this.url;
-      var me = this;
-      var missingKeys = [];
-      var defer = LLDepends.createDeferred();
-      for (var i = 0; i < keys.length; i++) {
-         var key = keys[i];
-         if (!me.cache[key]) {
-            missingKeys.push(key);
-         }
+   /** @template T */
+   class LLSimpleKeyData_cls {
+      /**
+       * @param {string} url 
+       * @param {string[]} keys 
+       */
+      constructor(url, keys) {
+         this.url = url;
+         this.keys = keys;
+         this.cache = /** @type {T} */ ({});
       }
-      if (missingKeys.length == 0) {
-         defer.resolve(me.cache);
+      /**
+       * @param {string[]} [keys] 
+       * @param {string} [url] 
+       */
+      get(keys, url) {
+         if (keys === undefined)
+            keys = this.keys;
+         if (url === undefined)
+            url = this.url;
+         var me = this;
+         var missingKeys = [];
+         /** @type {LLH.Depends.Deferred<T, void>} */
+         var defer = LLDepends.createDeferred();
+         for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (!me.cache[key]) {
+               missingKeys.push(key);
+            }
+         }
+         if (missingKeys.length == 0) {
+            defer.resolve(me.cache);
+            return defer;
+         }
+         var requestKeys = missingKeys.sort().join(',');
+
+         $.ajax({
+            'url': url,
+            'data': {
+               'keys': requestKeys
+            },
+            'type': 'GET',
+            'success': function (data) {
+               for (var index in data) {
+                  me.cache[index] = data[index];
+               }
+               defer.resolve(me.cache);
+            },
+            'error': function (xhr, textStatus, errorThrown) {
+               console.error("Failed on request to " + me.url + ": " + textStatus);
+               console.error(errorThrown);
+               defer.reject();
+            },
+            'dataType': 'json'
+         });
          return defer;
       }
-      var requestKeys = missingKeys.sort().join(',');
-
-      $.ajax({
-         'url': url,
-         'data': {
-            'keys': requestKeys
-         },
-         'type': 'GET',
-         'success': function (data) {
-            for (var index in data) {
-               me.cache[index] = data[index];
-            }
-            defer.resolve(me.cache);
-         },
-         'error': function (xhr, textStatus, errorThrown) {
-            console.error("Failed on request to " + me.url + ": " + textStatus);
-            console.error(errorThrown);
-            defer.reject();
-         },
-         'dataType': 'json'
-      });
-      return defer;
-   };
+   }
    return LLSimpleKeyData_cls;
 })();
 
 /** @type {LLH.LLData<LLH.API.CardDataType>} */
 var LLCardData = new LLData('/lldata/cardbrief', '/lldata/card/',
    ['id', 'typeid', 'support', 'rarity', 'attribute', 'special', 'type', 'skilleffect', 'triggertype', 'triggerrequire', 'eponym', 'jpeponym', 'hp', 'album']);
+/** @type {LLH.LLData<LLH.API.SongDataType>} */
 var LLSongData = new LLData('/lldata/songbrief', '/lldata/song/',
    ['id', 'attribute', 'name', 'jpname', 'settings', 'group']);
+/** @type {LLH.LLData<LLH.API.SisDataType>} */
 var LLSisData = new LLData('/lldata/sisbrief', '/lldata/sis/',
    ['id', 'type', 'jpname', 'cnname', 'level', 'size', 'range', 'effect_type', 'effect_value', 'color', 'fixed', 'member', 'grade', 'group',
     'trigger_ref', 'trigger_value', 'sub_skill', 'live_effect_type', 'live_effect_interval', 'level_up_skill']);
+/** @type {LLH.LLData<LLH.API.AccessoryDataType>} */
 var LLAccessoryData = new LLData('/lldata/accessorybrief', '/lldata/accessory/',
    ['id', 'jpname', 'cnname', 'rarity', 'smile', 'pure', 'cool', 'is_material', 'effect_type', 'unit_id', 'max_level', 'trigger_type', 'trigger_effect_type']);
+/** @type {LLH.LLSimpleKeyData<LLH.API.MetaDataType>} */
 var LLMetaData = new LLSimpleKeyData('/lldata/metadata', ['album', 'member_tag', 'unit_type', 'cskill_groups']);
 
 var LLMapNoteData = (function () {
@@ -595,15 +708,17 @@ var LLMapNoteData = (function () {
 
 var LLComponentBase = (function () {
    /**
-    * @implements {LLH.Mixin.SaveLoadJson}
     * @template {HTMLElement} [ElementType = HTMLElement]
+    * @template [DataT = boolean]
+    * @extends {SaveLoadJsonBase<DataT>}
     */
-   class LLComponentBase_cls {
+   class LLComponentBase_cls extends SaveLoadJsonBase {
       /**
        * @param {ElementType | string} [id] 
        * @param {LLH.Component.LLComponentBase_Options} [options] 
        */
       constructor(id, options) {
+         super();
          this.id = undefined;
          this.exist = false;
          this.visible = false;
@@ -664,24 +779,18 @@ var LLComponentBase = (function () {
          if (this.element.title == tooltips) return;
          this.element.title = tooltips;
       }
-      serialize() {
+      saveData() {
          if (!this.element) return undefined;
-         return this.visible;
+         return /** @type {DataT} */ (this.visible);
       }
-      deserialize(v) {
-         if (v) {
+      /** @param {DataT} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         if (data) {
             this.show();
          } else {
             this.hide();
          }
-      }
-      saveJson() {
-         return JSON.stringify(this.serialize());
-      }
-      /** @param {string} json */
-      loadJson(json) {
-         var me = this;
-         LLSaveLoadJsonHelper.commonLoadJson(v => me.deserialize(v), json);
       }
       /**
        * @param {string} e 
@@ -703,7 +812,8 @@ var LLComponentBase = (function () {
 var LLValuedComponent = (function() {
    /**
     * @template {HTMLElement} [ElementType = HTMLElement]
-    * @extends {LLComponentBase<ElementType>}
+    * @template [ValueType = string]
+    * @extends {LLComponentBase<ElementType, ValueType>}
     */
    class LLValuedComponent_cls extends LLComponentBase {
       /**
@@ -712,10 +822,11 @@ var LLValuedComponent = (function() {
        */
       constructor(id, options) {
          super(id, options);
-         /** @type {((newValue: string) => void) | undefined} */
+         /** @type {((newValue: ValueType) => void) | undefined} */
          this.onValueChange = undefined;
+         /** @type {ValueType=} */
+         this.value = undefined;
          if (!this.element) {
-            this.value = undefined;
             this.valueKey = 'innerHTML';
             return this;
          }
@@ -746,7 +857,13 @@ var LLValuedComponent = (function() {
       get() {
          return this.value;
       }
-      /** @param {string} v */
+      /** @param {ValueType} defaultValue */
+      getOrElse(defaultValue) {
+         var ret = this.get();
+         if (ret === undefined) return defaultValue;
+         return ret;
+      }
+      /** @param {ValueType} v */
       set(v) {
          if (!this.element) return;
          if (v == this.value) return;
@@ -754,28 +871,34 @@ var LLValuedComponent = (function() {
          this.value = v;
          if (this.onValueChange) this.onValueChange(v);
       }
-      /** @override */
-      serialize() {
+      saveData() {
          return this.get();
       }
-      /**
-       * @override
-       * @param {*} v 
-       */
-      deserialize(v) {
-         this.set(v);
-      };
+      /** @param {ValueType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         this.set(data);
+      }
    }
 
    return LLValuedComponent_cls;
 })();
 
 var LLValuedMemoryComponent = (function() {
+   /**
+    * @template [ValueType = string]
+    * @extends {LLValuedComponent<HTMLElement, ValueType>}
+    */
    class LLValuedMemoryComponent_cls extends LLValuedComponent {
+      /** @param {ValueType} initialValue */
       constructor(initialValue) {
          super();
          this.value = initialValue;
       }
+      get() {
+         return this.value;
+      }
+      /** @param {ValueType} v */
       set(v) {
          if (v == this.value) return;
          this.value = v;
@@ -788,7 +911,8 @@ var LLValuedMemoryComponent = (function() {
 
 var LLSelectComponent = (function() {
    /**
-    * @extends {LLValuedComponent<HTMLSelectElement>}
+    * @template {string} [ValueType = string]
+    * @extends {LLValuedComponent<HTMLSelectElement, ValueType>}
     */
    class LLSelectComponent_cls extends LLValuedComponent {
       /**
@@ -797,11 +921,11 @@ var LLSelectComponent = (function() {
        */
       constructor(id, options) {
          super(id, options);
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         /** @type {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} */
          this.options = [];
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} read only*/
+         /** @type {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} read only*/
          this.filteredOptions = [];
-         /** @type {LLH.Component.LLSelectComponent_FilterCallback | undefined} */
+         /** @type {LLH.Component.LLSelectComponent_FilterCallback<ValueType> | undefined} */
          this.filter = undefined;
          if (!this.element) {
             return this;
@@ -809,14 +933,14 @@ var LLSelectComponent = (function() {
          var orig_opts = this.element.options;
          for (var i = 0; i < orig_opts.length; i++) {
             this.options.push({
-               value: orig_opts[i].value,
+               value: /** @type {ValueType} */ (orig_opts[i].value),
                text: orig_opts[i].text
             });
          }
       }
       /**
        * @override
-       * @param {string} v 
+       * @param {ValueType} v 
        */
       set(v) {
          if (!this.element) return;
@@ -835,21 +959,21 @@ var LLSelectComponent = (function() {
          }
       }
       /**
-       * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
-       * @param {LLH.Component.LLSelectComponent_FilterCallback} [filter] 
+       * @param {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} options 
+       * @param {LLH.Component.LLSelectComponent_FilterCallback<ValueType>} [filter] 
        */
       setOptions(options, filter) {
          if (!this.exist) return;
          this.options = options || [];
          this.filterOptions(filter);
       }
-      /** @param {LLH.Component.LLSelectComponent_FilterCallback} [filter] */
+      /** @param {LLH.Component.LLSelectComponent_FilterCallback<ValueType>} [filter] */
       filterOptions(filter) {
          if (!this.element) return;
          if (!filter) filter = this.filter;
          var oldValue = this.get();
          var foundOldValue = false;
-         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         /** @type {LLH.Component.LLSelectComponent_OptionDef<ValueType>[]} */
          var filteredOptions = [];
          this.element.options.length = 0;
          for (var i in this.options) {
@@ -862,10 +986,10 @@ var LLSelectComponent = (function() {
             this.element.options.add(newOption);
             if (oldValue == option.value) foundOldValue = true;
          }
-         if (foundOldValue) {
+         if (foundOldValue && oldValue !== undefined) {
             this.set(oldValue);
          } else {
-            this.set(this.element.value);
+            this.set(/** @type {ValueType} */ (this.element.value));
          }
          this.filter = filter;
          this.filteredOptions = filteredOptions;
@@ -1126,66 +1250,37 @@ var LLYesNoDialogComponent = (function() {
 
 var LLComponentCollection = (function() {
    /**
-    * @implements {LLH.Mixin.SaveLoadJson}
+    * @template [DataT=LLH.Mixin.SaveLoadableGroupDataType]
+    * @extends {LLH.Mixin.SaveLoadableGroup<DataT>}
     */
-   class LLComponentCollection_cls {
+   class LLComponentCollection_cls extends SaveLoadableGroup {
       constructor() {
-         /** @type {{[name: string]: LLH.Component.LLComponentBase}} */
-         this.components = {};
+         super();
       }
       /**
+       * @template {HTMLElement} E
+       * @template D
        * @param {string} name 
-       * @param {LLH.Component.LLComponentBase} component 
+       * @param {LLH.Component.LLComponentBase<E, D>} component 
        */
       add(name, component) {
-         this.components[name] = component;
+         this.addSaveLoadable(name, component);
       }
       /**
        * @template {LLH.Component.LLComponentBase} T
        * @param {string} name
-       * @returns {T}
+       * @returns {T | undefined}
        */
       getComponent(name) {
-         return /** @type {T} */ (this.components[name]);
+         return /** @type {T} */ this.getSaveLoadable(name);
       }
       /**
        * @template {LLH.Component.LLValuedComponent} T
        * @param {string} name
-       * @returns {T}
+       * @returns {T | undefined}
        */
       getValuedComponent(name) {
-         return /** @type {T} */ (this.components[name]);
-      }
-      serialize() {
-         var ret = {};
-         for (var i in this.components) {
-            var val = this.components[i].serialize();
-            if (val !== undefined) {
-               ret[i] = val;
-            }
-         }
-         return ret;
-      }
-      deserialize(v) {
-         if (!v) return;
-         for (var i in this.components) {
-            var val = v[i];
-            if (val !== undefined) {
-               this.components[i].deserialize(val);
-            }
-         }
-      }
-      saveJson() {
-         return JSON.stringify(this.serialize());
-      }
-      loadJson(data) {
-         if (data && data != 'undefined') {
-            try {
-               this.deserialize(JSON.parse(data));
-            } catch (e) {
-               console.error(e);
-            }
-         }
+         return /** @type {T} */ this.getSaveLoadable(name);
       }
       saveLocalStorage(key) {
          LLHelperLocalStorage.setData(key, this.saveJson());
@@ -1209,7 +1304,7 @@ var LLFiltersComponent = (function() {
          /** @type {{[name: string]: LLH.Component.LLFiltersComponent_FilterDef}} */
          this.filters = {};
          this.freeze = false;
-         /** @type {((name: string, newValue: string) => void) | undefined} */
+         /** @type {((name: string, newValue: any) => void) | undefined} */
          this.onValueChange = undefined;
       }
       /** @param {boolean} isFreezed */
@@ -1220,8 +1315,10 @@ var LLFiltersComponent = (function() {
          return this.freeze;
       };
       /**
+       * @template {HTMLElement} E
+       * @template D
        * @param {string} name 
-       * @param {LLH.Component.LLValuedComponent} component 
+       * @param {LLH.Component.LLValuedComponent<E, D>} component 
        * @param {(opt: LLH.Component.LLSelectComponent_OptionDef) => any} [dataGetter] 
        */
       addFilterable(name, component, dataGetter) {
@@ -1246,9 +1343,11 @@ var LLFiltersComponent = (function() {
          return this.filters[name];
       }
       /**
+       * @template [FilterValueT = string]
+       * @template [TargetDataT = any]
        * @param {string} sourceName 
        * @param {string} targetName 
-       * @param {LLH.Component.LLFiltersComponent_FilterCallback} callback 
+       * @param {LLH.Component.LLFiltersComponent_FilterCallback<FilterValueT, TargetDataT>} callback 
        */
       addFilterCallback(sourceName, targetName, callback) {
          var sourceFilter = this.getFilter(sourceName, true);
@@ -1259,8 +1358,8 @@ var LLFiltersComponent = (function() {
          if (!targetFilter.reverseCallbacks) {
             targetFilter.reverseCallbacks = {};
          }
-         sourceFilter.callbacks[targetName] = callback;
-         targetFilter.reverseCallbacks[sourceName] = callback;
+         sourceFilter.callbacks[targetName] = /** @type {LLH.Component.LLFiltersComponent_FilterCallback} */ (callback);
+         targetFilter.reverseCallbacks[sourceName] = /** @type {LLH.Component.LLFiltersComponent_FilterCallback} */ (callback);
       }
       /**
        * @param {string} name 
@@ -1330,11 +1429,11 @@ var LLFiltersComponent = (function() {
             }
          }
       }
-      /** @override */
-      deserialize(v) {
-         if (!v) return;
+      /** @param {LLH.Mixin.SaveLoadableGroupDataType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
          this.setFreezed(true);
-         super.deserialize(v);
+         super.loadData(data);
          this.setFreezed(false);
          this.handleFilters();
       }
@@ -1359,7 +1458,7 @@ var LLFiltersComponent = (function() {
       if (checkCallbacks && filter.reverseCallbacks) {
          /** @type {LLH.Component.LLFiltersComponent_FilterCallback[]} */
          var filterCallbacks = [];
-         /** @type {string[]} */
+         /** @type {(string | undefined)[]} */
          var values = [];
          /** @type {LLH.Component.LLValuedComponent | undefined} */
          var comp = undefined;
@@ -1731,10 +1830,29 @@ var LLConst = (function () {
    /** @type {LLH.Internal.ProcessedAlbumGroupType[]} */
    var ALBUM_GROUP = [];
 
+   /** @type {LLH.API.LevelLimitPatternDictDataType} */
+   var LEVEL_LIMIT_DATA = {};
+
+   const INIT_KEY_ALBUM = 'album';
+   const INIT_KEY_MEMBER_TAG = 'member_tag';
+   const INIT_KEY_UNIT_TYPE = 'unit_type';
+   const INIT_KEY_CSKILL_GROUPS = 'cskill_groups';
+   const INIT_KEY_LEVEL_LIMIT = 'level_limit';
 
    var metaDataInited = {};
-   var mCheckInited = function (key) {
-      if (!metaDataInited[key]) throw key + ' not inited';
+   /**
+    * @param {string} key
+    * @param {boolean} [noThrow]
+    */
+   var mCheckInited = function (key, noThrow) {
+      if (!metaDataInited[key]) {
+         var err = key + ' not inited';
+         if (noThrow) {
+            console.error(err);
+         } else {
+            throw err;
+         }
+      }
    };
 
    /**
@@ -1762,7 +1880,7 @@ var LLConst = (function () {
     * @returns {LLH.Internal.MemberMetaDataType | undefined}
     */
    var mGetMemberData = function (member) {
-      mCheckInited('unit_type');
+      mCheckInited(INIT_KEY_UNIT_TYPE);
       var memberid = mGetMemberId(member);
       if (memberid !== undefined) {
          return MEMBER_DATA[memberid];
@@ -1781,7 +1899,7 @@ var LLConst = (function () {
       return groupid;
    };
    var mGetGroupData = function (group) {
-      mCheckInited('member_tag');
+      mCheckInited(INIT_KEY_MEMBER_TAG);
       var groupid = mGetGroupId(group);
       if (groupid !== undefined) {
          return GROUP_DATA[groupid];
@@ -1907,6 +2025,8 @@ var LLConst = (function () {
       3.98, 4.08, 4.19, 4.29]; // 60~63
    var DEFAULT_MAX_SLOT = {'UR': 8, 'SSR': 6, 'SR': 4, 'R': 2, 'N': 1};
    var DEFAULT_MIN_SLOT = {'UR': 4, 'SSR': 3, 'SR': 2, 'R': 1, 'N': 0};
+   var DEFAULT_KIZUNA_MEZAME = {'UR': 1000, 'SSR': 750, 'SR': 500, 'R': 200, 'N': 50};
+   var DEFAULT_KIZUNA_NORMAL = {'UR': 500, 'SSR': 375, 'SR': 250, 'R': 100, 'N': 25};
 
    /** @type {LLH.Core.MemberTagIdType[]} */
    var CSKILL_GROUPS = [];
@@ -1940,8 +2060,43 @@ var LLConst = (function () {
          return (DEFAULT_MIN_SLOT[rarity] || 0);
       },
       getCSkillGroups: function () {
-         mCheckInited('cskill_groups');
+         mCheckInited(INIT_KEY_CSKILL_GROUPS);
          return CSKILL_GROUPS;
+      },
+      getZeroCSkill: function () {
+         return {
+            'attribute': 'smile',
+            'Cskillattribute': 'smile',
+            'Cskillpercentage': 0,
+            'Csecondskilllimit': LLConstValue.GROUP_UNKNOWN,
+            'Csecondskillattribute': 0
+         };
+      },
+      copyCSkill: function (fromCSkill, toCSkill) {
+         if (!toCSkill) {
+            return {
+               'attribute': fromCSkill.attribute,
+               'Cskillattribute': fromCSkill.Cskillattribute,
+               'Cskillpercentage': fromCSkill.Cskillpercentage,
+               'Csecondskilllimit': fromCSkill.Csecondskilllimit,
+               'Csecondskillattribute': fromCSkill.Csecondskillattribute
+            };
+         } else {
+            toCSkill.attribute = fromCSkill.attribute;
+            toCSkill.Cskillattribute = fromCSkill.Cskillattribute;
+            toCSkill.Cskillpercentage = fromCSkill.Cskillpercentage;
+            toCSkill.Csecondskilllimit = fromCSkill.Csecondskilllimit;
+            toCSkill.Csecondskillattribute = fromCSkill.Csecondskillattribute;
+            return toCSkill;
+         }
+      },
+      getOrMakeDummyCardData: function (card, cardId) {
+         if (card) return card;
+         var cardData = {
+            'id': parseInt((cardId || -1) + '')
+         };
+         // TODO: make a better dummy data
+         return /** @type {LLH.API.CardDataType} */ (cardData);
       },
       getCardDescription: function (card, language, mezame) {
          var desc = String(card.id);
@@ -1966,6 +2121,13 @@ var LLConst = (function () {
             desc += (card.eponym ? "【"+card.eponym+"】" : '') + ' ' + constUtil.Member.getMemberName(curTypeId, KEYS.LANGUAGE_CN) + ' ' + (albumGroup.cnname ? "("+albumGroup.cnname+")" : albumGroupJpName);
          }
          return desc;
+      },
+      getMaxKizuna: function (rarity, mezame) {
+         if (mezame) {
+            return DEFAULT_KIZUNA_MEZAME[rarity];
+         } else {
+            return DEFAULT_KIZUNA_NORMAL[rarity];
+         }
       }
    };
    constUtil.Common = CommonUtils;
@@ -2062,13 +2224,13 @@ var LLConst = (function () {
          return curMemberColor;
       },
       getMemberGrade: function (member) {
-         mCheckInited('unit_type');
+         mCheckInited(INIT_KEY_UNIT_TYPE);
          var memberData = mGetMemberData(member);
          if (!memberData) return undefined;
          return memberData.grade;
       },
       getMemberTypeIdsInGroups: function (groups) {
-         mCheckInited('unit_type');
+         mCheckInited(INIT_KEY_UNIT_TYPE);
          if (groups === undefined) return [];
          if (typeof(groups) == 'number') groups = [groups];
          var memberInGroupCount = {};
@@ -2114,7 +2276,7 @@ var LLConst = (function () {
    /** @type {LLH.ConstUtil.Group} */
    var GroupUtils = {
       getGroupName: function (groupid) {
-         mCheckInited('member_tag');
+         mCheckInited(INIT_KEY_MEMBER_TAG);
          var groupData = GROUP_DATA[groupid];
          if (!groupData) return '<Unknown(' + groupid + ')>';
          if (groupData.cnname) return groupData.cnname;
@@ -2599,7 +2761,7 @@ var LLConst = (function () {
    /** @type {LLH.ConstUtil.Album} */
    var AlbumUtils = {
       getAlbumGroupByAlbumId: function (album_id) {
-         mCheckInited('album');
+         mCheckInited(INIT_KEY_ALBUM);
          if (!album_id) return undefined;
          if (!ALBUM_DATA[album_id]) {
             console.error('not found album ' + album_id);
@@ -2613,11 +2775,11 @@ var LLConst = (function () {
          return ALBUM_GROUP[album.albumGroupId];
       },
       getAlbumGroups: function () {
-         mCheckInited('album');
+         mCheckInited(INIT_KEY_ALBUM);
          return ALBUM_GROUP;
       },
       isAlbumInAlbumGroup: function (album_id, group_id) {
-         mCheckInited('album');
+         mCheckInited(INIT_KEY_ALBUM);
          if (!album_id) return false;
          if (!ALBUM_DATA[album_id]) {
             console.error('not found album ' + album_id);
@@ -2743,19 +2905,23 @@ var LLConst = (function () {
    constUtil.initMetadata = function(metadata) {
       if (metadata.album) {
          mInitAlbumData(metadata.album);
-         metaDataInited['album'] = 1;
+         metaDataInited[INIT_KEY_ALBUM] = 1;
       }
       if (metadata.member_tag) {
          GROUP_DATA = metadata.member_tag;
-         metaDataInited['member_tag'] = 1;
+         metaDataInited[INIT_KEY_MEMBER_TAG] = 1;
       }
       if (metadata.unit_type) {
          mInitMemberData(metadata.unit_type);
-         metaDataInited['unit_type'] = 1;
+         metaDataInited[INIT_KEY_UNIT_TYPE] = 1;
       }
       if (metadata.cskill_groups) {
          CSKILL_GROUPS = metadata.cskill_groups;
-         metaDataInited['cskill_groups'] = 1;
+         metaDataInited[INIT_KEY_CSKILL_GROUPS] = 1;
+      }
+      if (metadata.level_limit) {
+         LEVEL_LIMIT_DATA = metadata.level_limit;
+         metaDataInited[INIT_KEY_LEVEL_LIMIT] = 1;
       }
    };
 
@@ -2889,6 +3055,28 @@ var LLConst = (function () {
    };
    constUtil.Song = SongUtil;
 
+   /** @type {LLH.ConstUtil.Level} */
+   var levelUtil = {
+      getLevelLimitPatterns: function () {
+         mCheckInited(INIT_KEY_LEVEL_LIMIT, true);
+         return Object.keys(LEVEL_LIMIT_DATA).sort((a, b) => parseInt(a) - parseInt(b));
+      },
+      getLevelLimit: function (patternId) {
+         mCheckInited(INIT_KEY_LEVEL_LIMIT, true);
+         return LEVEL_LIMIT_DATA[patternId];
+      },
+      getLevelLimitAttributeDiff: function (patternId, level) {
+         mCheckInited(INIT_KEY_LEVEL_LIMIT, true);
+         var levelLimit = levelUtil.getLevelLimit(patternId);
+         if (levelLimit && levelLimit[level] !== undefined) {
+            return levelLimit[level];
+         } else {
+            return 0;
+         }
+      }
+   };
+   constUtil.Level = levelUtil;
+
    return constUtil;
 })();
 
@@ -2936,40 +3124,6 @@ var LLUnit = {
       if (n === undefined) return '';
       if (precision === undefined) precision = 2;
       return LLUnit.numberToString(n*100, precision) + '%';
-   },
-
-   // kizuna from twintailos.js, skilllevel from each page
-   applycarddata: function () {
-      var index = comp_cardselector.getCardId();
-      var mezame = (document.getElementById("mezame").checked ? 1 : 0);
-      if (index != "") {
-         LLUnit.setAvatarSrcList(comp_cardavatar, parseInt(index), mezame);
-         LoadingUtil.startSingle(LLCardData.getDetailedData(index)).then(function(card) {
-            document.getElementById("main").value = card.attribute
-            comp_skill.setCardData(card);
-
-            var infolist2 = ["smile", "pure", "cool"]
-            var i;
-            if (!mezame){
-               for (i in infolist2){
-                  document.getElementById(infolist2[i]).value = card[infolist2[i]]
-               }
-               document.getElementById("hp").value = parseInt(card.hp);
-               document.getElementById("mezame").value = "未觉醒";
-            }
-            else{
-               for (i in infolist2){
-                  document.getElementById(infolist2[i]).value = card[infolist2[i]+"2"]
-               }
-               document.getElementById("hp").value = parseInt(card.hp)+1;
-               document.getElementById("mezame").value = "已觉醒"
-            }
-            document.getElementById("kizuna").value = kizuna[card.rarity][mezame]
-         }, defaultHandleFailedRequest);
-      } else {
-         LLUnit.setAvatarSrcList(comp_cardavatar, 0, mezame);
-         comp_skill.setCardData();
-      }
    },
 
    /**
@@ -3267,30 +3421,17 @@ var LLUnit = {
       return tableElement;
    },
 
-   createColorSelectComponent: function (emptyName, options) {
+   /** @param {LLH.Component.CreateElementOptions} [options] */
+   createColorSelectComponent: function (options) {
+      /** @type {LLH.Component.LLSelectComponent<LLH.Core.AttributeType>} */
       var selectComponent = new LLSelectComponent(LLUnit.createSelectElement(options));
-      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+      /** @type {LLH.Component.LLSelectComponent_OptionDef<LLH.Core.AttributeType>[]} */
       var selOptions = [];
-      if (emptyName !== undefined) {
-         selOptions.push({'value': '', 'text': emptyName});
-      }
       selOptions.push({'value': 'smile', 'text': 'Smile', 'color': 'red'});
       selOptions.push({'value': 'pure',  'text': 'Pure',  'color': 'green'});
       selOptions.push({'value': 'cool',  'text': 'Cool',  'color': 'blue'});
       selectComponent.setOptions(selOptions);
       return selectComponent;
-   },
-
-   setAvatarSrcList: function (imgComp, cardid, mezame) {
-      imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
-      if (cardid) {
-         imgComp.setAltText(LLConst.Common.getCardDescription((LLCardData.getAllCachedBriefData() || {'id': cardid})[cardid], LLConstValue.LANGUAGE_CN, mezame));
-      } else {
-         imgComp.setAltText('');
-      }
-      LLImageServerSwitch.registerCallback(imgComp, function () {
-         imgComp.setSrcList(LLUnit.getImagePathList(cardid, 'avatar', mezame));
-      });
    }
 };
 
@@ -3402,25 +3543,27 @@ var LLSkillContainer = (function() {
          this.skillLevel = 0; // base 0, range 0-7
          this.cardData = undefined;
          options = options || {};
-         options.container = options.container || 'skillcontainer';
-         options.lvup = options.lvup || 'skilllvup';
-         options.lvdown = options.lvdown || 'skilllvdown';
-         options.level = options.level || 'skilllevel';
-         options.text = options.text || 'skilltext';
-         options.showall = options.showall || false;
+
+         this.showAll = options.showall || false;
+         this.lvUpComponent = new LLComponentBase(options.lvup || 'skilllvup');
+         this.lvDownComponent = new LLComponentBase(options.lvdown || 'skilllvdown');
+         this.containerComponent = new LLComponentBase(options.container || 'skillcontainer');
+         this.levelComponent = new LLValuedComponent(options.level || 'skilllevel');
+         this.textComponent = new LLValuedComponent(options.text || 'skilltext');
+
          var me = this;
-         this.showAll = options.showall;
-         this.add(SEL_ID_CONTAINER, new LLComponentBase(options.container));
-         this.add(SEL_ID_LVUP, new LLComponentBase(options.lvup));
-         this.getComponent(SEL_ID_LVUP).on('click', function (e) {
+         this.lvUpComponent.on('click', function (e) {
             me.setSkillLevel(me.skillLevel+1);
          });
-         this.add(SEL_ID_LVDOWN, new LLComponentBase(options.lvdown));
-         this.getComponent(SEL_ID_LVDOWN).on('click', function (e) {
+         this.lvDownComponent.on('click', function (e) {
             me.setSkillLevel(me.skillLevel-1);
          });
-         this.add(SEL_ID_LEVEL, new LLValuedComponent(options.level));
-         this.add(SEL_ID_TEXT, new LLValuedComponent(options.text));
+
+         this.add(SEL_ID_CONTAINER, this.containerComponent);
+         this.add(SEL_ID_LVUP, this.lvUpComponent);
+         this.add(SEL_ID_LVDOWN, this.lvDownComponent);
+         this.add(SEL_ID_LEVEL, this.levelComponent);
+         this.add(SEL_ID_TEXT, this.textComponent);
          this.setCardData(options.cardData, true);
          this.render();
       }
@@ -3460,16 +3603,52 @@ var LLSkillContainer = (function() {
       }
       render() {
          if ((!this.cardData) || this.cardData.skill == 0 || this.cardData.skill == null) {
-            this.getComponent(SEL_ID_CONTAINER).hide();
+            this.containerComponent.hide();
          } else {
-            this.getComponent(SEL_ID_CONTAINER).show();
-            this.getValuedComponent(SEL_ID_TEXT).set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
-            this.getValuedComponent(SEL_ID_LEVEL).set((this.skillLevel+1).toFixed());
+            this.containerComponent.show();
+            this.textComponent.set(LLConst.Skill.getCardSkillDescription(this.cardData, this.skillLevel));
+            this.levelComponent.set((this.skillLevel+1).toFixed());
          }
       }
    }
 
    return LLSkillContainer_cls;
+})();
+
+var LLSkillComponent = (function () {
+   class LLSkillComponent extends LLSkillContainer {
+      /** @param {LLH.Layout.Skill.LLSkillComponent_Options} [options] */
+      constructor(options) {
+         if (!options) options = {};
+         var container = LLUnit.getOrCreateElement(options.id, 'div');
+         var lvUp = LLUnit.createElement('input', {'type': 'button', 'value': '▲', 'style': {'width': '20px', 'height': '20px', 'padding': '0px'}});
+         var lvDown = LLUnit.createElement('input', {'type': 'button', 'value': '▼', 'style': {'width': '20px', 'height': '20px', 'padding': '0px'}});
+         var lvText = LLUnit.createElement('span', {'innerHTML': '1'});
+         var skillText = LLUnit.createElement('span');
+         if (options.showLabel) {
+            LLUnit.updateSubElements(container, [
+               '技能等级：', lvUp, ' Lv', lvText, ' ', lvDown, LLUnit.createElement('br'),
+               '技能效果：', skillText, LLUnit.createElement('br')
+            ]);
+         } else {
+            LLUnit.updateSubElements(container, [
+               lvUp, ' Lv', lvText, ' ', lvDown, LLUnit.createElement('br'),
+               skillText, LLUnit.createElement('br')
+            ]);
+         }
+         super({
+            'container': container,
+            'level': lvText,
+            'lvdown': lvDown,
+            'lvup': lvUp,
+            'text': skillText,
+            'showall': options.showAll
+         });
+         this.element = container;
+      }
+   }
+
+   return LLSkillComponent;
 })();
 
 var LLCardSelectorComponent = (function() {
@@ -3492,11 +3671,21 @@ var LLCardSelectorComponent = (function() {
    const SEL_ID_CARD_POOL = 'cardpool';
    const MEM_ID_LANGUAGE = 'language';
 
+   /** @param {LLH.Core.SkillTriggerType} triggerId */
    var makeTriggerTypeOption = function (triggerId) {
-      return {'value': triggerId, 'text': LLConst.Skill.getSkillTriggerText(parseInt(triggerId))};
+      return {'value': triggerId + '', 'text': LLConst.Skill.getSkillTriggerText(triggerId)};
    };
+   /** @param {LLH.Core.SkillEffectType} effectId */
    var makeEffectTypeOption = function (effectId) {
-      return {'value': effectId, 'text': LLConst.Skill.getEffectBrief(parseInt(effectId))};
+      return {'value': effectId + '', 'text': LLConst.Skill.getEffectBrief(effectId)};
+   };
+
+   /** @param {(filterValue: string, targetData: LLH.API.CardDataType) => boolean} callback */
+   const makeCardFilter = function (callback) {
+      /** @type {LLH.Component.LLFiltersComponent_FilterCallback<string, LLH.API.CardDataType>} */
+      return function (opt, v, d) {
+         return (!v) || (!d) || callback(v, d);
+      };
    };
 
    /**
@@ -3534,8 +3723,12 @@ var LLCardSelectorComponent = (function() {
          var selSetName = createFormSelect();
          var selCardPool = (this.pools ? createFormSelect() : undefined);
          var checkShowNCard = createElement('input', {'type': 'checkbox'});
+
+         this._cardChoiceComponent = new LLSelectComponent(selCardChoice);
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+         this._triggerTypeComponent = new LLSelectComponent(selTriggerType);
    
-         me.addFilterable(SEL_ID_CARD_CHOICE, new LLSelectComponent(selCardChoice), function (opt) {
+         me.addFilterable(SEL_ID_CARD_CHOICE, this._cardChoiceComponent, function (opt) {
             var index = opt.value;
             if (!index) return undefined;
             return me.cards[index];
@@ -3544,7 +3737,7 @@ var LLCardSelectorComponent = (function() {
          me.addFilterable(SEL_ID_CHARA, new LLSelectComponent(selChara));
          me.addFilterable(SEL_ID_UNIT_GRADE, new LLSelectComponent(selUnitGrade));
          me.addFilterable(SEL_ID_ATTRIBUTE, new LLSelectComponent(selAttribute));
-         me.addFilterable(SEL_ID_TRIGGER_TYPE, new LLSelectComponent(selTriggerType));
+         me.addFilterable(SEL_ID_TRIGGER_TYPE, this._triggerTypeComponent);
          me.addFilterable(SEL_ID_TRIGGER_REQUIRE, new LLSelectComponent(selTriggerRequire));
          me.addFilterable(SEL_ID_SKILL_TYPE, new LLSelectComponent(selSkillType));
          me.addFilterable(SEL_ID_SPECIAL, new LLSelectComponent(selSpecial));
@@ -3553,18 +3746,18 @@ var LLCardSelectorComponent = (function() {
          if (selCardPool) {
             me.addFilterable(SEL_ID_CARD_POOL, new LLSelectComponent(selCardPool));
          }
-         me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         me.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
    
          var languageGroupGetter = function () {
-            return me.getValuedComponent(MEM_ID_LANGUAGE).get(); 
+            return me._languageComponent.get() + ''; 
          }
          me.setFilterOptionGroupCallback(SEL_ID_CARD_CHOICE, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_CHARA, languageGroupGetter, [MEM_ID_LANGUAGE]);
          me.setFilterOptionGroupCallback(SEL_ID_SET_NAME, languageGroupGetter, [MEM_ID_LANGUAGE]);
-         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => me.getValuedComponent(SEL_ID_TRIGGER_TYPE).get(), [SEL_ID_TRIGGER_TYPE]);
+         me.setFilterOptionGroupCallback(SEL_ID_TRIGGER_REQUIRE, () => (me._triggerTypeComponent.get() || ''), [SEL_ID_TRIGGER_TYPE]);
    
-         me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.rarity == v));
-         me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (LLConst.Member.getMemberName(d.typeid) == v));
+         me.addFilterCallback(SEL_ID_RARITY, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.rarity == v)));
+         me.addFilterCallback(SEL_ID_CHARA, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (LLConst.Member.getMemberName(d.typeid) == v)));
          me.addFilterCallback(SEL_ID_CHARA, SEL_ID_SET_NAME, function (opt, v) {
             if (v == '' || opt.value === '') return true;
             var members = me.albumGroupMemberCache[opt.value];
@@ -3574,10 +3767,10 @@ var LLCardSelectorComponent = (function() {
             }
             return false;
          });
-         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || LLConst.Member.isMemberInGroup(parseInt(d.typeid), v));
-         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (v == '') || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => LLConst.Member.isMemberInGroup(d.typeid, v)));
+         me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_CHARA, (opt, v) => (!v) || (opt.value == '') || LLConst.Member.isMemberInGroup(opt.value, v));
          me.addFilterCallback(SEL_ID_UNIT_GRADE, SEL_ID_SET_NAME, function (opt, v) {
-            if (v == '' || opt.value === '') return true;
+            if ((!v) || opt.value === '') return true;
             var members = me.albumGroupMemberCache[opt.value];
             if (!members) return false;
             for (var i = 0; i < members.length; i++) {
@@ -3585,17 +3778,17 @@ var LLCardSelectorComponent = (function() {
             }
             return false;
          });
-         me.addFilterCallback(SEL_ID_ATTRIBUTE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.attribute == v));
-         me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggertype == v));
-         me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.triggerrequire == v));
-         me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.skilleffect == v));
-         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == '') || (!d) || (parseInt(d.special) == parseInt(v)));
-         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, (opt, v, /** @type {LLH.API.CardDataType=} */ d) => (v == '') || (!d) || LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v)));
+         me.addFilterCallback(SEL_ID_ATTRIBUTE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.attribute == v)));
+         me.addFilterCallback(SEL_ID_TRIGGER_TYPE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => ((d.triggertype + '') == v)));
+         me.addFilterCallback(SEL_ID_TRIGGER_REQUIRE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.triggerrequire == v)));
+         me.addFilterCallback(SEL_ID_SKILL_TYPE, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => ((d.skilleffect + '') == v)));
+         me.addFilterCallback(SEL_ID_SPECIAL, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => (d.special == parseInt(v))));
+         me.addFilterCallback(SEL_ID_SET_NAME, SEL_ID_CARD_CHOICE, makeCardFilter((v, d) => LLConst.Album.isAlbumInAlbumGroup(d.album, parseInt(v))));
          if (selCardPool) {
-            me.addFilterCallback(SEL_ID_CARD_POOL, SEL_ID_CARD_CHOICE, (opt, v) => (v == '') || (!opt.value) || (!me.pools) || me.pools[parseInt(v)].itemSet.has(opt.value));
+            me.addFilterCallback(SEL_ID_CARD_POOL, SEL_ID_CARD_CHOICE, (opt, v) => (!v) || (!opt.value) || (!me.pools) || me.pools[parseInt(v)].itemSet.has(opt.value));
          }
-         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, v, d) => (v == true) || (!d) || (d.rarity != 'N'));
-         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CARD_CHOICE, (opt, /** @type {boolean=} */ v, /** @type {LLH.API.CardDataType=} */ d) => (v == true) || (!d) || (d.rarity != 'N'));
+         me.addFilterCallback(SEL_ID_SHOW_N_CARD, SEL_ID_CHARA, (opt, /** @type {boolean=} */ v) => (v == true) || (opt.value == '') || (LLConstValue[opt.value] !== undefined));
    
          /** @type {LLH.Component.SubElements} */
          var generalFilters = [selRarity, selChara, selUnitGrade, selAttribute, selSpecial];
@@ -3620,21 +3813,19 @@ var LLCardSelectorComponent = (function() {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getValuedComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
-      /** @returns {LLH.Core.CardIdOrStringType} */
+      /** @returns {LLH.Core.CardIdStringType} */
       getCardId() {
-         return this.getValuedComponent(SEL_ID_CARD_CHOICE).get() || '';
+         return this._cardChoiceComponent.getOrElse('');
       }
       /** @returns {LLH.Core.CardIdStringType[]} */
       getFilteredCardIdList() {
-         /** @type {LLH.Component.LLSelectComponent} */
-         var cardSelect = this.getValuedComponent(SEL_ID_CARD_CHOICE);
-         var selectedCard = cardSelect.get();
+         var selectedCard = this._cardChoiceComponent.get();
          if (selectedCard) {
             return [selectedCard];
          } else {
-            return cardSelect.filteredOptions.map((x) => x.value).filter((x) => !!x);
+            return this._cardChoiceComponent.filteredOptions.map((x) => x.value).filter((x) => !!x);
          }
       }
       /**
@@ -3692,7 +3883,7 @@ var LLCardSelectorComponent = (function() {
          }
          me.setFilterOptionGroups(SEL_ID_CARD_CHOICE, {'0': cardOptionsCN, '1': cardOptionsJP});
          me.albumGroupMemberCache = albumGroupMemberCache;
-         if (resetSelection) me.getValuedComponent(SEL_ID_CARD_CHOICE).set('');
+         if (resetSelection) this._cardChoiceComponent.set('');
    
          // build set name options from album groups
          var setNameOptionsCN = [{'value': '', 'text': '相册名'}];
@@ -3824,7 +4015,7 @@ var LLCardSelectorComponent = (function() {
          me.handleFilters();
       }
       scrollIntoView() {
-         var element = this.getComponent(SEL_ID_CARD_CHOICE).element;
+         var element = this._cardChoiceComponent.element;
          if (element) {
             element.scrollIntoView(true);
          }
@@ -3862,11 +4053,11 @@ var LLSongSelectorComponent = (function() {
    var MEM_ID_LANGUAGE = 'language';
 
    /**
-    * @param {number} defaultValue 
+    * @param {string} defaultValue 
     * @returns {HTMLInputElement}
     */
    function createFormNumber(defaultValue) {
-      return /** @type {HTMLInputElement} */ (createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue}));
+      return createElement('input', {'className': 'form-control small-padding num-size-4', 'type': 'number', 'value': defaultValue});
    }
 
    /**
@@ -3876,24 +4067,24 @@ var LLSongSelectorComponent = (function() {
    function initMapInfo(me, container) {
       var isLAMode = (me.mode == 'la');
       var selMapAtt = createFormSelect();
-      var numMapCombo = createFormNumber(300);
-      var numMapPerfect = createFormNumber(285);
-      var numMapTime = createFormNumber(100);
-      var numMapStarPerfect = createFormNumber(47);
-      var numBuffTapUp = (!isLAMode ? createFormNumber(0) : undefined);
-      var numBuffSkillUp = (!isLAMode ? createFormNumber(0) : undefined);
-      var numDebuffSkillRateDown = (isLAMode ? createFormNumber(0) : undefined);
-      var numDebuffHpDownValue = (isLAMode ? createFormNumber(0): undefined);
-      var numDebuffHpDownInterval = (isLAMode ? createFormNumber(0): undefined);
+      var numMapCombo = createFormNumber('300');
+      var numMapPerfect = createFormNumber('285');
+      var numMapTime = createFormNumber('100');
+      var numMapStarPerfect = createFormNumber('47');
+      var numBuffTapUp = (!isLAMode ? createFormNumber('0') : undefined);
+      var numBuffSkillUp = (!isLAMode ? createFormNumber('0') : undefined);
+      var numDebuffSkillRateDown = (isLAMode ? createFormNumber('0') : undefined);
+      var numDebuffHpDownValue = (isLAMode ? createFormNumber('0'): undefined);
+      var numDebuffHpDownInterval = (isLAMode ? createFormNumber('0'): undefined);
       me.addFilterable(SEL_ID_MAP_ATT, new LLSelectComponent(selMapAtt));
       me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
-         if (v == '') return true;
+         if (!v) return true;
          var songData = me.songs[v];
          if ((!songData) || songData.attribute == 'all') return true;
          return (opt.value == songData.attribute);
       });
       me.addFilterCallback(SEL_ID_DIFF_CHOICE, SEL_ID_MAP_ATT, function (opt, v) {
-         if (v == '') return true;
+         if (!v) return true;
          var songSetting = me.songSettings[v];
          if (!songSetting) return true;
          var songData = me.songs[songSetting.song];
@@ -3938,10 +4129,12 @@ var LLSongSelectorComponent = (function() {
          });
          llmap.setAttribute(me.getSongAttribute());
          llmap.setSongDifficultyData(parseInt(numMapCombo.value), parseInt(numMapStarPerfect.value), parseInt(numMapTime.value), parseInt(numMapPerfect.value), parseInt(numMapStarPerfect.value));
-         if (isLAMode) {
+         if (numDebuffSkillRateDown && numDebuffHpDownValue && numDebuffHpDownInterval) {
             llmap.setLADebuff(parseFloat(numDebuffSkillRateDown.value), parseInt(numDebuffHpDownValue.value), parseFloat(numDebuffHpDownInterval.value));
-         } else {
+         } else if (numBuffTapUp && numBuffSkillUp) {
             llmap.setMapBuff(parseFloat(numBuffTapUp.value), parseFloat(numBuffSkillUp.value));
+         } else {
+            console.error('Failed to set map buff/debuff');
          }
          llmap.setWeights(customWeights || songSetting.positionweight);
          return llmap;
@@ -3966,6 +4159,10 @@ var LLSongSelectorComponent = (function() {
          this.songs = {};
          /** @type {LLH.Internal.ProcessedSongSettingDictDataType} */
          this.songSettings = {};
+         /** @type {LLH.Selector.LLSongSelectorComponent_SongSettingChangeCallback=} */
+         this.onSongSettingChange = undefined;
+         /** @type {LLH.Selector.LLSongSelectorComponent_SongColorChangeCallback=} */
+         this.onSongColorChange = undefined;
 
          var container = LLUnit.getElement(id);
 
@@ -3979,12 +4176,16 @@ var LLSongSelectorComponent = (function() {
          var selSongSwing = createFormSelect();
          var selSongStarDiff = createFormSelect();
 
-         me.addFilterable(SEL_ID_DIFF_CHOICE, new LLSelectComponent(selDiffChoice), function (opt) {
+         this._diffChoiceComponent = new LLSelectComponent(selDiffChoice);
+         this._songChoiceComponent = new LLSelectComponent(selSongChoice);
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+
+         me.addFilterable(SEL_ID_DIFF_CHOICE, this._diffChoiceComponent, function (opt) {
             var settingId = opt.value;
             if (!settingId) return undefined;
             return me.songSettings[settingId];
          });
-         me.addFilterable(SEL_ID_SONG_CHOICE, new LLSelectComponent(selSongChoice), function (opt) {
+         me.addFilterable(SEL_ID_SONG_CHOICE, this._songChoiceComponent, function (opt) {
             var songId = opt.value;
             if (!songId) return undefined;
             return me.songs[songId];
@@ -3996,52 +4197,59 @@ var LLSongSelectorComponent = (function() {
          me.addFilterable(SEL_ID_SONG_AC, new LLSelectComponent(selSongAc));
          me.addFilterable(SEL_ID_SONG_SWING, new LLSelectComponent(selSongSwing));
          me.addFilterable(SEL_ID_SONG_STAR_DIFF, new LLSelectComponent(selSongStarDiff));
-         me.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         me.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
 
-         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me.getValuedComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
-         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me.getValuedComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_DIFF_CHOICE, () => me._languageComponent.get() + '', [MEM_ID_LANGUAGE]);
+         me.setFilterOptionGroupCallback(SEL_ID_SONG_CHOICE, () => me._languageComponent.get() + '', [MEM_ID_LANGUAGE]);
 
          /**
           * @param {string} name
           * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.API.SongDataType) => boolean} songChecker
           */
          var addSongAndSettingFilterBySong = function (name, songChecker) {
-            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, d));
-            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songChecker(opt, v, me.songs[d.song]));
+            me.addFilterCallback(name, SEL_ID_SONG_CHOICE,
+               (opt, v, /** @type {LLH.API.SongDataType=} */ d) => (!v) || (!d) || songChecker(opt, v, d));
+            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE,
+               (opt, v, /** @type {LLH.Internal.ProcessedSongSettingDataType=} */ d) => (!v) || (!d) || songChecker(opt, v, me.songs[d.song]));
          };
          /**
           * @param {string} name 
           * @param {(opt: LLH.Component.LLSelectComponent_OptionDef, v:string, d: LLH.Internal.ProcessedSongSettingDataType) => boolean} songSettingChecker 
           */
          var addSongAndSettingFilterBySongSetting = function (name, songSettingChecker) {
-            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, function (opt, v, d) {
-               if (v == '' || (!d)) return true;
+            me.addFilterCallback(name, SEL_ID_SONG_CHOICE, function (opt, v, /** @type {LLH.API.SongDataType=} */ d) {
+               if ((!v) || (!d)) return true;
                for (var k in d.settings) {
-                  if (songSettingChecker(opt, v, d.settings[k])) return true;
+                  var songSetting = /** @type {LLH.Internal.ProcessedSongSettingDataType} */ (d.settings[k]);
+                  if (songSettingChecker(opt, v, songSetting)) return true;
                }
                return false;
             });
-            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || songSettingChecker(opt, v, d));
+            me.addFilterCallback(name, SEL_ID_DIFF_CHOICE,
+               (opt, v, /** @type {LLH.Internal.ProcessedSongSettingDataType=} */ d) => (!v) || (!d) || songSettingChecker(opt, v, d));
          };
-         me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE, (opt, v, d) => (v == '') || (!d) || (d.song == v));
+         me.addFilterCallback(SEL_ID_SONG_CHOICE, SEL_ID_DIFF_CHOICE,
+            (opt, v, /** @type {LLH.Internal.ProcessedSongSettingDataType=} */ d) => (!v) || (!d) || (d.song == v));
          addSongAndSettingFilterBySong(SEL_ID_SONG_ATT, (opt, v, d) => (d.attribute == 'all' || (d.attribute == v)));
-         addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => (d.group == v));
+         addSongAndSettingFilterBySong(SEL_ID_SONG_UNIT, (opt, v, d) => ((d.group + '') == v));
          addSongAndSettingFilterBySong(TEXT_ID_SONG_SEARCH, function (opt, v, d) {
             v = v.toLowerCase();
             return (d.name.toLowerCase().indexOf(v) >= 0) || (d.jpname.toLowerCase().indexOf(v) >= 0);
          });
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_DIFF, (opt, v, d) => (d.difficulty == v));
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_AC, (opt, v, d) => (d.isac == v));
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_SWING, (opt, v, d) => (d.isswing == v));
-         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_STAR_DIFF, (opt, v, d) => (d.stardifficulty == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_DIFF, (opt, v, d) => ((d.difficulty + '') == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_AC, (opt, v, d) => ((d.isac + '') == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_SWING, (opt, v, d) => ((d.isswing + '') == v));
+         addSongAndSettingFilterBySongSetting(SEL_ID_SONG_STAR_DIFF, (opt, v, d) => ((d.stardifficulty + '') == v));
 
+         /** @type {(name: string, newValue: string) => void} */
          me.onValueChange = function (name, newValue) {
             if (name == SEL_ID_DIFF_CHOICE) {
                if (options.includeMapInfo) me.updateMapInfo(me.getSelectedSongSetting());
                if (me.onSongSettingChange) me.onSongSettingChange(newValue, me.getSelectedSongSetting());
             } else if (name == SEL_ID_MAP_ATT) {
-               if (me.friendCSkill) me.friendCSkill.setMapColor(newValue);
-               if (me.onSongColorChange) me.onSongColorChange(newValue);
+               var songAttribute = /** @type {LLH.Core.AttributeType} */ (newValue);
+               if (me.friendCSkill) me.friendCSkill.setMapColor(songAttribute);
+               if (me.onSongColorChange) me.onSongColorChange(songAttribute);
             }
          };
 
@@ -4083,7 +4291,7 @@ var LLSongSelectorComponent = (function() {
          for (i in songs) {
             if (!songs[i].settings) continue;
             for (j in songs[i].settings) {
-               songSettings[j] = songs[i].settings[j];
+               songSettings[j] = /** @type {LLH.Internal.ProcessedSongSettingDataType} */ (songs[i].settings[j]);
                songSettings[j].song = i;
             }
          }
@@ -4117,7 +4325,7 @@ var LLSongSelectorComponent = (function() {
             songSettingOptionsCN.push({'value': liveId, 'text': cnName, 'color': color});
             songSettingOptionsJP.push({'value': liveId, 'text': jpName, 'color': color});
    
-            songSettingAvailableStarDiff[parseInt(curSongSetting.stardifficulty)] = 1;
+            songSettingAvailableStarDiff[curSongSetting.stardifficulty] = 1;
          }
          me.setFilterOptionGroups(SEL_ID_DIFF_CHOICE, {'0': songSettingOptionsCN, '1': songSettingOptionsJP});
    
@@ -4192,13 +4400,13 @@ var LLSongSelectorComponent = (function() {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
       /** @returns {LLH.Core.SongIdType} */
       getSelectedSongId() {
-         var curSongId = this.getComponent(SEL_ID_SONG_CHOICE).get();
+         var curSongId = this._songChoiceComponent.get();
          if (curSongId) return curSongId;
-         var curSongSettingId = this.getComponent(SEL_ID_DIFF_CHOICE).get();
+         var curSongSettingId = this._diffChoiceComponent.get();
          if (curSongSettingId && this.songSettings[curSongSettingId]) {
             return this.songSettings[curSongSettingId].song || '';
          }
@@ -4209,20 +4417,21 @@ var LLSongSelectorComponent = (function() {
       }
       /** @returns {LLH.Core.SongSettingIdType} */
       getSelectedSongSettingId() {
-         return this.getComponent(SEL_ID_DIFF_CHOICE).get();
+         return this._diffChoiceComponent.getOrElse('');
       }
       getSelectedSongSetting() {
          return this.songSettings[this.getSelectedSongSettingId()];
       }
       /** @returns {LLH.Core.AttributeAllType} */
       getSongAttribute() {
-         var me = this;
-         if (!me.includeMapInfo) {
-            var curSong = me.getSelectedSong();
+         /** @type {LLH.Component.LLSelectComponent=} */
+         var mapAttrComponent = this.getValuedComponent(SEL_ID_MAP_ATT);
+         if (!mapAttrComponent) {
+            var curSong = this.getSelectedSong();
             if (curSong) return curSong.attribute;
             return 'all';
          } else {
-            return me.getComponent(SEL_ID_MAP_ATT).get();
+            return /** @type {LLH.Core.AttributeAllType} */ (mapAttrComponent.getOrElse('all'));
          }
       }
       /** @param {LLH.Internal.ProcessedSongSettingDataType} songSetting */
@@ -4235,6 +4444,7 @@ var LLSongSelectorComponent = (function() {
        */
       getMap(customWeight) {
          console.error('Unexpected call to getMap on LLSongSelectorCompoent excluding map info');
+         return new LLMap();
       }
    }
    return LLSongSelectorComponent_cls;
@@ -4306,7 +4516,7 @@ var LLMap = (function () {
     */
    class LLMap_cls {
       /**
-       * @param {LLH.Model.LLMap_Options} options 
+       * @param {LLH.Model.LLMap_Options} [options] 
        */
       constructor(options) {
          /** @type {LLH.Model.LLMap_SaveData} */
@@ -5314,6 +5524,8 @@ var LLSimulateContext = (function() {
          this.triggers = {};
          this.memberSkillOrder = [];
          this.lastFrameForLevelUp = -1;
+         this.isFullCombo = false;
+         this.laGemTotalBonus = 1;
    
          var skillOrder = []; // [ [i, priority], ...]
          var lvupSkillPriority = 1;
@@ -5362,8 +5574,10 @@ var LLSimulateContext = (function() {
          }
    
          this.activeSkills = [];
+         /** @type {LLH.Model.LLSimulateContext_LastActiveSkill=} */
          this.lastActiveSkill = undefined;
          // effect_type: effect_value
+         /** @type {{[type: LLH.Core.SkillEffectType]: number}} */
          var eff = {};
          eff[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] = 0; // active count
          eff[LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL] = 0; // active count
@@ -5464,9 +5678,10 @@ var LLSimulateContext = (function() {
       }
       /**
        * @param {number} memberId 
-       * @param {LLH.Model.LLSimulateContext_EffectStaticInfo} effectInfo 
+       * @param {LLH.Model.LLSimulateContext_EffectStaticInfo} [effectInfo] 
        */
       isSkillNoEffect(memberId, effectInfo) {
+         if (effectInfo === undefined) return true;
          var skillEffect = effectInfo.effectType;
          // 在一些情况下技能会无效化
          if (skillEffect == LLConstValue.SKILL_EFFECT_REPEAT) {
@@ -5483,7 +5698,7 @@ var LLSimulateContext = (function() {
                var realMemberId = this.lastActiveSkill.m;
                var realSkillStatic = this.skillsDynamic[realMemberId].staticInfo;
                var realSkillEffect = (this.lastActiveSkill.a ? realSkillStatic.accessoryEffect : realSkillStatic.skillEffect);
-               if (realSkillEffect.effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
+               if (realSkillEffect && realSkillEffect.effectType == LLConstValue.SKILL_EFFECT_LEVEL_UP) {
                   return true;
                }
             }
@@ -5495,7 +5710,7 @@ var LLSimulateContext = (function() {
             if (this.effects[LLConstValue.SKILL_EFFECT_LEVEL_UP] && this.lastFrameForLevelUp == this.currentFrame) {
                return true;
             }
-         } else if (skillEffect == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
+         } else if (skillEffect == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP && effectInfo.attributeUpTargets) {
             // 若队伍中所有满足条件的卡都已经在属性提升状态, 则无法发动
             for (var i = 0; i < effectInfo.attributeUpTargets.length; i++) {
                var targetMemberId = effectInfo.attributeUpTargets[i];
@@ -5504,7 +5719,7 @@ var LLSimulateContext = (function() {
                }
             }
             return true;
-         } else if (skillEffect == LLConstValue.SKILL_EFFECT_SYNC) {
+         } else if (skillEffect == LLConstValue.SKILL_EFFECT_SYNC && effectInfo.syncTargetsBy) {
             // 若队伍中没有同步对象，则无法发动
             if (effectInfo.syncTargetsBy[memberId].length < 1) return true;
          }
@@ -5575,7 +5790,7 @@ var LLSimulateContext = (function() {
          }
          var skillDynamic = this.skillsDynamic[memberId];
          var skillEffect = (isAccessory ? skillDynamic.staticInfo.accessoryEffect : skillDynamic.staticInfo.skillEffect);
-         var effectType = skillEffect.effectType;
+         var effectType = (skillEffect ? skillEffect.effectType : LLConstValue.SKILL_EFFECT_NONE);
          var realMemberId = memberId;
          var realAccessory = isAccessory;
          // update chain trigger
@@ -5599,7 +5814,7 @@ var LLSimulateContext = (function() {
                } else {
                   skillEffect = this.skillsDynamic[realMemberId].staticInfo.skillEffect;
                }
-               effectType = skillEffect.effectType;
+               effectType = (skillEffect ? skillEffect.effectType : LLConstValue.SKILL_EFFECT_NONE);
                // 国服翻译有问题, 说复读技能发动时前一个发动的技能是复读时无效
                // 但是日服的复读技能介绍并没有提到这一点, 而是复读上一个非复读技能
                // 这导致了日服出现的复读boost卡组能获得超高得分的事件, 而llh依照国服翻译无法模拟这一情况
@@ -5623,18 +5838,23 @@ var LLSimulateContext = (function() {
                this.setLastActiveSkill(memberId, levelBoost, this.currentFrame, isAccessory);
             }
          }
+         if (!skillEffect) return false;
          // take effect
          // should not be a REPEAT skill
          var effectTime = 0;
          var effectValue = 0;
          if (realAccessory) {
             var accessoryDetail = this.members[realMemberId].getAccessoryDetail(levelBoost);
-            effectTime = accessoryDetail.time;
-            effectValue = accessoryDetail.effect_value;
+            if (accessoryDetail !== undefined) {
+               effectTime = accessoryDetail.time;
+               effectValue = accessoryDetail.effect_value;
+            }
          } else {
             var skillDetail = this.members[realMemberId].getSkillDetail(levelBoost);
-            effectTime = skillDetail.time;
-            effectValue = skillDetail.score;
+            if (skillDetail !== undefined) {
+               effectTime = skillDetail.time;
+               effectValue = skillDetail.score;
+            }
          }
          if (effectType == LLConstValue.SKILL_EFFECT_ACCURACY_SMALL) {
             this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_SMALL] += 1;
@@ -5663,6 +5883,10 @@ var LLSimulateContext = (function() {
             this.effects[LLConstValue.SKILL_EFFECT_COMBO_FEVER] += effectValue;
             this.addActiveSkill(skillEffect, effectTime, memberId, realMemberId, effectValue);
          } else if (effectType == LLConstValue.SKILL_EFFECT_SYNC) {
+            if (skillEffect.syncTargetsBy === undefined) {
+               console.error('Undefined syncTargetsBy');
+               return false;
+            }
             // exclude the member that activate the skill, not the one owning the skill
             var syncTargets = skillEffect.syncTargetsBy[memberId];
             var syncTarget = syncTargets[Math.floor(Math.random() * syncTargets.length)];
@@ -5683,12 +5907,14 @@ var LLSimulateContext = (function() {
             this.setLastFrameForLevelUp();
          } else if (effectType == LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP) {
             var attrBuff = 0;
-            for (var i = 0; i < skillEffect.attributeUpTargets.length; i++) {
-               var targetMemberId = skillEffect.attributeUpTargets[i];
-               var targetDynamic = this.skillsDynamic[targetMemberId];
-               if (targetDynamic.attributeUp === undefined) {
-                  targetDynamic.attributeUp = Math.ceil(this.members[targetMemberId].attrStrength * (effectValue-1));
-                  attrBuff += targetDynamic.attributeUp;
+            if (skillEffect.attributeUpTargets !== undefined) {
+               for (var i = 0; i < skillEffect.attributeUpTargets.length; i++) {
+                  var targetMemberId = skillEffect.attributeUpTargets[i];
+                  var targetDynamic = this.skillsDynamic[targetMemberId];
+                  if (targetDynamic.attributeUp === undefined) {
+                     targetDynamic.attributeUp = Math.ceil(this.members[targetMemberId].attrStrength * (effectValue-1));
+                     attrBuff += targetDynamic.attributeUp;
+                  }
                }
             }
             this.effects[LLConstValue.SKILL_EFFECT_ATTRIBUTE_UP] += attrBuff;
@@ -5749,17 +5975,19 @@ var LLSimulateContext = (function() {
          for (var i = 0; i < this.memberSkillOrder.length; i++) {
             var memberId = this.memberSkillOrder[i];
             var curTrigger = this.skillsDynamic[memberId].trigger;
+            if (curTrigger === undefined) continue;
             var curTriggerType = this.members[memberId].card.triggertype;
             // active skill
             if (curTrigger.a) {
                // 复读到持续性技能的话不会保留机会到持续性技能结束
-               if (curTrigger.ae.effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
+               if (curTrigger.ae && curTrigger.ae.effectType == LLConstValue.SKILL_EFFECT_REPEAT) {
                   triggerChecks[curTriggerType](this, curTrigger);
                }
                continue;
             }
             // trigger limit
-            if (curTrigger.st.triggerLimit > 0 && this.skillsActiveCount[memberId] >= curTrigger.st.triggerLimit) {
+            var triggerLimit = curTrigger.st.triggerLimit;
+            if (triggerLimit !== undefined && triggerLimit > 0 && this.skillsActiveCount[memberId] >= triggerLimit) {
                continue;
             }
             // inactive skill, check trigger chance
@@ -5806,6 +6034,7 @@ var LLSimulateContext = (function() {
          for (i = 0; i < this.members.length; i++) {
             var member = this.members[i];
             for (j = 0; j < member.laGems.length; j++) {
+               /** @type {LLH.API.SisDataType=} */
                var gemData = member.laGems[j].gemData;
                while (gemData) {
                   if (this.isLAGemTakeEffect(gemData)) {
@@ -5825,11 +6054,11 @@ var LLSimulateContext = (function() {
          if (laGem.group) {
             return (laGem.group == this.staticData.nonetTeam);
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_HP_PERCENT) {
-            return ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
+            return (laGem.trigger_value !== undefined) && ((this.currentHPData.currentHP / this.staticData.totalHP) * 100 >= laGem.trigger_value);
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_FULL_COMBO) {
             return this.isFullCombo;
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_OVERHEAL) {
-            return (this.currentHPData.overHealLevel >= laGem.trigger_value);
+            return (laGem.trigger_value !== undefined) && (this.currentHPData.overHealLevel >= laGem.trigger_value);
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_SMILE) {
             return (this.staticData.sameColorTeam == 'smile');
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_PURE) {
@@ -5837,7 +6066,7 @@ var LLSimulateContext = (function() {
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_ALL_COOL) {
             return (this.staticData.sameColorTeam == 'cool');
          } else if (laGem.trigger_ref == LLConstValue.SIS_TRIGGER_REF_PERFECT_COUNT) {
-            return (this.currentPerfect >= laGem.trigger_value);
+            return (laGem.trigger_value !== undefined) && (this.currentPerfect >= laGem.trigger_value);
          } else if (!laGem.trigger_ref) {
             return true;
          }
@@ -6125,6 +6354,7 @@ var LLTeam = (function() {
             teamgem.push(curGems);
          }
          //全体宝石和主唱技能加成
+         /** @type {LLH.Internal.CSkillDataType[]} */
          var cskills = [this.members[4].card];
          if (mapdata.friendCSkill) cskills.push(mapdata.friendCSkill);
          for (i = 0; i < 9; i++) {
@@ -9479,13 +9709,7 @@ var LLTeamComponent = (function () {
 
 var LLCSkillComponent = (function () {
    var createElement = LLUnit.createElement;
-   var defaultCSkill = {
-      'attribute': 'smile',
-      'Cskillattribute': 'smile',
-      'Cskillpercentage': 0,
-      'Csecondskilllimit': LLConstValue.GROUP_UNKNOWN,
-      'Csecondskillattribute': 0
-   };
+   var defaultCSkill = LLConst.Common.getZeroCSkill();
    var majorPercentageSelectOptions = [
       {'value': '0', 'text': '0'},
       {'value': '3', 'text': '3'},
@@ -9505,54 +9729,51 @@ var LLCSkillComponent = (function () {
       {'value': '9', 'text': '9'}
    ];
    function getSecondLimitSelectOptions() {
+      /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
       var ret = [];
       var groups = LLConst.Common.getCSkillGroups();
       for (var i = 0; i < groups.length; i++) {
-         ret.push({'value': groups[i], 'text': LLConst.Group.getGroupName(groups[i])});
+         ret.push({'value': groups[i] + '', 'text': LLConst.Group.getGroupName(groups[i])});
       }
       return ret;
    };
 
-   function copyCSkill(cFrom, cTo) {
-      cTo.attribute = cFrom.attribute;
-      cTo.Cskillattribute = cFrom.Cskillattribute;
-      cTo.Cskillpercentage = cFrom.Cskillpercentage;
-      cTo.Csecondskilllimit = cFrom.Csecondskilllimit;
-      cTo.Csecondskillattribute = cFrom.Csecondskillattribute;
-   }
    /**
-    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} controller 
     * @param {string} title 
-    * @returns {HTMLElement}
+    * @returns {LLH.Layout.CenterSkill.LLCSkillComponent_Controller}
     */
-   function createTextDisplay(controller, title) {
+   function createTextDisplay(title) {
       var textElement = createElement('span', {'innerHTML': title + 'N/A'});
-      var cskill = {};
-      copyCSkill(defaultCSkill, cskill);
-      controller.setCSkill = function(cs) {
-         if (cs.attribute) {
-            textElement.innerHTML = title + LLUnit.getCardCSkillText(cs, false);
-            copyCSkill(cs, cskill);
-         } else {
-            textElement.innerHTML = title + 'N/A';
-            copyCSkill(defaultCSkill, cskill);
-         }
+      var cskill = LLConst.Common.copyCSkill(defaultCSkill);
+      /** @type {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} */
+      var controller = {
+         'setCSkill': function(cs) {
+            if (cs.attribute) {
+               textElement.innerHTML = title + LLUnit.getCardCSkillText(cs, false);
+               LLConst.Common.copyCSkill(cs, cskill);
+            } else {
+               textElement.innerHTML = title + 'N/A';
+               LLConst.Common.copyCSkill(defaultCSkill, cskill);
+            }
+         },
+         'getCSkill': function() {
+            return cskill;
+         },
+         'setMapColor': function(color) {
+            // do nothing
+         },
+         'element': textElement
       };
-      controller.getCSkill = function() {
-         return cskill;
-      };
-      controller.setMapColor = function(color) {}; // do nothing
-      return textElement;
+      return controller;
    }
    /**
-    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} controller 
     * @param {string} title 
-    * @returns {HTMLElement}
+    * @returns {LLH.Layout.CenterSkill.LLCSkillComponent_Controller}
     */
-   function createEditable(controller, title) {
+   function createEditable(title) {
       var selectClass = {'className': 'form-control no-padding'};
-      var addToColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
-      var addFromColorComp = LLUnit.createColorSelectComponent(undefined, selectClass);
+      var addToColorComp = LLUnit.createColorSelectComponent(selectClass);
+      var addFromColorComp = LLUnit.createColorSelectComponent(selectClass);
       var majorPercentageComp = new LLSelectComponent(LLUnit.createSelectElement(selectClass));
       majorPercentageComp.setOptions(majorPercentageSelectOptions);
       majorPercentageComp.set('0');
@@ -9565,76 +9786,80 @@ var LLCSkillComponent = (function () {
       addToColorComp.onValueChange = function(v) {
          secondColorElement.innerHTML = v;
       };
-      controller.setCSkill = function(cs) {
-         addToColorComp.set(cs.attribute || 'smile');
-         secondColorElement.innerHTML = cs.attribute || 'smile';
-         addFromColorComp.set(cs.Cskillattribute || 'smile');
-         majorPercentageComp.set(cs.Cskillpercentage || '0');
-         if (cs.Csecondskilllimit) {
-            secondLimitComp.set(cs.Csecondskilllimit);
-         }
-         secondPercentageComp.set(cs.Csecondskillattribute || '0');
-      };
-      controller.getCSkill = function() {
-         return {
-            'attribute': addToColorComp.get(),
-            'Cskillattribute': addFromColorComp.get(),
-            'Cskillpercentage': parseInt(majorPercentageComp.get()),
-            'Csecondskilllimit': parseInt(secondLimitComp.get()),
-            'Csecondskillattribute': parseInt(secondPercentageComp.get())
-         };
-      };
-      controller.setMapColor = function(color) {
-         if (addFromColorComp.get() == addToColorComp.get()) {
-            addFromColorComp.set(color);
-         }
-         addToColorComp.set(color);
-         secondColorElement.innerHTML = color;
-      };
-      return createElement('div', {'className': 'form-inline'}, [
-         title,
-         addToColorComp.element,
-         '属性提升',
-         addFromColorComp.element,
-         '的',
-         majorPercentageComp.element,
-         '%+',
-         secondLimitComp.element,
-         '的社员进一步将',
-         secondColorElement,
-         '属性提升',
-         secondPercentageComp.element,
-         '%'
-      ]);
-   }
-
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Options} [options]
-    */
-   function LLCSkillComponent_cls(id, options) {
-      var element = LLUnit.getElement(id);
-      var opt = options || {};
-      var editable = opt.editable || false;
-      var title = opt.title || '主唱技能';
-      title = title + '：';
       /** @type {LLH.Layout.CenterSkill.LLCSkillComponent_Controller} */
-      var controller = {};
-      var innerElement = (editable ? createEditable(this, title) : createTextDisplay(this, title));
-      element.appendChild(innerElement);
-      this.controller = controller;
+      var controller = {
+         'setCSkill': function(cs) {
+            addToColorComp.set(cs.attribute || 'smile');
+            secondColorElement.innerHTML = cs.attribute || 'smile';
+            addFromColorComp.set(cs.Cskillattribute || 'smile');
+            majorPercentageComp.set((cs.Cskillpercentage + '') || '0');
+            if (cs.Csecondskilllimit) {
+               secondLimitComp.set(cs.Csecondskilllimit + '');
+            }
+            secondPercentageComp.set((cs.Csecondskillattribute + '') || '0');
+         },
+         'getCSkill': function() {
+            return {
+               'attribute': addToColorComp.getOrElse('smile'),
+               'Cskillattribute': addFromColorComp.getOrElse('smile'),
+               'Cskillpercentage': parseInt(majorPercentageComp.getOrElse('0')),
+               'Csecondskilllimit': parseInt(secondLimitComp.getOrElse('0')),
+               'Csecondskillattribute': parseInt(secondPercentageComp.getOrElse('0'))
+            };
+         },
+         'setMapColor': function(color) {
+            if (addFromColorComp.get() == addToColorComp.get()) {
+               addFromColorComp.set(color);
+            }
+            addToColorComp.set(color);
+            secondColorElement.innerHTML = color;
+         },
+         'element': createElement('div', {'className': 'form-inline'}, [
+            title,
+            addToColorComp.element,
+            '属性提升',
+            addFromColorComp.element,
+            '的',
+            majorPercentageComp.element,
+            '%+',
+            secondLimitComp.element,
+            '的社员进一步将',
+            secondColorElement,
+            '属性提升',
+            secondPercentageComp.element,
+            '%'
+         ])
+      };
+      return controller;
    }
 
-   LLCSkillComponent_cls.prototype.setCSkill = function (cskill) {
-      this.controller.setCSkill(cskill);
-   };
-   LLCSkillComponent_cls.prototype.getCSkill = function () {
-      return this.controller.getCSkill();
-   };
-   LLCSkillComponent_cls.prototype.setMapColor = function (color) {
-      this.controller.setMapColor(color);
-   };
+   class LLCSkillComponent_cls {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Layout.CenterSkill.LLCSkillComponent_Options} [options]
+       */
+      constructor(id, options) {
+         var element = LLUnit.getElement(id);
+         var opt = options || {};
+         var editable = opt.editable || false;
+         var title = opt.title || '主唱技能';
+         title = title + '：';
+         var controller = (editable ? createEditable(title) : createTextDisplay(title));
+         LLUnit.updateSubElements(element, controller.element);
+         this.controller = controller;
+      }
+      /** @param {LLH.Internal.CSkillDataType} cskill */
+      setCSkill(cskill) {
+         this.controller.setCSkill(cskill);
+      }
+      getCSkill() {
+         return this.controller.getCSkill();
+      }
+      /** @param {LLH.Core.AttributeType} color */
+      setMapColor(color) {
+         this.controller.setMapColor(color);
+      }
+   }
 
    return LLCSkillComponent_cls;
 })();
@@ -10123,8 +10348,6 @@ var LLGemSelectorComponent = (function () {
 })();
 
 var LLLanguageComponent = (function() {
-   var createElement = LLUnit.createElement;
-
    /** @param {LLH.Layout.Language.LLLanguageComponent} me */
    function toggleLanguage(me) {
       if (me.value == LLConstValue.LANGUAGE_CN) {
@@ -10135,7 +10358,7 @@ var LLLanguageComponent = (function() {
    }
 
    /**
-    * @extends {LLH.Component.LLComponentBase<HTMLInputElement>}
+    * @extends {LLH.Component.LLComponentBase<HTMLInputElement, LLH.Core.LanguageType>}
     */
    class LLLanguageComponent_cls extends LLComponentBase {
       /** @param {string | HTMLInputElement} [id] */
@@ -10171,33 +10394,14 @@ var LLLanguageComponent = (function() {
       registerLanguageChange(langSupport) {
          this.langSupports.push(langSupport);
       }
-      /** @override */
-      serialize() {
+      saveData() {
          return this.get();
       }
-      /**
-       * @override
-       * @param {LLH.Core.LanguageType} v
-       */
-      deserialize(v) {
-         this.set(v);
+      /** @param {LLH.Core.LanguageType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         this.set(data);
       }
-      /** @override */
-      saveJson() {
-         return this.serialize() + '';
-      }
-      /**
-       * @override
-       * @param {string} json 
-       */
-      loadJson(json) {
-         if (json) {
-            var intValue = parseInt(json);
-            if (intValue == LLConstValue.LANGUAGE_CN || intValue == LLConstValue.LANGUAGE_JP) {
-               this.set(intValue);
-            }
-         }
-      };
    }
 
    return LLLanguageComponent_cls;
@@ -10281,93 +10485,99 @@ var LLAccessorySelectorComponent = (function () {
    var SEL_ID_ACCESSORY_LEVEL = 'accessory_level';
    var MEM_ID_LANGUAGE = 'language';
 
-   /** @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} controller */
-   function renderAccessoryDetail(controller) {
+   function renderAccessoryDetail() {
       var cardAvatar1Component = new LLAvatarComponent();
       var cardAvatar2Component = new LLAvatarComponent();
       cardAvatar1Component.hide();
       cardAvatar2Component.hide();
       var accessoryComponent = new LLAccessoryComponent(createElement('div'));
       var container = createElement('div');
-      controller.set = function (data, language) {
-         if (!data) {
-            container.innerHTML = '';
-         } else {
-            var levelRows = [
-               createElement('tr', undefined, [
-                  createElement('th', undefined, '等级'),
-                  createElement('th', undefined, 'smile'),
-                  createElement('th', undefined, 'pure'),
-                  createElement('th', undefined, 'cool'),
-                  createElement('th', undefined, '技能'),
-               ])
-            ];
-            if (data.levels) {
-               for (var i = 1; i <= data.levels.length; i++) {
-                  var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
-                  levelRows.push(createElement('tr', undefined, [
-                     createElement('td', undefined, i + ''),
-                     createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
-                     createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
-                     createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
-                     createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
-                  ]));
+      /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController} */
+      var controller = {
+         set: function (data, language) {
+            if (!data) {
+               container.innerHTML = '';
+            } else {
+               var levelRows = [
+                  createElement('tr', undefined, [
+                     createElement('th', undefined, '等级'),
+                     createElement('th', undefined, 'smile'),
+                     createElement('th', undefined, 'pure'),
+                     createElement('th', undefined, 'cool'),
+                     createElement('th', undefined, '技能'),
+                  ])
+               ];
+               if (data.levels) {
+                  for (var i = 1; i <= data.levels.length; i++) {
+                     var levelAttribute = LLConst.Accessory.getAccessoryLevelAttribute(data, i);
+                     levelRows.push(createElement('tr', undefined, [
+                        createElement('td', undefined, i + ''),
+                        createElement('td', {'style': {'color': 'red'}}, levelAttribute.smile + ''),
+                        createElement('td', {'style': {'color': 'green'}}, levelAttribute.pure + ''),
+                        createElement('td', {'style': {'color': 'blue'}}, levelAttribute.cool + ''),
+                        createElement('td', undefined, LLConst.Skill.getAccessorySkillDescription(data, i-1))
+                     ]));
+                  }
                }
+               updateSubElements(container, [
+                  createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
+                     createElement('tbody', undefined, levelRows)
+                  )
+               ], true);
             }
-            updateSubElements(container, [
-               createElement('table', {'className': 'table table-bordered table-hover table-condensed'}, 
-                  createElement('tbody', undefined, levelRows)
-               )
-            ], true);
-         }
-         accessoryComponent.setAccessory(data, language);
-         if (data && data.unit_id) {
-            cardAvatar1Component.setCard(data.unit_id, false);
-            cardAvatar2Component.setCard(data.unit_id, true);
-            cardAvatar1Component.show();
-            cardAvatar2Component.show();
-         } else {
-            cardAvatar1Component.hide();
-            cardAvatar2Component.hide();
-         }
-         container.scrollIntoView();
+            accessoryComponent.setAccessory(data, language);
+            if (data && data.unit_id) {
+               cardAvatar1Component.setCard(data.unit_id, false);
+               cardAvatar2Component.setCard(data.unit_id, true);
+               cardAvatar1Component.show();
+               cardAvatar2Component.show();
+            } else {
+               cardAvatar1Component.hide();
+               cardAvatar2Component.hide();
+            }
+            container.scrollIntoView();
+         },
+         'element': createElement('div', undefined, [
+            createElement('div', {'style': {'display': 'flex', 'flexFlow': 'row'}}, [
+               accessoryComponent.element,
+               cardAvatar1Component.element,
+               cardAvatar2Component.element
+            ]),
+            container
+         ])
       };
-      return createElement('div', undefined, [
-         createElement('div', {'style': {'display': 'flex', 'flexFlow': 'row'}}, [
-            accessoryComponent.element,
-            cardAvatar1Component.element,
-            cardAvatar2Component.element
-         ]),
-         container
-      ]);
+      return controller;
    }
 
-   /** @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} controller */
-   function renderAccessoryBrief(controller) {
+   function renderAccessoryBrief() {
       var constraintElement = createElement('span');
       var briefElement = createElement('span');
       var accessoryComponent = new LLAccessoryComponent(createElement('div'), {'size': 64});
-      controller.set = function (data, level, language) {
-         if (!data) {
-            constraintElement.innerHTML = '';
-            briefElement.innerHTML = '';
-         } else {
-            if (!data.unit_id) {
-               constraintElement.innerHTML = '通用';
-            } else if (level == 8 && data.unit_type_id) {
-               constraintElement.innerHTML = '仅限' + LLConst.Member.getMemberName(data.unit_type_id, language) + '装备';
+      /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController} */
+      var controller = {
+         'set': function (data, level, language) {
+            if (!data) {
+               constraintElement.innerHTML = '';
+               briefElement.innerHTML = '';
             } else {
-               constraintElement.innerHTML = '仅限该卡装备：' + LLConst.Common.getCardDescription(data.card, language);
+               if (!data.unit_id) {
+                  constraintElement.innerHTML = '通用';
+               } else if (level == 8 && data.unit_type_id) {
+                  constraintElement.innerHTML = '仅限' + LLConst.Member.getMemberName(data.unit_type_id, language) + '装备';
+               } else {
+                  constraintElement.innerHTML = '仅限该卡装备：' + LLConst.Common.getCardDescription(LLConst.Common.getOrMakeDummyCardData(data.card, data.unit_id), language);
+               }
+               briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
             }
-            briefElement.innerHTML = LLConst.Skill.getAccessorySkillDescription(data, level-1);
-         }
-         accessoryComponent.setAccessory(data, language);
-      };
-      return createElement('div', undefined, [
-         accessoryComponent.element,
-         '饰品装备限制：', constraintElement, createElement('br'),
-         '饰品技能：', briefElement
-      ]);
+            accessoryComponent.setAccessory(data, language);
+         },
+         'element': createElement('div', undefined, [
+            accessoryComponent.element,
+            '饰品装备限制：', constraintElement, createElement('br'),
+            '饰品技能：', briefElement
+         ])
+      }
+      return controller;
    }
 
    /**
@@ -10383,17 +10593,24 @@ var LLAccessorySelectorComponent = (function () {
          var container = LLUnit.getElement(id);
          var me = this;
          if (!options) options = {};
+         /** @type {LLH.Internal.ProcessedAccessoryDictDataType=} */
          this.accessoryData = undefined;
          this.showDetail = options.showDetail || false;
          this.showLevelSelect = options.showLevelSelect || false;
          this.excludeMaterial = options.excludeMaterial || false;
-   
+
          var accessoryChoice = createFormSelect();
          var accessoryRarity = createFormSelect();
          var accessoryMainAttribute = createFormSelect();
          var accessoryType = createFormSelect();
          var accessoryEffectType = createFormSelect();
-         this.addFilterable(SEL_ID_ACCESSORY_CHOICE, new LLSelectComponent(accessoryChoice), function (opt) {
+
+         this._accessoryChoiceComponent = new LLSelectComponent(accessoryChoice);
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+         /** @type {LLH.Component.LLSelectComponent=} */
+         this._accessoryLevelComponent = undefined;
+
+         this.addFilterable(SEL_ID_ACCESSORY_CHOICE, this._accessoryChoiceComponent, function (opt) {
             if (opt.value && me.accessoryData && me.accessoryData[opt.value]) {
                return me.accessoryData[opt.value];
             } else {
@@ -10404,8 +10621,8 @@ var LLAccessorySelectorComponent = (function () {
          this.addFilterable(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, new LLSelectComponent(accessoryMainAttribute));
          this.addFilterable(SEL_ID_ACCESSORY_TYPE, new LLSelectComponent(accessoryType));
          this.addFilterable(SEL_ID_ACCESSORY_EFFECT_TYPE, new LLSelectComponent(accessoryEffectType));
-         this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
-         this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me.getComponent(MEM_ID_LANGUAGE).get(), [MEM_ID_LANGUAGE]);
+         this.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
+         this.setFilterOptionGroupCallback(SEL_ID_ACCESSORY_CHOICE, () => me._languageComponent.get() + '', [MEM_ID_LANGUAGE]);
          this.addFilterCallback(SEL_ID_ACCESSORY_RARITY, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.rarity));
          this.addFilterCallback(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!v) || (!d) || (v == d.main_attribute || (v == 'other' && d.main_attribute == 'all')));
          this.addFilterCallback(SEL_ID_ACCESSORY_TYPE, SEL_ID_ACCESSORY_CHOICE, (opt, v, d) => (!d) || (((!v) || (v == d.type)) && !(d.is_material && me.excludeMaterial)));
@@ -10416,83 +10633,84 @@ var LLAccessorySelectorComponent = (function () {
             createFormInlineGroup('饰品：', accessoryChoice)
          ], true);
    
-         /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController} */
-         var briefController = {};
+         /** @type {LLH.Selector.LLAccessorySelectorComponent_BriefController=} */
+         var briefController = undefined;
          if (this.showLevelSelect) {
             var accessoryLevel = createFormSelect();
-            this.addFilterable(SEL_ID_ACCESSORY_LEVEL, new LLSelectComponent(accessoryLevel));
+            this._accessoryLevelComponent = new LLSelectComponent(accessoryLevel);
+            this.addFilterable(SEL_ID_ACCESSORY_LEVEL, this._accessoryLevelComponent);
             this.addFilterCallback(SEL_ID_ACCESSORY_CHOICE, SEL_ID_ACCESSORY_LEVEL, (opt, v) => (!v) || (!me.accessoryData) || (!me.accessoryData[v]) || me.accessoryData[v].max_level >= parseInt(opt.value));
-            updateSubElements(container, [
-               createFormInlineGroup('饰品等级：', accessoryLevel),
-               renderAccessoryBrief(briefController)
-            ], false);
+            briefController = renderAccessoryBrief();
+            updateSubElements(container, createFormInlineGroup('饰品等级：', accessoryLevel));
+            updateSubElements(container, briefController.element);
          }
-         /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController} */
-         var detailController = {};
+         /** @type {LLH.Selector.LLAccessorySelectorComponent_DetailController=} */
+         var detailController = undefined;
          if (this.showDetail) {
-            updateSubElements(container, [
-               createElement('h3', undefined, '饰品详细信息'),
-               renderAccessoryDetail(detailController)
-            ], false);
+            detailController = renderAccessoryDetail();
+            updateSubElements(container, createElement('h3', undefined, '饰品详细信息'));
+            updateSubElements(container, detailController.element);
          }
    
          /**
-          * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController} contDetail
-          * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController} contBrief
+          * @param {LLH.Selector.LLAccessorySelectorComponent_DetailController | undefined} contDetail
+          * @param {LLH.Selector.LLAccessorySelectorComponent_BriefController | undefined} contBrief
           * @param {LLH.Core.AccessoryIdStringType} accessoryId
           * @param {number} accessoryLevel
           * @param {LLH.Core.LanguageType} language
           */
          var setDetail = function (contDetail, contBrief, accessoryId, accessoryLevel, language) {
-            var hasDetail = (contDetail && contDetail.set);
-            var hasBrief = (contBrief && contBrief.set);
-            if (hasDetail || hasBrief) {
-               var curAccessory = undefined;
-               if (me.accessoryData && me.accessoryData[accessoryId]) {
-                  curAccessory = me.accessoryData[accessoryId]
-               }
+            if (contDetail || contBrief) {
                if (accessoryId) {
                   LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function(accessory) {
-                     LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData);
-                     me.accessoryData[accessoryId] = accessory;
-                     if (hasDetail) {
-                        contDetail.set(accessory, language);
+                     var processedAccessory = LLConst.Accessory.postProcessSingleAccessoryData(accessory, me.cardData || {});
+                     if (!me.accessoryData) {
+                        me.accessoryData = {};
                      }
-                     if (hasBrief) {
-                        contBrief.set(accessory, accessoryLevel, language);
+                     me.accessoryData[accessoryId] = processedAccessory;
+                     if (contDetail) {
+                        contDetail.set(processedAccessory, language);
+                     }
+                     if (contBrief) {
+                        contBrief.set(processedAccessory, accessoryLevel, language);
                      }
                   });
                } else {
-                  if (hasDetail) {
-                     contDetail.set(curAccessory, language);
+                  if (contDetail) {
+                     contDetail.set(undefined, language);
                   }
-                  if (hasBrief) {
-                     contBrief.set(curAccessory, accessoryLevel, language);
+                  if (contBrief) {
+                     contBrief.set(undefined, accessoryLevel, language);
                   }
                }
             }
          };
-   
+
+         /** @type {(name: string, newValue: any) => void} */
          this.onValueChange = function (name, newValue) {
-            var curId, curLanguage, curLevel = 1, updateDetail = false;
+            /** @type {LLH.Core.AccessoryIdStringType} */
+            var curId;
+            /** @type {LLH.Core.LanguageType} */
+            var curLanguage;
+            var curLevel = 1, updateDetail = false;
             if (name == SEL_ID_ACCESSORY_CHOICE) {
                curId = newValue;
                updateDetail = true;
             } else {
-               curId = me.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+               curId = me._accessoryChoiceComponent.getOrElse('');
             }
             if (name == MEM_ID_LANGUAGE) {
                curLanguage = newValue;
                updateDetail = true;
             } else {
-               curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+               curLanguage = me._languageComponent.get();
             }
-            if (me.showLevelSelect) {
+            if (me.showLevelSelect && me._accessoryLevelComponent) {
                if (name == SEL_ID_ACCESSORY_LEVEL) {
-                  curLevel = newValue;
+                  curLevel = parseInt(newValue);
                   updateDetail = true;
                } else {
-                  curLevel = me.getComponent(SEL_ID_ACCESSORY_LEVEL).get();
+                  curLevel = parseInt(me._accessoryLevelComponent.getOrElse('1'));
                }
             }
             if (updateDetail) {
@@ -10503,18 +10721,18 @@ var LLAccessorySelectorComponent = (function () {
          this.setAccessoryData(options.accessoryData, options.cardData);
       }
       /**
-       * @param {LLH.API.AccessoryDictDataType} accessoryData 
-       * @param {LLH.API.CardDictDataType} cardData 
+       * @param {LLH.API.AccessoryDictDataType} [accessoryData] 
+       * @param {LLH.API.CardDictDataType} [cardData] 
        */
       setAccessoryData(accessoryData, cardData) {
-         if (accessoryData && cardData) {
-            accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
-         }
-   
          var i;
    
          this.setFreezed(true);
-         this.accessoryData = accessoryData;
+         if (accessoryData && cardData) {
+            this.accessoryData = LLConst.Accessory.postProcessAccessoryData(accessoryData, cardData);
+         } else {
+            this.accessoryData = {};
+         }
          this.cardData = cardData;
    
          /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
@@ -10583,23 +10801,23 @@ var LLAccessorySelectorComponent = (function () {
          this.setFilterOptions(SEL_ID_ACCESSORY_MAIN_ATTRIBUTE, mainAttributeOptions);
          this.setFilterOptions(SEL_ID_ACCESSORY_TYPE, typeOptions);
          this.setFilterOptions(SEL_ID_ACCESSORY_EFFECT_TYPE, effectTypeOptions);
-         this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, [accessoryOptions, accessoryOptionsJp]);
+         this.setFilterOptionGroups(SEL_ID_ACCESSORY_CHOICE, {'0': accessoryOptions, '1': accessoryOptionsJp});
    
          this.setFreezed(false);
          this.handleFilters();
       }
       /** @returns {LLH.Core.AccessoryIdStringType} */
       getAccessoryId() {
-         return this.getComponent(SEL_ID_ACCESSORY_CHOICE).get();
+         return this._accessoryChoiceComponent.getOrElse('');
       }
       getAccessoryLevel() {
-         if (this.showLevelSelect) {
-            return parseInt(this.getComponent(SEL_ID_ACCESSORY_LEVEL).get());
+         if (this.showLevelSelect && this._accessoryLevelComponent) {
+            return parseInt(this._accessoryLevelComponent.getOrElse('1'));
          } else {
             return 1;
          }
       }
-      /** @returns {LLH.Internal.AccessorySaveDataType} */
+      /** @returns {LLH.Internal.AccessorySaveDataType | undefined} */
       getAccessorySaveData() {
          var accessoryId = this.getAccessoryId();
          var level = this.getAccessoryLevel();
@@ -10614,7 +10832,7 @@ var LLAccessorySelectorComponent = (function () {
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
    }
 
@@ -11126,7 +11344,7 @@ var LLCardPoolComponent = (function () {
       controller = {
          'getPools': function() { return pools; },
          'getSelectedPool': function() {
-            var id = poolSelect.get();
+            var id = poolSelect.getOrElse(NEW_POOL_VALUE);
             if (NEW_POOL_VALUE == id) {
                return undefined;
             } else {
@@ -11192,7 +11410,7 @@ var LLCardPoolComponent = (function () {
             return cardSet.size;
          },
          'removeSelectedPool': function() {
-            var curSelect = poolSelect.get();
+            var curSelect = poolSelect.getOrElse(NEW_POOL_VALUE);
             if (curSelect == NEW_POOL_VALUE) return;
             var index = parseInt(curSelect);
             LLPoolUtil.removePoolByIndex(pools, index);
@@ -11207,7 +11425,7 @@ var LLCardPoolComponent = (function () {
       };
 
       reloadSelect();
-      poolSelect.onValueChange(poolSelect.get());
+      poolSelect.onValueChange(poolSelect.getOrElse(NEW_POOL_VALUE));
 
       return controller;
    }
@@ -11373,4 +11591,214 @@ var LLCardPoolComponent = (function () {
       }
    }
    return LLCardPoolComponent;
+})();
+
+var LLCardStatusComponent = (function () {
+   const createElement = LLUnit.createElement;
+
+   const SMILE_DEFAULT = '0';
+   const PURE_DEFAULT = '0';
+   const COOL_DEFAULT = '0';
+   const KIZUNA_DEFAULT = '0';
+   const HP_DEFAULT = '1';
+
+   const CHK_ID_MEZAME = 'mezame';
+   const SEL_ID_LEVEL = 'level';
+   const SEL_ID_LEVEL_LIMIT_PATTERN = 'level_limit_pattern';
+   const MEM_ID_RARITY = 'rarity';
+
+   /**
+    * @param {string} defaultValue
+    * @param {string} [color] 
+    * @returns {HTMLInputElement}
+    */
+   function createNumberInput(defaultValue, color) {
+      /** @type {LLH.Component.CreateElementOptions} */
+      var opt = {'type': 'number', 'className': 'form-control small-padding num-size-4', 'value': defaultValue, 'autocomplete': 'off'};
+      if (color) {
+         opt.style = {'color': color};
+      }
+      return createElement('input', opt);
+   }
+
+   class LLCardStatusComponent extends LLFiltersComponent {
+      /** @param {LLH.Layout.CardStatus.LLCardStatusComponent_Options} [options] */
+      constructor(options) {
+         super();
+         if (!options) options = {};
+         this.element = LLUnit.getOrCreateElement(options.id, 'div');
+
+         /** @type {LLH.Component.LLValuedComponent<HTMLElement, boolean>} */
+         this._mezameComp = new LLValuedComponent(createElement('input', {'type': 'checkbox'}));
+         this._levelComp = new LLSelectComponent(LLUnit.createFormSelect());
+         this._levelLimitPatternComp = new LLSelectComponent(LLUnit.createFormSelect());
+         this._rarityComp = new LLValuedMemoryComponent(/** @type {LLH.Core.RarityStringType} */ ('N'));
+         this.smileComp = new LLValuedComponent(createNumberInput(SMILE_DEFAULT, 'red'));
+         this.pureComp = new LLValuedComponent(createNumberInput(PURE_DEFAULT, 'green'));
+         this.coolComp = new LLValuedComponent(createNumberInput(COOL_DEFAULT, 'blue'));
+         this.mainColorComp = new LLSelectComponent(LLUnit.createFormSelect());
+         this.mainColorComp.setOptions([
+            {'text': 'smile', 'value': 'smile', 'color': 'red'},
+            {'text': 'pure', 'value': 'pure', 'color': 'green'},
+            {'text': 'cool', 'value': 'cool', 'color': 'blue'}
+         ]);
+         this.kizunaComp = new LLValuedComponent(createNumberInput(KIZUNA_DEFAULT));
+         this.hpComp = new LLValuedComponent(createNumberInput(HP_DEFAULT));
+         this.avatarComp = new LLAvatarComponent({'smallAvatar': true});
+         this.skillComp = new LLSkillComponent({'showLabel': true});
+
+         /** @type {LLH.Core.CardIdStringType=} */
+         this.cardId = undefined;
+
+         this.addFilterable(CHK_ID_MEZAME, this._mezameComp);
+         this.addFilterable(SEL_ID_LEVEL, this._levelComp);
+         this.addFilterable(SEL_ID_LEVEL_LIMIT_PATTERN, this._levelLimitPatternComp);
+         this.addFilterable(MEM_ID_RARITY, this._rarityComp);
+
+         var me = this;
+
+         this.setFilterOptionGroupCallback(SEL_ID_LEVEL, function () {
+            var rarity = me._rarityComp.get();
+            var mezame = me._mezameComp.get();
+            var limitPattern = me._levelLimitPatternComp.getOrElse('1');
+            if (rarity == 'UR' && mezame) {
+               return 'UR_1_' + limitPattern;
+            } else {
+               return rarity + '_' + (mezame ? '1' : '0');
+            }
+         }, [CHK_ID_MEZAME, SEL_ID_LEVEL_LIMIT_PATTERN, MEM_ID_RARITY]);
+         this.setFilterOptionGroupCallback(SEL_ID_LEVEL_LIMIT_PATTERN, function () {
+            var rarity = me._rarityComp.get();
+            var mezame = me._mezameComp.get();
+            return (rarity == 'UR' && mezame) ? '1' : '';
+         }, [CHK_ID_MEZAME, MEM_ID_RARITY])
+
+         /** @type {(name: string, newValue: any) => void} */
+         this.onValueChange = function (name, value) {
+            if (name == CHK_ID_MEZAME || name == SEL_ID_LEVEL || name == SEL_ID_LEVEL_LIMIT_PATTERN) {
+               me.applyCardData(me.cardId);
+            }
+         };
+
+         LLUnit.updateSubElements(this.element, [
+            LLUnit.createFormInlineGroup('觉醒：', [this._mezameComp.element, '（特典卡需选择觉醒）']),
+            LLUnit.createFormInlineGroup('等级：', [this._levelLimitPatternComp.element, this._levelComp.element]),
+            createElement('div', {'style': {'float': 'left'}}, [
+               LLUnit.createFormInlineGroup('裸smile：', [this.smileComp.element]),
+               LLUnit.createFormInlineGroup('裸pure：', [this.pureComp.element]),
+               LLUnit.createFormInlineGroup('裸cool：', [this.coolComp.element]),
+               LLUnit.createFormInlineGroup('主属性：', [this.mainColorComp.element]),
+               LLUnit.createFormInlineGroup('绊：', [this.kizunaComp.element]),
+               LLUnit.createFormInlineGroup('HP：', [this.hpComp.element]),
+            ]),
+            createElement('div', {'style': {'float': 'left'}}, [
+               this.avatarComp.element
+            ]),
+            createElement('div', {'style': {'clear': 'both'}}, [
+               this.skillComp.element
+            ])
+         ], true);
+
+         this._initSelectOptions();
+      }
+      _initSelectOptions() {
+         this.setFreezed(true);
+
+         var i;
+
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var patternOptions = [];
+         var levelLimitPatterns = LLConst.Level.getLevelLimitPatterns();
+         for (i = 0; i < levelLimitPatterns.length; i++) {
+            var patternId = levelLimitPatterns[i];
+            patternOptions.push({'value': patternId, 'text': '模式' + patternId});
+         }
+         this.setFilterOptionGroups(SEL_ID_LEVEL_LIMIT_PATTERN, {'1': patternOptions});
+
+         /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
+         var levelOptionGrouops = {};
+         levelOptionGrouops['N_0'] = [{'value': '30', 'text': 'Lv.30'}];
+         levelOptionGrouops['N_1'] = [{'value': '40', 'text': 'Lv.40'}];
+         levelOptionGrouops['R_0'] = [{'value': '40', 'text': 'Lv.40'}];
+         levelOptionGrouops['R_1'] = [{'value': '60', 'text': 'Lv.60'}];
+         levelOptionGrouops['SR_0'] = [{'value': '60', 'text': 'Lv.60'}];
+         levelOptionGrouops['SR_1'] = [{'value': '80', 'text': 'Lv.80'}];
+         levelOptionGrouops['SSR_0'] = [{'value': '70', 'text': 'Lv.70'}];
+         levelOptionGrouops['SSR_1'] = [{'value': '90', 'text': 'Lv.90'}];
+         levelOptionGrouops['UR_0'] = [{'value': '80', 'text': 'Lv.80'}];
+         for (i = 0; i < levelLimitPatterns.length; i++) {
+            var patternId = levelLimitPatterns[i];
+            var levelLimitData = LLConst.Level.getLevelLimit(patternId) || {};
+            var levels = Object.keys(levelLimitData).sort((a, b) => parseInt(a) - parseInt(b));
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var levelOptions = [];
+            for (var j = 0; j < levels.length; j++) {
+               var curLevel = levels[j];
+               var addValue = levelLimitData[curLevel];
+               levelOptions.push({'value': curLevel, 'text': 'Lv.' + curLevel + '（属性+' + addValue + '）'});
+            }
+            levelOptionGrouops['UR_1_' + patternId] = levelOptions;
+         }
+         this.setFilterOptionGroups(SEL_ID_LEVEL, levelOptionGrouops);
+
+         this.setFreezed(false);
+         this.handleFilters();
+      }
+      /** @param {LLH.Core.CardIdStringType} [cardId] */
+      applyCardData(cardId) {
+         var mezame = this._mezameComp.get();
+         var me = this;
+         this.cardId = cardId;
+         if (cardId) {
+            this.avatarComp.setCard(cardId, mezame);
+            LoadingUtil.startSingle(LLCardData.getDetailedData(cardId)).then(function (card) {
+               me._rarityComp.set(card.rarity);
+               me.mainColorComp.set(card.attribute);
+               me.skillComp.setCardData(card);
+               if (!mezame) {
+                  me.smileComp.set(card.smile + '');
+                  me.pureComp.set(card.pure + '');
+                  me.coolComp.set(card.cool + '');
+                  me.hpComp.set(card.hp + '');
+               } else {
+                  var addValue = 0;
+                  if (card.rarity == 'UR') {
+                     addValue = LLConst.Level.getLevelLimitAttributeDiff(me._levelLimitPatternComp.getOrElse('1'), me._levelComp.getOrElse('100'));
+                  }
+                  me.smileComp.set((card.smile2 + addValue) + '');
+                  me.pureComp.set((card.pure2 + addValue) + '');
+                  me.coolComp.set((card.cool2 + addValue) + '');
+                  me.hpComp.set((card.hp + 1) + '');
+               }
+               me.kizunaComp.set(LLConst.Common.getMaxKizuna(card.rarity, mezame) + '');
+            }, defaultHandleFailedRequest);
+         } else {
+            this.avatarComp.setCard();
+            this.skillComp.setCardData();
+         }
+      }
+      /** @returns {LLH.Internal.MemberSaveDataType} */
+      getMemberData() {
+         var kizunaValue = parseInt(this.kizunaComp.getOrElse(KIZUNA_DEFAULT));
+         var mainAttribute = this.mainColorComp.get();
+         var kizunaSmile = 0, kizunaPure = 0, kizunaCool = 0;
+         if (mainAttribute == 'smile') {
+            kizunaSmile = kizunaValue;
+         } else if (mainAttribute == 'pure') {
+            kizunaPure = kizunaValue;
+         } else if (mainAttribute == 'cool') {
+            kizunaCool = kizunaValue;
+         }
+         return {
+            'cardid': this.cardId || '',
+            'mezame': (this._mezameComp.get() ? 1 : 0),
+            'hp': parseInt(this.hpComp.getOrElse(HP_DEFAULT)),
+            'smile': parseInt(this.smileComp.getOrElse(SMILE_DEFAULT)) + kizunaSmile,
+            'pure': parseInt(this.pureComp.getOrElse(PURE_DEFAULT)) + kizunaPure,
+            'cool': parseInt(this.coolComp.getOrElse(COOL_DEFAULT)) + kizunaCool,
+            'skilllevel': this.skillComp.skillLevel + 1
+         };
+      }
+   }
+   return LLCardStatusComponent;
 })();

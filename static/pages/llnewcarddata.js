@@ -10,15 +10,15 @@ kizuna["SR"] = [250, 500]
 kizuna["UR"] = [500, 1000]
 kizuna["SSR"] = [375, 750]
 
-/** @type {LLH.Layout.Skill.LLSkillContainer} */
+/** @type {LLH.Layout.Skill.LLSkillComponent} */
 var comp_skill;
-/** @type {LLH.Layout.Skill.LLSkillContainer} */
+/** @type {LLH.Layout.Skill.LLSkillComponent} */
 var comp_skill2;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
-/** @type {LLH.Component.LLImageComponent} */
+/** @type {LLH.Component.LLAvatarComponent} */
 var comp_image_avatar;
-/** @type {LLH.Component.LLImageComponent} */
+/** @type {LLH.Component.LLAvatarComponent} */
 var comp_image_avatar2;
 /** @type {LLH.Component.LLImageComponent} */
 var comp_image_card;
@@ -79,6 +79,12 @@ function getmaxstrength(card){
    return result
 }
 
+/**
+ * 
+ * @param {LLH.Component.LLComponentBase | string} elementid 
+ * @param {boolean} show 
+ * @param {(e: LLH.Component.LLComponentBase | string) => void} show_callback 
+ */
 function update_visible(elementid, show, show_callback) {
    if (typeof(elementid) == 'string') {
       if (show) {
@@ -97,9 +103,15 @@ function update_visible(elementid, show, show_callback) {
    }
 }
 
+/**
+ * @param {LLH.Component.LLAvatarComponent} comp 
+ * @param {LLH.Core.CardIdStringType} cardid 
+ * @param {LLH.Core.MezameType} mezame 
+ * @param {boolean} show 
+ */
 function update_avatar(comp, cardid, mezame, show) {
    update_visible(comp, show, function() {
-      LLUnit.setAvatarSrcList(comp, cardid, mezame);
+      comp.setCard(cardid, mezame);
    });
 }
 
@@ -285,15 +297,8 @@ function renderPage(loadDeferred) {
     function init(cardData, metaData) {
         LLConst.initMetadata(metaData);
         // init 2 skill containers
-        comp_skill = new LLSkillContainer({'showall': true});
-        comp_skill2 = new LLSkillContainer({
-           'container': 'skillcontainer2',
-           'lvup': 'skilllvup2',
-           'lvdown': 'skilllvdown2',
-           'level': 'skilllevel2',
-           'text': 'skilltext2',
-           'showall': true
-        });
+        comp_skill = new LLSkillComponent({'id': 'skillcontainer', 'showAll': true});
+        comp_skill2 = new LLSkillComponent({'id': 'skillcontainer2', 'showAll': true});
         var origSetSkillLevel = comp_skill.setSkillLevel;
         var newSetSkillLevel = function (lv) {
            if (this.skillLevel == lv) return;
@@ -316,8 +321,8 @@ function renderPage(loadDeferred) {
         };
      
         // init image
-        comp_image_avatar = new LLImageComponent('avatar1');
-        comp_image_avatar2 = new LLImageComponent('avatar2');
+        comp_image_avatar = new LLAvatarComponent({'id': 'avatar1', 'smallAvatar': true});
+        comp_image_avatar2 = new LLAvatarComponent({'id': 'avatar2', 'smallAvatar': true});
         comp_image_card = new LLImageComponent('card');
         comp_image_card2 = new LLImageComponent('card2');
         comp_image_navi = new LLImageComponent('navi');

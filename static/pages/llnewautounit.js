@@ -1,4 +1,4 @@
-var mezame = 0;
+
 var kizuna = new Array();
 kizuna["N"] = [25, 50]
 kizuna["R"] = [100, 200]
@@ -8,7 +8,6 @@ kizuna["UR"] = [500, 1000]
 
 
 var data_mapnote = 0;
-var comp_skill = 0;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
 /** @type {LLH.Selector.LLSongSelectorComponent} */
@@ -16,9 +15,9 @@ var comp_songselector;
 var comp_gemselector = 0;
 /** @type {LLH.Selector.LLAccessorySelectorComponent} */
 var comp_accessory_selector;
-var comp_cardavatar = 0;
 /** @type {LLH.Layout.GemStock.LLGemStockComponent} */
 var comp_gemstock;
+/** @type {LLH.Layout.SubMember.LLSubMemberComponent} */
 var comp_submember;
 var comp_swapper = 0;
 var comp_distribution_chart = 0;
@@ -26,21 +25,16 @@ var comp_distribution_chart = 0;
 var comp_distribution_param;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
 var comp_team;
-var comp_cskill_team = 0;
-var comp_cskill_friend = 0;
-var comp_result = 0;
+/** @type {LLH.Layout.CardStatus.LLCardStatusComponent} */
+var comp_card_status;
+/** @type {LLH.Layout.UnitResult.LLUnitResultComponent} */
+var comp_result;
 /** @type {LLH.Layout.Language.LLLanguageComponent} */
 var comp_language;
 /** @type {LLH.Persistence.LLSaveLoadJsonGroup} */
 var persister;
 
-function toMezame(){
-    mezame = 1-mezame
-    LLUnit.applycarddata();
-}
-
 function clearall(){
-    setCookie("mezame"+"unit", mezame, -1)
     persister.clearAll();
     window.location.href="/llnewautounit"
 }
@@ -144,24 +138,11 @@ function loadsubmembers(){
     document.getElementById("unitform").target = 'if'
 }
 
-function saveToCookie(){
-    setCookie("mezame"+"unit", mezame, 1)
-}
 //////////
 function addselectsub(){
-    var cardid=comp_cardselector.getCardId();
-    var subunit={}
-    if ((cardid != 0) && (cardid != "") && (cardid != "0")){
-        subunit["main"]=document.getElementById("main").value
-        subunit["smile"]=parseInt(document.getElementById("smile").value)
-        subunit["pure"]=parseInt(document.getElementById("pure").value)
-        subunit["cool"]=parseInt(document.getElementById("cool").value)
-        subunit[subunit["main"]]+=parseInt(document.getElementById("kizuna").value)
-        subunit["skilllevel"]=comp_skill.skillLevel+1;
-        subunit["mezame"]=parseInt(mezame)
-        subunit["cardid"]=cardid;
-        subunit["maxcost"]=comp_cardselector.cards[cardid].minslot;
-        subunit.hp = parseInt(document.getElementById("hp").value);
+    var subunit = comp_card_status.getMemberData();
+    if (subunit.cardid && subunit.cardid != "0") {
+        subunit.maxcost = comp_cardselector.cards[subunit.cardid].minslot;
         comp_submember.add(subunit);
     }
 }
@@ -201,7 +182,6 @@ function check(){
         return;
     }
     comp_result.hideError();
-    saveToCookie();
     persister.saveAll();
     /////////////
     var cardids = comp_team.getCardIds();
@@ -312,6 +292,7 @@ function docalculate(cards, accessoryDetails, extraData) {
 /** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
     LLCardData.briefKeys.push('minslot');
+    LLMetaData.keys.push('level_limit');
 
     /**
      * @param {LLH.API.CardDictDataType} cardData
@@ -322,14 +303,15 @@ function renderPage(loadDeferred) {
     function init(cardData, songData, metaData, accessoryData) {
         // init components
         LLConst.initMetadata(metaData);
-        comp_cskill_team = new LLCSkillComponent('cskill_team');
-        comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
+        var comp_cskill_team = new LLCSkillComponent('cskill_team');
+        var comp_cskill_friend = new LLCSkillComponent('cskill_friend', {'editable': true, 'title': '好友主唱技能'});
+        comp_card_status = new LLCardStatusComponent({'id': 'card_status_container'});
         comp_songselector = new LLSongSelectorComponent('song_filter', {'songs': songData, 'includeMapInfo': true, 'friendCSkill': comp_cskill_friend});
         data_mapnote = new LLMapNoteData();
-        comp_skill = new LLSkillContainer();
         comp_cardselector = new LLCardSelectorComponent('card_filter_container', {'cards': cardData, 'pools': LLPoolUtil.loadPools(LLHelperLocalStorageKeys.localStorageCardPoolKey)});
-        comp_cardselector.onCardChange = LLUnit.applycarddata;
-        comp_cardavatar = new LLImageComponent('imageselect');
+        comp_cardselector.onCardChange = function (cardId) {
+            comp_card_status.applyCardData(cardId);
+        };
         comp_distribution_param = new LLScoreDistributionParameter('distribution_param');
         comp_accessory_selector = new LLAccessorySelectorComponent('accessory_selector', {
            'accessoryData': accessoryData,
@@ -362,18 +344,7 @@ function renderPage(loadDeferred) {
         });
         comp_team = new LLTeamComponent('unit-team', {
             'onPutCardClicked': function(i) {
-                var curMain = document.getElementById("main").value;
-                var memberData = {
-                    'cardid': comp_cardselector.getCardId(),
-                    'mezame': (document.getElementById("mezame").checked ? 1 : 0),
-                    'hp': parseInt(document.getElementById("hp").value),
-                    'smile': parseInt(document.getElementById("smile").value),
-                    'pure': parseInt(document.getElementById("pure").value),
-                    'cool': parseInt(document.getElementById("cool").value),
-                    'skilllevel': parseInt(document.getElementById("skilllevel").innerHTML)
-                };
-                memberData[curMain] += parseInt(document.getElementById("kizuna").value);
-                comp_team.putMember(i, memberData);
+                comp_team.putMember(i, comp_card_status.getMemberData());
             },
             'onPutGemClicked': function (i) {
                 return comp_gemselector.getGemId();
@@ -387,10 +358,6 @@ function renderPage(loadDeferred) {
                 return comp_accessory_selector.getAccessorySaveData();
             }
         });
-
-        mezame = getCookie("mezameunit")
-        if (mezame == "") mezame = 0; else mezame = parseInt(mezame);
-        document.getElementById("mezame").checked = mezame
 
         comp_gemstock = new LLGemStockComponent('sisreserves');
 
@@ -406,6 +373,7 @@ function renderPage(loadDeferred) {
 
         // load
         persister = new LLSaveLoadJsonGroup();
+        persister.register(LLHelperLocalStorageKeys.localStorageMezameKey, comp_card_status);
         persister.register(LLHelperLocalStorageKeys.localStorageDistParamKey, comp_distribution_param, undefined, true);
         persister.register(LLHelperLocalStorageKeys.localStorageLLNewAutoUnitTeamKey, comp_team);
         persister.register(LLHelperLocalStorageKeys.localStorageLanguageKey, comp_language, '0');
