@@ -510,50 +510,64 @@ var LLData = (function () {
 })();
 
 var LLSimpleKeyData = (function () {
-   function LLSimpleKeyData_cls(url, keys) {
-      this.url = url;
-      this.keys = keys;
-      this.cache = {};
-   }
-   LLSimpleKeyData_cls.prototype.get = function(keys, url) {
-      if (keys === undefined) keys = this.keys;
-      if (url === undefined) url = this.url;
-      var me = this;
-      var missingKeys = [];
-      var defer = LLDepends.createDeferred();
-      for (var i = 0; i < keys.length; i++) {
-         var key = keys[i];
-         if (!me.cache[key]) {
-            missingKeys.push(key);
-         }
+   /** @template T */
+   class LLSimpleKeyData_cls {
+      /**
+       * @param {string} url 
+       * @param {string[]} keys 
+       */
+      constructor(url, keys) {
+         this.url = url;
+         this.keys = keys;
+         this.cache = /** @type {T} */ ({});
       }
-      if (missingKeys.length == 0) {
-         defer.resolve(me.cache);
+      /**
+       * @param {string[]} [keys] 
+       * @param {string} [url] 
+       */
+      get(keys, url) {
+         if (keys === undefined)
+            keys = this.keys;
+         if (url === undefined)
+            url = this.url;
+         var me = this;
+         var missingKeys = [];
+         /** @type {LLH.Depends.Deferred<T, void>} */
+         var defer = LLDepends.createDeferred();
+         for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (!me.cache[key]) {
+               missingKeys.push(key);
+            }
+         }
+         if (missingKeys.length == 0) {
+            defer.resolve(me.cache);
+            return defer;
+         }
+         var requestKeys = missingKeys.sort().join(',');
+
+         $.ajax({
+            'url': url,
+            'data': {
+               'keys': requestKeys
+            },
+            'type': 'GET',
+            'success': function (data) {
+               for (var index in data) {
+                  me.cache[index] = data[index];
+               }
+               defer.resolve(me.cache);
+            },
+            'error': function (xhr, textStatus, errorThrown) {
+               console.error("Failed on request to " + me.url + ": " + textStatus);
+               console.error(errorThrown);
+               defer.reject();
+            },
+            'dataType': 'json'
+         });
          return defer;
       }
-      var requestKeys = missingKeys.sort().join(',');
-
-      $.ajax({
-         'url': url,
-         'data': {
-            'keys': requestKeys
-         },
-         'type': 'GET',
-         'success': function (data) {
-            for (var index in data) {
-               me.cache[index] = data[index];
-            }
-            defer.resolve(me.cache);
-         },
-         'error': function (xhr, textStatus, errorThrown) {
-            console.error("Failed on request to " + me.url + ": " + textStatus);
-            console.error(errorThrown);
-            defer.reject();
-         },
-         'dataType': 'json'
-      });
-      return defer;
-   };
+   }
    return LLSimpleKeyData_cls;
 })();
 
@@ -1816,10 +1830,29 @@ var LLConst = (function () {
    /** @type {LLH.Internal.ProcessedAlbumGroupType[]} */
    var ALBUM_GROUP = [];
 
+   /** @type {LLH.API.LevelLimitPatternDictDataType} */
+   var LEVEL_LIMIT_DATA = {};
+
+   const INIT_KEY_ALBUM = 'album';
+   const INIT_KEY_MEMBER_TAG = 'member_tag';
+   const INIT_KEY_UNIT_TYPE = 'unit_type';
+   const INIT_KEY_CSKILL_GROUPS = 'cskill_groups';
+   const INIT_KEY_LEVEL_LIMIT = 'level_limit';
 
    var metaDataInited = {};
-   var mCheckInited = function (key) {
-      if (!metaDataInited[key]) throw key + ' not inited';
+   /**
+    * @param {string} key
+    * @param {boolean} [noThrow]
+    */
+   var mCheckInited = function (key, noThrow) {
+      if (!metaDataInited[key]) {
+         var err = key + ' not inited';
+         if (noThrow) {
+            console.error(err);
+         } else {
+            throw err;
+         }
+      }
    };
 
    /**
@@ -1847,7 +1880,7 @@ var LLConst = (function () {
     * @returns {LLH.Internal.MemberMetaDataType | undefined}
     */
    var mGetMemberData = function (member) {
-      mCheckInited('unit_type');
+      mCheckInited(INIT_KEY_UNIT_TYPE);
       var memberid = mGetMemberId(member);
       if (memberid !== undefined) {
          return MEMBER_DATA[memberid];
@@ -1866,7 +1899,7 @@ var LLConst = (function () {
       return groupid;
    };
    var mGetGroupData = function (group) {
-      mCheckInited('member_tag');
+      mCheckInited(INIT_KEY_MEMBER_TAG);
       var groupid = mGetGroupId(group);
       if (groupid !== undefined) {
          return GROUP_DATA[groupid];
@@ -2027,7 +2060,7 @@ var LLConst = (function () {
          return (DEFAULT_MIN_SLOT[rarity] || 0);
       },
       getCSkillGroups: function () {
-         mCheckInited('cskill_groups');
+         mCheckInited(INIT_KEY_CSKILL_GROUPS);
          return CSKILL_GROUPS;
       },
       getZeroCSkill: function () {
@@ -2191,13 +2224,13 @@ var LLConst = (function () {
          return curMemberColor;
       },
       getMemberGrade: function (member) {
-         mCheckInited('unit_type');
+         mCheckInited(INIT_KEY_UNIT_TYPE);
          var memberData = mGetMemberData(member);
          if (!memberData) return undefined;
          return memberData.grade;
       },
       getMemberTypeIdsInGroups: function (groups) {
-         mCheckInited('unit_type');
+         mCheckInited(INIT_KEY_UNIT_TYPE);
          if (groups === undefined) return [];
          if (typeof(groups) == 'number') groups = [groups];
          var memberInGroupCount = {};
@@ -2243,7 +2276,7 @@ var LLConst = (function () {
    /** @type {LLH.ConstUtil.Group} */
    var GroupUtils = {
       getGroupName: function (groupid) {
-         mCheckInited('member_tag');
+         mCheckInited(INIT_KEY_MEMBER_TAG);
          var groupData = GROUP_DATA[groupid];
          if (!groupData) return '<Unknown(' + groupid + ')>';
          if (groupData.cnname) return groupData.cnname;
@@ -2728,7 +2761,7 @@ var LLConst = (function () {
    /** @type {LLH.ConstUtil.Album} */
    var AlbumUtils = {
       getAlbumGroupByAlbumId: function (album_id) {
-         mCheckInited('album');
+         mCheckInited(INIT_KEY_ALBUM);
          if (!album_id) return undefined;
          if (!ALBUM_DATA[album_id]) {
             console.error('not found album ' + album_id);
@@ -2742,11 +2775,11 @@ var LLConst = (function () {
          return ALBUM_GROUP[album.albumGroupId];
       },
       getAlbumGroups: function () {
-         mCheckInited('album');
+         mCheckInited(INIT_KEY_ALBUM);
          return ALBUM_GROUP;
       },
       isAlbumInAlbumGroup: function (album_id, group_id) {
-         mCheckInited('album');
+         mCheckInited(INIT_KEY_ALBUM);
          if (!album_id) return false;
          if (!ALBUM_DATA[album_id]) {
             console.error('not found album ' + album_id);
@@ -2872,19 +2905,23 @@ var LLConst = (function () {
    constUtil.initMetadata = function(metadata) {
       if (metadata.album) {
          mInitAlbumData(metadata.album);
-         metaDataInited['album'] = 1;
+         metaDataInited[INIT_KEY_ALBUM] = 1;
       }
       if (metadata.member_tag) {
          GROUP_DATA = metadata.member_tag;
-         metaDataInited['member_tag'] = 1;
+         metaDataInited[INIT_KEY_MEMBER_TAG] = 1;
       }
       if (metadata.unit_type) {
          mInitMemberData(metadata.unit_type);
-         metaDataInited['unit_type'] = 1;
+         metaDataInited[INIT_KEY_UNIT_TYPE] = 1;
       }
       if (metadata.cskill_groups) {
          CSKILL_GROUPS = metadata.cskill_groups;
-         metaDataInited['cskill_groups'] = 1;
+         metaDataInited[INIT_KEY_CSKILL_GROUPS] = 1;
+      }
+      if (metadata.level_limit) {
+         LEVEL_LIMIT_DATA = metadata.level_limit;
+         metaDataInited[INIT_KEY_LEVEL_LIMIT] = 1;
       }
    };
 
@@ -3017,6 +3054,28 @@ var LLConst = (function () {
       }
    };
    constUtil.Song = SongUtil;
+
+   /** @type {LLH.ConstUtil.Level} */
+   var levelUtil = {
+      getLevelLimitPatterns: function () {
+         mCheckInited(INIT_KEY_LEVEL_LIMIT, true);
+         return Object.keys(LEVEL_LIMIT_DATA).sort((a, b) => parseInt(a) - parseInt(b));
+      },
+      getLevelLimit: function (patternId) {
+         mCheckInited(INIT_KEY_LEVEL_LIMIT, true);
+         return LEVEL_LIMIT_DATA[patternId];
+      },
+      getLevelLimitAttributeDiff: function (patternId, level) {
+         mCheckInited(INIT_KEY_LEVEL_LIMIT, true);
+         var levelLimit = levelUtil.getLevelLimit(patternId);
+         if (levelLimit && levelLimit[level] !== undefined) {
+            return levelLimit[level];
+         } else {
+            return 0;
+         }
+      }
+   };
+   constUtil.Level = levelUtil;
 
    return constUtil;
 })();
@@ -11542,7 +11601,11 @@ var LLCardStatusComponent = (function () {
    const COOL_DEFAULT = '0';
    const KIZUNA_DEFAULT = '0';
    const HP_DEFAULT = '1';
-   const SAVE_KEY_MEZAME = 'mezame';
+
+   const CHK_ID_MEZAME = 'mezame';
+   const SEL_ID_LEVEL = 'level';
+   const SEL_ID_LEVEL_LIMIT_PATTERN = 'level_limit_pattern';
+   const MEM_ID_RARITY = 'rarity';
 
    /**
     * @param {string} defaultValue
@@ -11558,7 +11621,7 @@ var LLCardStatusComponent = (function () {
       return createElement('input', opt);
    }
 
-   class LLCardStatusComponent extends SaveLoadableGroup {
+   class LLCardStatusComponent extends LLFiltersComponent {
       /** @param {LLH.Layout.CardStatus.LLCardStatusComponent_Options} [options] */
       constructor(options) {
          super();
@@ -11566,7 +11629,10 @@ var LLCardStatusComponent = (function () {
          this.element = LLUnit.getOrCreateElement(options.id, 'div');
 
          /** @type {LLH.Component.LLValuedComponent<HTMLElement, boolean>} */
-         this.mezameComp = new LLValuedComponent(createElement('input', {'type': 'checkbox'}));
+         this._mezameComp = new LLValuedComponent(createElement('input', {'type': 'checkbox'}));
+         this._levelComp = new LLSelectComponent(LLUnit.createFormSelect());
+         this._levelLimitPatternComp = new LLSelectComponent(LLUnit.createFormSelect());
+         this._rarityComp = new LLValuedMemoryComponent(/** @type {LLH.Core.RarityStringType} */ ('N'));
          this.smileComp = new LLValuedComponent(createNumberInput(SMILE_DEFAULT, 'red'));
          this.pureComp = new LLValuedComponent(createNumberInput(PURE_DEFAULT, 'green'));
          this.coolComp = new LLValuedComponent(createNumberInput(COOL_DEFAULT, 'blue'));
@@ -11584,13 +11650,39 @@ var LLCardStatusComponent = (function () {
          /** @type {LLH.Core.CardIdStringType=} */
          this.cardId = undefined;
 
-         this.addSaveLoadable(SAVE_KEY_MEZAME, this.mezameComp);
+         this.addFilterable(CHK_ID_MEZAME, this._mezameComp);
+         this.addFilterable(SEL_ID_LEVEL, this._levelComp);
+         this.addFilterable(SEL_ID_LEVEL_LIMIT_PATTERN, this._levelLimitPatternComp);
+         this.addFilterable(MEM_ID_RARITY, this._rarityComp);
 
          var me = this;
-         this.mezameComp.onValueChange = function() { me.applyCardData(me.cardId); };
+
+         this.setFilterOptionGroupCallback(SEL_ID_LEVEL, function () {
+            var rarity = me._rarityComp.get();
+            var mezame = me._mezameComp.get();
+            var limitPattern = me._levelLimitPatternComp.getOrElse('1');
+            if (rarity == 'UR' && mezame) {
+               return 'UR_1_' + limitPattern;
+            } else {
+               return rarity + '_' + (mezame ? '1' : '0');
+            }
+         }, [CHK_ID_MEZAME, SEL_ID_LEVEL_LIMIT_PATTERN, MEM_ID_RARITY]);
+         this.setFilterOptionGroupCallback(SEL_ID_LEVEL_LIMIT_PATTERN, function () {
+            var rarity = me._rarityComp.get();
+            var mezame = me._mezameComp.get();
+            return (rarity == 'UR' && mezame) ? '1' : '';
+         }, [CHK_ID_MEZAME, MEM_ID_RARITY])
+
+         /** @type {(name: string, newValue: any) => void} */
+         this.onValueChange = function (name, value) {
+            if (name == CHK_ID_MEZAME || name == SEL_ID_LEVEL || name == SEL_ID_LEVEL_LIMIT_PATTERN) {
+               me.applyCardData(me.cardId);
+            }
+         };
 
          LLUnit.updateSubElements(this.element, [
-            this.mezameComp.element, '觉醒（特典卡需选择觉醒）', createElement('br'),
+            LLUnit.createFormInlineGroup('觉醒：', [this._mezameComp.element, '（特典卡需选择觉醒）']),
+            LLUnit.createFormInlineGroup('等级：', [this._levelLimitPatternComp.element, this._levelComp.element]),
             createElement('div', {'style': {'float': 'left'}}, [
                LLUnit.createFormInlineGroup('裸smile：', [this.smileComp.element]),
                LLUnit.createFormInlineGroup('裸pure：', [this.pureComp.element]),
@@ -11606,15 +11698,61 @@ var LLCardStatusComponent = (function () {
                this.skillComp.element
             ])
          ], true);
+
+         this._initSelectOptions();
+      }
+      _initSelectOptions() {
+         this.setFreezed(true);
+
+         var i;
+
+         /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+         var patternOptions = [];
+         var levelLimitPatterns = LLConst.Level.getLevelLimitPatterns();
+         for (i = 0; i < levelLimitPatterns.length; i++) {
+            var patternId = levelLimitPatterns[i];
+            patternOptions.push({'value': patternId, 'text': '模式' + patternId});
+         }
+         this.setFilterOptionGroups(SEL_ID_LEVEL_LIMIT_PATTERN, {'1': patternOptions});
+
+         /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
+         var levelOptionGrouops = {};
+         levelOptionGrouops['N_0'] = [{'value': '30', 'text': 'Lv.30'}];
+         levelOptionGrouops['N_1'] = [{'value': '40', 'text': 'Lv.40'}];
+         levelOptionGrouops['R_0'] = [{'value': '40', 'text': 'Lv.40'}];
+         levelOptionGrouops['R_1'] = [{'value': '60', 'text': 'Lv.60'}];
+         levelOptionGrouops['SR_0'] = [{'value': '60', 'text': 'Lv.60'}];
+         levelOptionGrouops['SR_1'] = [{'value': '80', 'text': 'Lv.80'}];
+         levelOptionGrouops['SSR_0'] = [{'value': '70', 'text': 'Lv.70'}];
+         levelOptionGrouops['SSR_1'] = [{'value': '90', 'text': 'Lv.90'}];
+         levelOptionGrouops['UR_0'] = [{'value': '80', 'text': 'Lv.80'}];
+         for (i = 0; i < levelLimitPatterns.length; i++) {
+            var patternId = levelLimitPatterns[i];
+            var levelLimitData = LLConst.Level.getLevelLimit(patternId) || {};
+            var levels = Object.keys(levelLimitData).sort((a, b) => parseInt(a) - parseInt(b));
+            /** @type {LLH.Component.LLSelectComponent_OptionDef[]} */
+            var levelOptions = [];
+            for (var j = 0; j < levels.length; j++) {
+               var curLevel = levels[j];
+               var addValue = levelLimitData[curLevel];
+               levelOptions.push({'value': curLevel, 'text': 'Lv.' + curLevel + '（属性+' + addValue + '）'});
+            }
+            levelOptionGrouops['UR_1_' + patternId] = levelOptions;
+         }
+         this.setFilterOptionGroups(SEL_ID_LEVEL, levelOptionGrouops);
+
+         this.setFreezed(false);
+         this.handleFilters();
       }
       /** @param {LLH.Core.CardIdStringType} [cardId] */
       applyCardData(cardId) {
-         var mezame = this.mezameComp.get();
+         var mezame = this._mezameComp.get();
          var me = this;
          this.cardId = cardId;
          if (cardId) {
             this.avatarComp.setCard(cardId, mezame);
             LoadingUtil.startSingle(LLCardData.getDetailedData(cardId)).then(function (card) {
+               me._rarityComp.set(card.rarity);
                me.mainColorComp.set(card.attribute);
                me.skillComp.setCardData(card);
                if (!mezame) {
@@ -11623,9 +11761,13 @@ var LLCardStatusComponent = (function () {
                   me.coolComp.set(card.cool + '');
                   me.hpComp.set(card.hp + '');
                } else {
-                  me.smileComp.set(card.smile2 + '');
-                  me.pureComp.set(card.pure2 + '');
-                  me.coolComp.set(card.cool2 + '');
+                  var addValue = 0;
+                  if (card.rarity == 'UR') {
+                     addValue = LLConst.Level.getLevelLimitAttributeDiff(me._levelLimitPatternComp.getOrElse('1'), me._levelComp.getOrElse('100'));
+                  }
+                  me.smileComp.set((card.smile2 + addValue) + '');
+                  me.pureComp.set((card.pure2 + addValue) + '');
+                  me.coolComp.set((card.cool2 + addValue) + '');
                   me.hpComp.set((card.hp + 1) + '');
                }
                me.kizunaComp.set(LLConst.Common.getMaxKizuna(card.rarity, mezame) + '');
@@ -11649,7 +11791,7 @@ var LLCardStatusComponent = (function () {
          }
          return {
             'cardid': this.cardId || '',
-            'mezame': (this.mezameComp.get() ? 1 : 0),
+            'mezame': (this._mezameComp.get() ? 1 : 0),
             'hp': parseInt(this.hpComp.getOrElse(HP_DEFAULT)),
             'smile': parseInt(this.smileComp.getOrElse(SMILE_DEFAULT)) + kizunaSmile,
             'pure': parseInt(this.pureComp.getOrElse(PURE_DEFAULT)) + kizunaPure,

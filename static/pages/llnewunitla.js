@@ -162,6 +162,8 @@ function docalculate(cards, accessoryDetails, extraData) {
 
 /** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
+    LLMetaData.keys.push('level_limit');
+
     /**
      * @param {LLH.API.CardDictDataType} cardData
      * @param {LLH.API.SongDictDataType} songData

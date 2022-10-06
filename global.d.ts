@@ -55,6 +55,9 @@ declare namespace LLH {
         type SkillEffectType = number;
         /** 0: cn, 1: jp */
         type LanguageType = 0 | 1;
+
+        type LevelLimitPatternIdType = string;
+        type LevelLimitLevelType = string;
     }
     namespace API {
         /** <value> | "<min>~<max>" */
@@ -206,11 +209,15 @@ declare namespace LLH {
         }
         type UnitTypeDictDataType = {[id: string]: UnitTypeDataType};
 
+        type LevelLimitDictDataType = {[level: Core.LevelLimitLevelType]: number};
+        type LevelLimitPatternDictDataType = {[id: Core.LevelLimitPatternIdType]: LevelLimitDictDataType};
+
         interface MetaDataType {
             album: AlbumDictDataType;
             member_tag: MemberTagDictDataType;
             unit_type: UnitTypeDictDataType;
             cskill_groups: Core.MemberTagIdType[];
+            level_limit?: LevelLimitPatternDictDataType;
         }
 
         interface AccessoryLevelDataType {
@@ -1149,6 +1156,11 @@ declare namespace LLH {
             getDefaultSong(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongDataType;
             getDefaultSongSetting(song_group: Core.SongGroupIdType, default_set: Internal.DefaultSongSetIdType): API.SongSettingDataType;
         }
+        interface Level {
+            getLevelLimitPatterns(): Core.LevelLimitPatternIdType[];
+            getLevelLimit(patternId: Core.LevelLimitPatternIdType): API.LevelLimitDictDataType | undefined;
+            getLevelLimitAttributeDiff(patternId: Core.LevelLimitPatternIdType, level: Core.LevelLimitLevelType): number;
+        }
     }
 
     namespace Misc {
@@ -1694,7 +1706,7 @@ declare namespace LLH {
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
-                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType | undefined;
                 onCenterChanged?: () => void;
 
                 mode?: LayoutMode;
@@ -1709,7 +1721,7 @@ declare namespace LLH {
                 getMember(i: IndexType): Internal.MemberSaveDataType;
                 getMembers(): Internal.MemberSaveDataType[];
                 setMemberGem(i: IndexType, gems: Model.LLSisGem[]): void;
-                setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType): void;
+                setAccessory(i: IndexType, accessory: Internal.AccessorySaveDataType | undefined): void;
                 getCardId(i: IndexType): Core.CardIdType;
                 getCardIds(): Core.CardIdType[];
                 getAccessoryId(i: IndexType): Core.AccessoryIdStringType;
@@ -1756,7 +1768,7 @@ declare namespace LLH {
                 // callbacks
                 onPutCardClicked?: (i: IndexType) => void;
                 onPutGemClicked?: (i: IndexType) => Internal.NormalGemCategoryKeyType;
-                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType;
+                onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType | undefined;
                 onCenterChanged?: () => void;
 
                 // implements
@@ -1952,7 +1964,7 @@ declare namespace LLH {
             interface LLCardStatusComponent_Options {
                 id?: Component.HTMLElementOrId;
             }
-            class LLCardStatusComponent extends Mixin.SaveLoadableGroup {
+            class LLCardStatusComponent extends Component.LLFiltersComponent {
                 constructor(options?: LLCardStatusComponent_Options);
 
                 applyCardData(cardId?: Core.CardIdStringType): void;
@@ -1980,6 +1992,8 @@ declare namespace LLH {
     class LLSimpleKeyData<T> {
         constructor(url: string, keys: string[]);
 
+        keys: string[];
+
         get(keys?: string[], url?: string): Depends.Promise<T, void>;
     }
     
@@ -1997,6 +2011,7 @@ declare namespace LLH {
         Attributes: ConstUtil.Attributes;
         Live: ConstUtil.Live;
         Song: ConstUtil.Song;
+        Level: ConstUtil.Level;
     }
 
     namespace Test {

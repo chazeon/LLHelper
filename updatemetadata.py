@@ -88,6 +88,9 @@ def handleUnitType(dbconn, cur_data, row, translator):
     if row[3]:
         cur_data['background_color'] = row[3]
 
+def handleLevelLimit(dbconn, cur_data, row, translator):
+    cur_data[str(row[1])] = -row[2]
+
 def parseArgs():
     parser = argparse.ArgumentParser('Update metadata')
     parser.add_argument('-d', action='store_true', help='dump strings that need translate', dest='dump_missing')
@@ -110,6 +113,9 @@ if __name__ == "__main__":
 
     # unit type
     commonHandleMetadataTable(jpdbconn, metadata, 'unit_type', 'SELECT unit_type_id, name, original_attribute_id, background_color FROM unit_type_m;', handleUnitType, translator)
+
+    # level limit
+    commonHandleMetadataTable(jpdbconn, metadata, 'level_limit', 'SELECT unit_level_limit_id, unit_level, smile_diff FROM unit_level_limit_pattern_m;', handleLevelLimit, translator)
 
     # cskill types
     commonHandleMetadataArray(jpdbconn, metadata, 'cskill_groups', 'SELECT member_tag_id FROM unit_leader_skill_extra_m GROUP BY member_tag_id;')

@@ -292,6 +292,7 @@ function docalculate(cards, accessoryDetails, extraData) {
 /** @param {LLH.Depends.Promise<void, void>} loadDeferred */
 function renderPage(loadDeferred) {
     LLCardData.briefKeys.push('minslot');
+    LLMetaData.keys.push('level_limit');
 
     /**
      * @param {LLH.API.CardDictDataType} cardData
