@@ -802,6 +802,9 @@ declare namespace LLH {
         interface ControllerBase {
             element: Component.SubElements;
         }
+        interface ControllerBaseSingleElement extends ControllerBase {
+            element: HTMLElement;
+        }
         interface ClickableController {
             onClick?: () => void;
         }
@@ -966,13 +969,16 @@ declare namespace LLH {
         }
         interface LLGemSelectorComponent_Options {
             gemData?: API.SisDictDataType;
-            includeNormalGemCategory: boolean;
-            includeNormalGem: boolean;
-            includeLAGem: boolean;
-            showBrief: boolean;
+            includeNormalGemCategory?: boolean;
+            includeNormalGem?: boolean;
+            includeLAGem?: boolean;
+            showBrief?: boolean;
         }
-        interface LLGemSelectorComponent_DetailController {
+        interface LLGemSelectorComponent_DetailController extends Controller.ControllerBaseSingleElement {
             set(data: string | API.SisDataType, language: Core.LanguageType): void;
+        }
+        interface LLGemSelectorComponent_SisDataController extends Controller.ControllerBaseSingleElement {
+            set(data: API.SisDataType, language: Core.LanguageType): void;
         }
         class LLGemSelectorComponent extends Component.LLFiltersComponent implements Mixin.LanguageSupport {
             constructor(id: Component.HTMLElementOrId, options: LLGemSelectorComponent_Options);
@@ -982,7 +988,7 @@ declare namespace LLH {
             includeNormalGem: boolean;
             includeLAGem: boolean;
 
-            setGemData(gemData: API.SisDictDataType): void;
+            setGemData(gemData?: API.SisDictDataType): void;
             getGemId(): Core.SisIdType | Internal.NormalGemCategoryKeyType;
 
             // implements LanguageSupport

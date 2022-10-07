@@ -10024,64 +10024,67 @@ var LLGemSelectorComponent = (function () {
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
    var createFormSelect = LLUnit.createFormSelect;
 
-   var SEL_ID_GEM_CHOICE = 'gem_choice';
-   var SEL_ID_GEM_TYPE = 'gem_type';
-   var SEL_ID_GEM_SIZE = 'gem_size';
-   var MEM_ID_LANGUAGE = 'language';
-   var GEM_GROUP_NORMAL_CATEGORY = 0;
-   var GEM_GROUP_NORMAL = 1;
-   var GEM_GROUP_LA = 2;
+   const SEL_ID_GEM_CHOICE = 'gem_choice';
+   const SEL_ID_GEM_TYPE = 'gem_type';
+   const SEL_ID_GEM_SIZE = 'gem_size';
+   const MEM_ID_LANGUAGE = 'language';
+   const GEM_GROUP_NORMAL_CATEGORY = 0;
+   const GEM_GROUP_NORMAL = 1;
+   const GEM_GROUP_LA = 2;
 
-   /**
-    * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
-    * @param {boolean} showLvup
-    */
-   function renderGemDetail(controller, showLvup) {
+   /** @param {boolean} showLvup */
+   function renderGemDetail(showLvup) {
       var container = createElement('div');
-      controller.set = function (data, language) {
-         if (!data) {
-            container.innerHTML = '';
-         } else if (typeof(data) == 'string') {
-            container.innerHTML = '';
-         } else {
-            /** @type {LLH.Component.SubElements} */
-            var elements = [LLConst.Gem.getGemFullDescription(data, language == 0)];
-            if (showLvup && data.level_up_skill_data) {
-               var nextData = data.level_up_skill_data;
-               elements.push(
-                  createElement('br'),
-                  createElement('b', undefined, '可升级为：'),
-                  createElement('br'),
-                  createElement('span', {'style': {'color': LLConst.Gem.getGemColor(nextData)}}, LLConst.Gem.getGemDescription(nextData, language == 0)),
-                  createElement('br'),
-                  LLConst.Gem.getGemFullDescription(nextData, language == 0)
-               );
+      /** @type {LLH.Selector.LLGemSelectorComponent_DetailController} */
+      var controller = {
+         'set': function (data, language) {
+            if (!data) {
+               container.innerHTML = '';
+            } else if (typeof(data) == 'string') {
+               container.innerHTML = '';
+            } else {
+               /** @type {LLH.Component.SubElements} */
+               var elements = [LLConst.Gem.getGemFullDescription(data, language == 0)];
+               if (showLvup && data.level_up_skill_data) {
+                  var nextData = data.level_up_skill_data;
+                  elements.push(
+                     createElement('br'),
+                     createElement('b', undefined, '可升级为：'),
+                     createElement('br'),
+                     createElement('span', {'style': {'color': LLConst.Gem.getGemColor(nextData)}}, LLConst.Gem.getGemDescription(nextData, language == 0)),
+                     createElement('br'),
+                     LLConst.Gem.getGemFullDescription(nextData, language == 0)
+                  );
+               }
+               updateSubElements(container, elements, true);
             }
-            updateSubElements(container, elements, true);
-         }
+         },
+         'element': container
       };
-      return container;
+      return controller;
    }
 
-   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
-   function renderGemSeriesRow(controller) {
+   function renderGemSeriesRow() {
       var descCell = createElement('td');
       var fullDescCell = createElement('td');
-      controller.set = function (data, language) {
-         descCell.style.color = LLConst.Gem.getGemColor(data);
-         updateSubElements(descCell, LLConst.Gem.getGemDescription(data, language == 0), true);
-         updateSubElements(fullDescCell, LLConst.Gem.getGemFullDescription(data, language == 0), true);
+      /** @type {LLH.Selector.LLGemSelectorComponent_SisDataController} */
+      var controller = {
+         'set': function (data, language) {
+            descCell.style.color = LLConst.Gem.getGemColor(data);
+            updateSubElements(descCell, LLConst.Gem.getGemDescription(data, language == 0), true);
+            updateSubElements(fullDescCell, LLConst.Gem.getGemFullDescription(data, language == 0), true);
+         },
+         'element': createElement('tr', undefined, [descCell, fullDescCell])
       };
-      return createElement('tr', undefined, [descCell, fullDescCell]);
+      return controller;
    }
 
-   /** @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller */
-   function renderGemSeries(controller) {
+   function renderGemSeries() {
       /** @type {LLH.API.SisDataType[]} */
       var seriesData = [];
       /** @type {HTMLElement[]} */
       var seriesRows = [];
-      /** @type {LLH.Selector.LLGemSelectorComponent_DetailController[]} */
+      /** @type {LLH.Selector.LLGemSelectorComponent_SisDataController[]} */
       var seriesRowsController = [];
       var lastLanguage = undefined;
       var focusedIndex = -1;
@@ -10091,63 +10094,68 @@ var LLGemSelectorComponent = (function () {
       ]);
       var tbody = createElement('tbody', undefined, [headerRow]);
       var table = createElement('table', {'className': 'table table-bordered table-hover table-condensed gem-series', 'style': {'display': 'none'}}, tbody);
-      controller.set = function (data, language) {
-         if (typeof(data) == 'string') {
-            table.style.display = 'none';
-         } else if ((!data.level_up_skill_data) && (!data.level_down_skill_data)) {
-            table.style.display = 'none';
-         } else {
-            var found = -1;
-            var i;
-            for (i = 0; i < seriesData.length; i++) {
-               if (seriesData[i] === data) {
-                  found = i;
-                  break;
-               }
-            }
-            if (found < 0) {
-               // rebuild the rows
-               var curData = data;
-               while (curData.level_down_skill_data) curData = curData.level_down_skill_data;
-               seriesData = [curData];
-               seriesRowsController = [{}];
-               seriesRows = [renderGemSeriesRow(seriesRowsController[0])];
-               while (curData.level_up_skill_data) {
-                  curData = curData.level_up_skill_data;
-                  seriesData.push(curData);
-                  var curController = {};
-                  seriesRows.push(renderGemSeriesRow(curController));
-                  seriesRowsController.push(curController);
-               }
-               for (i = 0; i < seriesData.length; i++) {
-                  seriesRowsController[i].set(seriesData[i], language);
-                  if (seriesData[i] === data) {
-                     seriesRows[i].className = 'focused';
-                     focusedIndex = i;
-                  }
-               }
-               updateSubElements(tbody, [headerRow].concat(seriesRows), true);
+
+      /** @type {LLH.Selector.LLGemSelectorComponent_DetailController} */
+      var controller = {
+         'set': function (data, language) {
+            if (typeof(data) == 'string') {
+               table.style.display = 'none';
+            } else if ((!data.level_up_skill_data) && (!data.level_down_skill_data)) {
+               table.style.display = 'none';
             } else {
-               // reuse the rows
-               if (found != focusedIndex) {
-                  if (seriesRows[focusedIndex]) {
-                     seriesRows[focusedIndex].className = '';
+               var found = -1;
+               var i;
+               for (i = 0; i < seriesData.length; i++) {
+                  if (seriesData[i] === data) {
+                     found = i;
+                     break;
                   }
-                  seriesRows[found].className = 'focused';
-                  focusedIndex = found;
                }
-               // check if language changed
-               if (lastLanguage != language) {
+               if (found < 0) {
+                  // rebuild the rows
+                  var curData = data;
+                  while (curData.level_down_skill_data) curData = curData.level_down_skill_data;
+                  seriesData = [curData];
+                  seriesRowsController = [renderGemSeriesRow()];
+                  seriesRows = [seriesRowsController[0].element];
+                  while (curData.level_up_skill_data) {
+                     curData = curData.level_up_skill_data;
+                     seriesData.push(curData);
+                     var curController = renderGemSeriesRow();
+                     seriesRows.push(curController.element);
+                     seriesRowsController.push(curController);
+                  }
                   for (i = 0; i < seriesData.length; i++) {
                      seriesRowsController[i].set(seriesData[i], language);
+                     if (seriesData[i] === data) {
+                        seriesRows[i].className = 'focused';
+                        focusedIndex = i;
+                     }
+                  }
+                  updateSubElements(tbody, [headerRow].concat(seriesRows), true);
+               } else {
+                  // reuse the rows
+                  if (found != focusedIndex) {
+                     if (seriesRows[focusedIndex]) {
+                        seriesRows[focusedIndex].className = '';
+                     }
+                     seriesRows[found].className = 'focused';
+                     focusedIndex = found;
+                  }
+                  // check if language changed
+                  if (lastLanguage != language) {
+                     for (i = 0; i < seriesData.length; i++) {
+                        seriesRowsController[i].set(seriesData[i], language);
+                     }
                   }
                }
+               table.style.display = '';
+               lastLanguage = language;
             }
-            table.style.display = '';
-            lastLanguage = language;
-         }
+         },
+         'element': table
       };
-      return table;
+      return controller;
    }
 
    /**
@@ -10171,20 +10179,25 @@ var LLGemSelectorComponent = (function () {
          var gemChoice = createFormSelect();
          var gemType = createFormSelect();
          var gemSize = createFormSelect();
-         this.addFilterable(SEL_ID_GEM_CHOICE, new LLSelectComponent(gemChoice), function (opt) {
+
+         this._gemChoiceComponent = new LLSelectComponent(gemChoice);
+         this._gemTypeComponent = new LLSelectComponent(gemType);
+         this._languageComponent = new LLValuedMemoryComponent(LLConstValue.LANGUAGE_CN);
+
+         this.addFilterable(SEL_ID_GEM_CHOICE, this._gemChoiceComponent, function (opt) {
             if (opt.value && options.gemData && options.gemData[opt.value]) {
                return options.gemData[opt.value];
             } else {
                return undefined;
             }
          });
-         this.addFilterable(SEL_ID_GEM_TYPE, new LLSelectComponent(gemType));
+         this.addFilterable(SEL_ID_GEM_TYPE, this._gemTypeComponent);
          this.addFilterable(SEL_ID_GEM_SIZE, new LLSelectComponent(gemSize));
-         this.addFilterable(MEM_ID_LANGUAGE, new LLValuedMemoryComponent(0));
+         this.addFilterable(MEM_ID_LANGUAGE, this._languageComponent);
          this.setFilterOptionGroupCallback(SEL_ID_GEM_CHOICE,
-            () => me.getComponent(SEL_ID_GEM_TYPE).get() + '_' + me.getComponent(MEM_ID_LANGUAGE).get(),
+            () => me._gemTypeComponent.get() + '_' + me._languageComponent.get(),
             [SEL_ID_GEM_TYPE, MEM_ID_LANGUAGE]);
-         this.setFilterOptionGroupCallback(SEL_ID_GEM_SIZE, () => me.getComponent(SEL_ID_GEM_TYPE).get(), [SEL_ID_GEM_TYPE]);
+         this.setFilterOptionGroupCallback(SEL_ID_GEM_SIZE, () => me._gemTypeComponent.getOrElse(''), [SEL_ID_GEM_TYPE]);
          this.addFilterCallback(SEL_ID_GEM_SIZE, SEL_ID_GEM_CHOICE, (opt, v, d) => (!v) || (!d) || (parseInt(v) == d.size))
 
          updateSubElements(container, [
@@ -10192,30 +10205,33 @@ var LLGemSelectorComponent = (function () {
             createFormInlineGroup('宝石：', gemChoice)
          ], true);
 
+         /** @type {LLH.Selector.LLGemSelectorComponent_DetailController=} */
          var detailController = undefined;
+         /** @type {LLH.Selector.LLGemSelectorComponent_DetailController=} */
          var seriesController = undefined;
          if (options.includeLAGem || options.includeNormalGem) {
-            detailController = {};
             if (options.showBrief) {
-               updateSubElements(container, renderGemDetail(detailController, false), false);
+               detailController = renderGemDetail(false);
+               updateSubElements(container, detailController.element);
             } else {
-               seriesController = {};
+               detailController = renderGemDetail(true);
+               seriesController = renderGemSeries();
                updateSubElements(container, [
                   createElement('h3', undefined, '详细信息'),
-                  renderGemDetail(detailController, true),
+                  detailController.element,
                   createElement('h3', undefined, '升级序列'),
-                  renderGemSeries(seriesController)
+                  seriesController.element
                ], false);
             }
          }
 
          /**
-          * @param {LLH.Selector.LLGemSelectorComponent_DetailController} controller
+          * @param {LLH.Selector.LLGemSelectorComponent_DetailController | undefined} controller
           * @param {string} gemId
           * @param {LLH.Core.LanguageType} language
           */
          var setDetail = function (controller, gemId, language) {
-            if (controller && controller.set) {
+            if (controller) {
                if (options.gemData && options.gemData[gemId]) {
                   controller.set(options.gemData[gemId], language);
                } else {
@@ -10224,14 +10240,15 @@ var LLGemSelectorComponent = (function () {
             }
          };
 
+         /** @type {(name: string, newValue: any) => void} */
          this.onValueChange = function (name, newValue) {
             var curGem, curLanguage, updateDetail = false;
             if (name == SEL_ID_GEM_CHOICE) {
                curGem = newValue;
-               curLanguage = me.getComponent(MEM_ID_LANGUAGE).get();
+               curLanguage = me._languageComponent.get();
                updateDetail = true;
             } else if (name == MEM_ID_LANGUAGE) {
-               curGem = me.getComponent(SEL_ID_GEM_CHOICE).get();
+               curGem = me._gemChoiceComponent.get();
                curLanguage = newValue;
                updateDetail = true;
             }
@@ -10243,7 +10260,7 @@ var LLGemSelectorComponent = (function () {
 
          this.setGemData(options.gemData);
       }
-      /** @param {LLH.API.SisDictDataType} gemData */
+      /** @param {LLH.API.SisDictDataType} [gemData] */
       setGemData(gemData) {
          if (gemData) {
             LLConst.Gem.postProcessGemData(gemData);
@@ -10256,7 +10273,6 @@ var LLGemSelectorComponent = (function () {
          /** @type {LLH.Component.LLFiltersComponent_OptionGroupType} */
          var gemSizeOptionGroups = {};
          var i;
-         var me = this;
    
          this.setFreezed(true);
          this.gemData = gemData;
@@ -10336,11 +10352,11 @@ var LLGemSelectorComponent = (function () {
       }
       /** @returns {LLH.Core.SisIdType | LLH.Internal.NormalGemCategoryKeyType} */
       getGemId() {
-         return this.getComponent(SEL_ID_GEM_CHOICE).get();
+         return this._gemChoiceComponent.getOrElse('');
       }
       /** @param {LLH.Core.LanguageType} language */
       setLanguage(language) {
-         this.getComponent(MEM_ID_LANGUAGE).set(language);
+         this._languageComponent.set(language);
       }
    }
 
