@@ -420,7 +420,7 @@ declare namespace LLH {
             /** float */
             time: number;
             note: API.NoteDataType;
-            /** 0.5 for swing, 1 for other */
+            /** valid for hit/release, 0.5 for swing, 1 for other, 0 for enter/hold */
             factor: number;
         }
 
@@ -1037,7 +1037,7 @@ declare namespace LLH {
             /** return undefined if not nonet team, or big group id of the nonet team */
             isNonetTeam(members: Model.LLMember[]): Core.BigGroupIdType | undefined;
             /** return undefined if not same color team, or color of the team */
-            isSameColorTeam(members: Model.LLMember[]): Core.AttributeAllType | undefined;
+            isSameColorTeam(members: Model.LLMember[]): Core.AttributeType | undefined;
             getMemberGrade(memberId: Core.MemberIdType): Core.GradeType | undefined;
             getMemberTypeIdsInGroups(groups?: Core.MemberTagIdType[] | Core.MemberTagIdType): Core.UnitTypeIdType[];
             getMemberColor(member: Core.MemberIdType): Core.AttributeAllType | undefined;
@@ -1112,6 +1112,7 @@ declare namespace LLH {
             getCSkillGroups(): Core.MemberTagIdType[];
             getZeroCSkill(): Internal.CSkillDataType;
             copyCSkill(fromCSkill: Internal.CSkillDataType, toCSkill?: Internal.CSkillDataType): Internal.CSkillDataType;
+            getCardCSkill(card: API.CardDataType): Internal.CSkillDataType;
             getOrMakeDummyCardData(card?: API.CardDataType, cardId?: Core.CardIdOrStringType): API.CardDataType;
             getCardDescription(card: API.CardDataType, language: Core.LanguageType, mezame?: boolean): string;
             getMaxKizuna(rarity: Core.RarityStringType, mezame?: Core.MezameType | boolean): number;
@@ -1384,7 +1385,7 @@ declare namespace LLH {
             getAttrDebuffFactor(mapcolor: Core.AttributeAllType, mapunit: Core.BigGroupIdType | undefined, weight: number, totalweight: number): number;
             calcAttrDebuff(mapdata: LLMap_SaveData, pos: number, teamattr: number): number;
             getMicPoint(): number;
-            calcTotalCSkillPercentageForSameColor(mapcolor: Core.AttributeType, cskills: Internal.CSkillDataType[]): number;
+            calcTotalCSkillPercentageForSameColor(mapcolor: Core.AttributeAllType, cskills: Internal.CSkillDataType[]): number;
             getGrade(): Core.GradeType;
             getSkillDetail(levelBoost?: number): API.SkillDetailDataType | undefined;
             getAccessoryDetail(levelBoost?: number): API.AccessoryLevelDataType | undefined;
@@ -1396,20 +1397,20 @@ declare namespace LLH {
             members: LLMember[];
 
             /** set after calculateAttributeStrength() */
-            attrDebuff: number[];
+            attrDebuff?: number[];
             totalAttrNoAccuracy: number;
             totalAttrWithAccuracy: number;
-            totalWeight: number[];
+            totalWeight?: number;
             /** set after calculateSkillStength() */
-            avgSkills: LLSkill[];
-            maxSkills: LLSkill[];
+            avgSkills?: LLSkill[];
+            maxSkills?: LLSkill[];
             averageScoreNumber: number;
             averageScore: number | string;
             maxScoreNumber: number;
             maxHeal: number;
             /** set after calculateScoreDistribution() */
-            scoreDistribution: number[];
-            scoreDistributionMinScore: number;
+            scoreDistribution?: number[];
+            scoreDistributionMinScore?: number;
 
             calculateResult: Internal.CalculateResultType;
 

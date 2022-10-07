@@ -2090,6 +2090,20 @@ var LLConst = (function () {
             return toCSkill;
          }
       },
+      getCardCSkill: function (card) {
+         var attribute = card.attribute;
+         if (attribute == 'all') {
+            return CommonUtils.getZeroCSkill();
+         } else {
+            return {
+               'attribute': attribute,
+               'Cskillattribute': card.Cskillattribute,
+               'Cskillpercentage': card.Cskillpercentage,
+               'Csecondskilllimit': card.Csecondskilllimit,
+               'Csecondskillattribute': card.Csecondskillattribute
+            };
+         }
+      },
       getOrMakeDummyCardData: function (card, cardId) {
          if (card) return card;
          var cardData = {
@@ -2218,6 +2232,10 @@ var LLConst = (function () {
             return undefined;
          }
          var curMemberColor = members[0].card.attribute;
+         if (curMemberColor == 'all') {
+            console.warn('isSameColorTeam: invalid member attribute: all', members);
+            return undefined;
+         }
          for (var i = 1; i < members.length; i++) {
             if (members[i].card.attribute != curMemberColor) return undefined;
          }
@@ -4840,6 +4858,7 @@ var LLSkill = (function () {
          this.maxHeal = 0;
          this.simpleCoverage = 0;
          this.skillDist = undefined;
+         this.strength = 0;
 
          this.actualScore = 0;
          this.actualPossibility = this.possibility;
@@ -5185,7 +5204,7 @@ var LLMember = (function() {
          return MIC_RATIO[skill_level_up_pattern] * this.skilllevel;
       }
       /**
-       * @param {LLH.Core.AttributeType} mapcolor 
+       * @param {LLH.Core.AttributeAllType} mapcolor 
        * @param {LLH.Internal.CSkillDataType[]} cskills 
        */
       calcTotalCSkillPercentageForSameColor(mapcolor, cskills) {
@@ -6258,10 +6277,10 @@ var LLTeam = (function() {
    ];
    var armCombinationList = [];
    var MAX_SLOT = 8;
-   var SIM_NOTE_ENTER = 1;
-   var SIM_NOTE_HIT = 2;
-   var SIM_NOTE_HOLD = 3;
-   var SIM_NOTE_RELEASE = 4;
+   const SIM_NOTE_ENTER = 1;
+   const SIM_NOTE_HIT = 2;
+   const SIM_NOTE_HOLD = 3;
+   const SIM_NOTE_RELEASE = 4;
    var getArmCombinationList = function () {
       if (armCombinationList.length > 0) return armCombinationList;
       var i;
@@ -6325,6 +6344,8 @@ var LLTeam = (function() {
          if (members === undefined) throw("Missing members");
          if (members.length != 9) throw("Expect 9 members");
          this.members = members;
+         this.totalAttrNoAccuracy = 0;
+         this.totalAttrWithAccuracy = 0;
          /** @type {LLH.Internal.CalculateResultType} */
          this.calculateResult = {};
       }
@@ -6354,8 +6375,7 @@ var LLTeam = (function() {
             teamgem.push(curGems);
          }
          //全体宝石和主唱技能加成
-         /** @type {LLH.Internal.CSkillDataType[]} */
-         var cskills = [this.members[4].card];
+         var cskills = [LLConst.Common.getCardCSkill(this.members[4].card)];
          if (mapdata.friendCSkill) cskills.push(mapdata.friendCSkill);
          for (i = 0; i < 9; i++) {
             var curMember = this.members[i];
@@ -6407,7 +6427,7 @@ var LLTeam = (function() {
          var comboMulti = LLUnit.comboMulti(mapdata.combo);
          // perfect+accurate: 1.35, perfect: 1.25, great: 1.1, good: 1
          var accuracyMulti = 1.1+0.15*(mapdata.perfect/mapdata.combo);
-         var scorePerStrength = 1.21/100*this.totalWeight*comboMulti*accuracyMulti;
+         var scorePerStrength = 1.21/100*mapdata.totalWeight*comboMulti*accuracyMulti;
          var minScore = Math.round(this.calculateResult.totalAttrStrength * scorePerStrength * (1+mapdata.tapup/100));
    
          var avgSkills = [];
@@ -6448,9 +6468,13 @@ var LLTeam = (function() {
          this.calculateResult.totalStrength = this.calculateResult.totalAttrStrength + totalSkillStrength;
       }
       calculateScoreDistribution() {
-         if (this.calculateResult.maxScore == MAX_SCORE) {
+         if (this.calculateResult.maxScore == MAX_SCORE || typeof(this.calculateResult.maxScore) == 'string') {
             console.error('Cannot calculate distribution for infinite max score');
             return '分数太高，无法计算分布';
+         }
+         if (!this.avgSkills) {
+            console.error('No skills strength');
+            return '缺失技能强度，无法计算分布';
          }
          var nonScoreTriggerSkills = [];
          var scoreTriggerSkills = [];
@@ -6539,7 +6563,8 @@ var LLTeam = (function() {
             return;
          }
          var i;
-         var speed = parseInt(mapdata.speed || 8);
+         var speed = mapdata.speed || 8;
+         /** @type {LLH.Internal.NoteTriggerDataType[]} */
          var noteTriggerData = [];
          // pre-process note data
          // assume hold note start with perfect
@@ -6547,12 +6572,14 @@ var LLTeam = (function() {
             noteTriggerData.push({
                'type': SIM_NOTE_ENTER,
                'time': LLConst.Live.getNoteAppearTime(noteData[i].timing_sec, speed),
+               'factor': 0,
                'note': noteData[i]
             });
             if (LLConst.Live.isHoldNote(noteData[i].effect)) {
                noteTriggerData.push({
                   'type': SIM_NOTE_HOLD,
                   'time': noteData[i].timing_sec,
+                  'factor': 0,
                   'note': noteData[i]
                });
                noteTriggerData.push({
@@ -6653,14 +6680,14 @@ var LLTeam = (function() {
          var expection = 0;
          var percentile = [minResult.score];
          var sumResultCount = 0;
-         var nextResultCount = parseInt(percentile.length * simCount / 100);
+         var nextResultCount = Math.floor(percentile.length * simCount / 100);
          for (i = 0; i < simResults.length; i++) {
             var curResult = simResults[i];
             sumResultCount += curResult.count;
             expection += curResult.count * curResult.score;
             while (sumResultCount >= nextResultCount) {
                percentile.push(curResult.score);
-               nextResultCount = parseInt(percentile.length * simCount / 100);
+               nextResultCount = Math.floor(percentile.length * simCount / 100);
             }
          }
          this.calculateResult.simulateScoreResults = simResults;
@@ -6742,7 +6769,7 @@ var LLTeam = (function() {
       autoArmGem(mapdata, gemStock) {
          var mapcolor = mapdata.attribute;
          // 计算主唱增益率以及异色异团惩罚率
-         var cskills = [this.members[4].card];
+         var cskills = [LLConst.Common.getCardCSkill(this.members[4].card)];
          if (mapdata.friendCSkill) cskills.push(mapdata.friendCSkill);
          var cskillPercentages = [];
          var totalDebuffFactor = 0;
@@ -6756,14 +6783,23 @@ var LLTeam = (function() {
          for (i = 0; i < 9; i++) {
             var curMember = this.members[i];
             if (!curMember.hasSkillGem()) {
-               curMember.gems.push(new LLSisGem(LLConst.GemType.SCORE_250, {'color': curMember.card.attribute}));
+               var curAttribute = curMember.card.attribute;
+               if (curAttribute != 'all') {
+                  curMember.gems.push(new LLSisGem(LLConst.GemType.SCORE_250, {'color': curAttribute}));
+               }
             }
          }
          this.calculateAttributeStrength(mapdata);
          this.calculateSkillStrength(mapdata);
+         if (!this.avgSkills) {
+            console.error('No skills strength');
+            return;
+         }
          // 统计年级, 组合信息
+         /** @type {LLH.Core.GradeType[]} */
          var gradeInfo = [];
          var gradeCount = [0, 0, 0];
+         /** @type {(LLH.Core.BigGroupIdType | undefined)[]} */
          var unitInfo = [];
          for (i = 0; i < 9; i++) {
             var curMember = this.members[i];
@@ -6771,7 +6807,7 @@ var LLTeam = (function() {
             var curBigGroupId = LLConst.Member.getBigGroupId(curMember.card.jpname);
             gradeInfo.push(curMemberGrade);
             gradeCount[curMemberGrade]++;
-            unitInfo.push((curBigGroupId ? curBigGroupId.toFixed() : ''));
+            unitInfo.push(curBigGroupId);
          }
          var isNonetTeam = LLConst.Member.isNonetTeam(this.members);
          // 计算每种宝石带来的增益
@@ -6782,14 +6818,17 @@ var LLTeam = (function() {
          for (i = 0; i < 9; i++) {
             var curMember = this.members[i];
             var curPowerUps = {};
-            var gemOption = {'grade': gradeInfo[i], 'color': mapcolor, 'member': LLConstValue[curMember.card.jpname], 'unit': unitInfo[i]};
+            /** @type {LLH.Model.LLSisGem_Options} */
+            var gemOption = {'grade': gradeInfo[i], 'color': (mapcolor == 'all' ? undefined : mapcolor), 'member': LLConstValue[curMember.card.jpname], 'unit': unitInfo[i]};
             for (j = 0; j < gemTypes.length; j++) {
                var curGem = new LLSisGem(j, gemOption);
                if (!curGem.isValid()) continue;
                var curStrengthBuff = 0;
                if (curGem.isSkillGem()) {
                   var curSkill = this.avgSkills[i];
-                  curGem.setAttributeType(curMember.card.attribute);
+                  if (curMember.card.attribute != 'all') {
+                     curGem.setAttributeType(curMember.card.attribute);
+                  }
                   if (curGem.isHealToScore() && curSkill.isEffectHeal()) {
                      curStrengthBuff = curSkill.strength;
                   } else if (curGem.isScoreMultiple() && curSkill.isEffectScore()) {
@@ -6818,7 +6857,7 @@ var LLTeam = (function() {
                            takeEffect = 1;
                         }
                         if (takeEffect) {
-                           for (var k = 0; k < 9; k++) {
+                           for (k = 0; k < 9; k++) {
                               curStrengthBuff += Math.ceil( (curGem.getEffectValue() / 100) * this.members[k][mapcolor] ) * (1 + cskillPercentages[k]/100);
                            }
                         }
@@ -6913,7 +6952,7 @@ var LLTeam = (function() {
          };
          for (i = 0; i < 9; i++) {
             var curMaxStrengthBuffStrength = maxStrengthBuffForMember[i].strength;
-            var curMaxStrengthBuffComb = maxStrengthBuffForMember[i].comb;
+            var curMaxStrengthBuffComb2 = maxStrengthBuffForMember[i].comb;
             var curCombList = combList[this.members[i].maxcost];
             var curPowerUps = powerUps[i];
             var remainingMaxStrengthBuff = 0;
@@ -6927,11 +6966,11 @@ var LLTeam = (function() {
                if (lastDPState.strength + remainingMaxStrengthBuff < maxStrengthBuff) continue;
                // 检查当前成员最大加成所需的宝石是否充足, 如果充足就用这个配置
                var enoughGem = 1;
-               for (j = 0; enoughGem && j < curMaxStrengthBuffComb.length; j++) {
-                  if (lastState.charAt(curPowerUps[curMaxStrengthBuffComb[j]].stockindex) != '-') enoughGem = 0;
+               for (j = 0; enoughGem && j < curMaxStrengthBuffComb2.length; j++) {
+                  if (lastState.charAt(curPowerUps[curMaxStrengthBuffComb2[j]].stockindex) != '-') enoughGem = 0;
                }
                if (enoughGem) {
-                  addDPState(curDP, i, lastState, lastDPState.strength + curMaxStrengthBuffStrength, lastState, curMaxStrengthBuffComb);
+                  addDPState(curDP, i, lastState, lastDPState.strength + curMaxStrengthBuffStrength, lastState, curMaxStrengthBuffComb2);
                   continue;
                }
                // 尝试该槽数下所有可行的宝石组合
@@ -7078,15 +7117,17 @@ var LLTeam = (function() {
          //最后把得分最高的队伍组回来, 重新计算一次配饰作为最终结果
          //把剩余的成员返回出去
          curTeam.sort(sortByBuffDesc);
+         /** @type {(LLH.Model.LLMember | undefined)[]} */
+         var allMembersMarked = allMembers.concat();
          for (i = 0; i < 8; i++) {
             me.members[weightSort[i]] = allMembers[curTeam[i].index];
-            allMembers[curTeam[i].index] = undefined;
+            allMembersMarked[curTeam[i].index] = undefined;
          }
          me.autoArmGem(mapdata, gemStock);
          var resultSubMembers = [];
-         for (i = 0; i < allMembers.length; i++) {
-            if (allMembers[i] !== undefined) {
-               resultSubMembers.push(allMembers[i]);
+         for (i = 0; i < allMembersMarked.length; i++) {
+            if (allMembersMarked[i] !== undefined) {
+               resultSubMembers.push(allMembersMarked[i]);
             }
          }
          return resultSubMembers;
