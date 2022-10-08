@@ -42,13 +42,15 @@ declare namespace LLH {
         type TriggerTargetType = MemberTagIdType[];
         type TriggerTargetMemberType = UnitTypeIdType[];
 
-        type MezameType = 0 | 1;
+        type YesNoNumberType = 0 | 1;
+        type MezameType = YesNoNumberType;
         /** note speed: 1~10 */
         type NoteSpeedType = number;
         /** LLConstValue.NOTE_TYPE_... */
         type NoteEffectType = number;
         /** 1 for 300 combo, 2 for 220 combo */
         type ComboFeverPattern = 1 | 2;
+        type ComboFeverLimit = 1000 | 2147483647;
         /** LLConstValue.SKILL_TRIGGER_... */
         type SkillTriggerType = number;
         /** LLConstValue.SKILL_EFFECT_... */
@@ -239,7 +241,7 @@ declare namespace LLH {
             smile: number;
             pure: number;
             cool: number;
-            is_material: 0 | 1;
+            is_material: Core.YesNoNumberType;
             effect_type: number;
             /** none for normal accessory trigger */
             trigger_type?: number;
@@ -318,29 +320,29 @@ declare namespace LLH {
             effect_range: NormalGemCategoryEffectRangeType;
             effect_value: number;
             /** 1 means exist gem for 3 kinds of color */
-            per_color?: 0 | 1;
+            per_color?: Core.YesNoNumberType;
             /** 1 means exist gem for 3 grades */
-            per_grade?: 0 | 1;
+            per_grade?: Core.YesNoNumberType;
             /** 1 means exist gem for different members */
-            per_member?: 0 | 1;
+            per_member?: Core.YesNoNumberType;
             /** 1 means exist gem for different units */
-            per_unit?: 0 | 1;
+            per_unit?: Core.YesNoNumberType;
             /** 1 means effect_value is fixed value to add attribute */
-            attr_add?: 0 | 1;
+            attr_add?: Core.YesNoNumberType;
             /** 1 means effect_value is percentage buff to attribute */
-            attr_mul?: 0 | 1;
+            attr_mul?: Core.YesNoNumberType;
             /** 1 means effect_value is percentage buff to score skill */
-            skill_mul?: 0 | 1;
+            skill_mul?: Core.YesNoNumberType;
             /** 1 means effect_value is rate of heal to score on overheal */
-            heal_mul?: 0 | 1;
+            heal_mul?: Core.YesNoNumberType;
             /** 1 means effect_value is percentage buff to attr when covered by ease */
-            ease_attr_mul?: 0 | 1;
+            ease_attr_mul?: Core.YesNoNumberType;
         }
         type NormalGemCategoryIdOrMetaType = NormalGemCategoryIdType | NormalGemMetaType;
 
         interface SubMemberSaveDataType {
             cardid: Core.CardIdOrStringType; // int
-            mezame: 0 | 1;
+            mezame: Core.MezameType;
             skilllevel: number; // 1~8
             maxcost?: number; // 0~8
         }
@@ -1299,11 +1301,11 @@ declare namespace LLH {
             songUnit?: Core.BigGroupIdType;
             /** int 1~10 */
             speed?: number;
-            combo_fever_pattern?: 1 | 2;
-            combo_fever_limit?: 1000 | 2147483647;
-            over_heal_pattern?: 0 | 1;
-            perfect_accuracy_pattern?: 0 | 1;
-            trigger_limit_pattern?: 0 | 1;
+            combo_fever_pattern?: Core.ComboFeverPattern;
+            combo_fever_limit?: Core.ComboFeverLimit;
+            over_heal_pattern?: Core.YesNoNumberType;
+            perfect_accuracy_pattern?: Core.YesNoNumberType;
+            trigger_limit_pattern?: Core.YesNoNumberType;
 
             /** LA only, percentage */
             debuff_skill_rate_down?: number;
@@ -1813,30 +1815,26 @@ declare namespace LLH {
                 /** speed int 1~10 */
                 speed: number;
                 combo_fever_pattern: Core.ComboFeverPattern;
-                combo_fever_limit: 1000 | 2147483647;
+                combo_fever_limit: Core.ComboFeverLimit;
                 /** 0 for disabled, 1 for enabled */
-                over_heal_pattern: 0 | 1;
+                over_heal_pattern: Core.YesNoNumberType;
                 /** 0 for disabled, 1 for enabled */
-                perfect_accuracy_pattern: 0 | 1;
+                perfect_accuracy_pattern: Core.YesNoNumberType;
                 /** 0 for disabled, 1 for enabled */
-                trigger_limit_pattern: 0 | 1;
+                trigger_limit_pattern: Core.YesNoNumberType;
             }
-            interface ScoreDistParamController {
+            interface ScoreDistParamController extends Controller.ControllerBaseSingleElement {
                 getParameters(): ScoreDistParamSaveData;
-                setParameters(params: ScoreDistParamSaveData): void;
+                setParameters(params?: ScoreDistParamSaveData): void;
             }
             interface LLScoreDistributionParameter_Options {
                 mode?: LayoutMode;
             }
-            class LLScoreDistributionParameter implements Mixin.SaveLoadJson {
+            class LLScoreDistributionParameter extends Mixin.SaveLoadJsonBase<ScoreDistParamSaveData> {
                 constructor(id: Component.HTMLElementOrId, options?: LLScoreDistributionParameter_Options);
 
-                saveData(): ScoreDistParamSaveData;
-                loadData(data: ScoreDistParamSaveData): void;
-                
-                // implements
-                saveJson(): string;
-                loadJson(jsonData: string): void;
+                override saveData(): ScoreDistParamSaveData;
+                override loadData(data?: ScoreDistParamSaveData): void;
             }
         }
         namespace UnitResult {

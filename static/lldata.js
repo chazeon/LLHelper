@@ -8356,15 +8356,17 @@ var LLScoreDistributionParameter = (function () {
    var createFormInlineGroup = LLUnit.createFormInlineGroup;
    var updateSubElements = LLUnit.updateSubElements;
 
-   var distTypeSelectOptions = [
+   /** @type {LLH.Component.LLSelectComponent_OptionDef<LLH.Layout.ScoreDistParam.ScoreDistType>[]} */
+   const distTypeSelectOptions = [
       {'value': 'no', 'text': '不计算分布'},
       {'value': 'v1', 'text': '计算理论分布'},
       {'value': 'sim', 'text': '计算模拟分布'}
    ];
-   var distTypeLASelectOptions = [
+   /** @type {LLH.Component.LLSelectComponent_OptionDef<LLH.Layout.ScoreDistParam.ScoreDistType>[]} */
+   const distTypeLASelectOptions = [
       {'value': 'simla', 'text': '计算模拟分布（演唱会竞技场）'}
    ];
-   var speedSelectOptions = [
+   const speedSelectOptions = [
       {'value': '1', 'text': '1速'},
       {'value': '2', 'text': '2速'},
       {'value': '3', 'text': '3速'},
@@ -8376,19 +8378,19 @@ var LLScoreDistributionParameter = (function () {
       {'value': '9', 'text': '9速'},
       {'value': '10', 'text': '10速'}
    ];
-   var comboFeverPatternSelectOptions = [
+   const comboFeverPatternSelectOptions = [
       {'value': '1', 'text': '技能加强前（300 combo达到最大加成）'},
       {'value': '2', 'text': '技能加强后（220 combo达到最大加成）'}
    ];
-   var comboFeverLimitOptions = [
+   const comboFeverLimitOptions = [
       {'value': LLConstValue.SKILL_LIMIT_COMBO_FEVER + '', 'text': '上限解除前（单键加成上限1000）'},
       {'value': LLConstValue.SKILL_LIMIT_COMBO_FEVER_2 + '', 'text': '上限解除后（单键加成上限21亿）'}
    ];
-   var enableDisableSelectOptions = [
+   const enableDisableSelectOptions = [
       {'value': '0', 'text': '关闭'},
       {'value': '1', 'text': '启用'}
    ];
-   var distTypeDetail = [
+   const distTypeDetail = [
       ['#要素', '#计算理论分布/计算技能强度', '#计算模拟分布', '#计算模拟分布（演唱会竞技场）'],
       ['触发条件: 时间, 图标, 连击, perfect, star perfect, 分数', '支持', '支持', '支持'],
       ['触发条件: 连锁', '不支持', '支持', '支持'],
@@ -8402,6 +8404,13 @@ var LLScoreDistributionParameter = (function () {
       ['饰品: 判定, 提升技能发动率, 重复, <br/>完美加分, 连击加分, 技能等级提升<br/>属性同步, 属性提升', '不支持', '支持', '支持'],
       ['饰品: 火花', '不支持', '不支持', '不支持']
    ];
+
+   const DEFAULT_SPEED = '8';
+   const DEFAULT_COMBO_FEVER_PATTERN = '2';
+   const DEFAULT_COMBO_FEVER_LIMIT = LLConstValue.SKILL_LIMIT_COMBO_FEVER_2 + '';
+   const DEFAULT_OVER_HEAL = '1';
+   const DEFAULT_PERFECT_ACCURACY = '1';
+   const DEFAULT_TRIGGER_LIMIT = '1';
 
    /**
     * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
@@ -8423,11 +8432,8 @@ var LLScoreDistributionParameter = (function () {
       return createSelectComponent(enableDisableSelectOptions, (defaultEnable ? '1' : '0'));
    }
 
-   /**
-    * @param {LLH.Layout.ScoreDistParam.ScoreDistParamController} controller
-    * @param {LLH.Layout.LayoutMode} mode
-    */
-   function createDistributionTypeSelector(controller, mode) {
+   /** @param {LLH.Layout.LayoutMode} mode */
+   function createDistributionTypeSelector(mode) {
       var isLAMode = (mode == 'la');
       var detailContainer = createElement('div');
       /** @type {LLH.Component.LLComponentBase=} */
@@ -8445,9 +8451,9 @@ var LLScoreDistributionParameter = (function () {
       var simParamCount = createElement('input', {'className': 'form-control', 'type': 'number', 'size': 5, 'value': '2000'});
       /** @type {HTMLInputElement} */
       var simParamPerfectPercent = createElement('input', {'className': 'form-control num-size-3', 'type': 'number', 'size': 3, 'value': '90'});
-      var simParamSpeedComponent = createSelectComponent(speedSelectOptions, '8');
-      var simParamComboFeverPatternComponent = createSelectComponent(comboFeverPatternSelectOptions, '2');
-      var simParamComboFeverLimitComponent = createSelectComponent(comboFeverLimitOptions, LLConstValue.SKILL_LIMIT_COMBO_FEVER_2 + '');
+      var simParamSpeedComponent = createSelectComponent(speedSelectOptions, DEFAULT_SPEED);
+      var simParamComboFeverPatternComponent = createSelectComponent(comboFeverPatternSelectOptions, DEFAULT_COMBO_FEVER_PATTERN);
+      var simParamComboFeverLimitComponent = createSelectComponent(comboFeverLimitOptions, DEFAULT_COMBO_FEVER_LIMIT);
       var simParamOverHealComponent = createEnableDisableComponent(true);
       var simParamPerfectAccuracyComponent = createEnableDisableComponent(true);
       var simParamTriggerLimitComponent = createEnableDisableComponent(true);
@@ -8464,11 +8470,16 @@ var LLScoreDistributionParameter = (function () {
          updateSubElements(simParamContainer, createElement('span', {'innerHTML': '注意：默认曲目的模拟分布与理论分布不兼容，两者计算结果可能会有较大差异，如有需要请选默认曲目2'}));
       }
       var simParamContainerComponent = new LLComponentBase(simParamContainer);
+      /** @type {LLH.Component.LLSelectComponent<LLH.Layout.ScoreDistParam.ScoreDistType>} */
       var selComp = new LLSelectComponent(LLUnit.createSelectElement({'className': 'form-control'}));
+      /** @type {LLH.Layout.ScoreDistParam.ScoreDistType} */
+      var defaultSelValue;
       if (!isLAMode) {
          selComp.setOptions(distTypeSelectOptions);
+         defaultSelValue = 'no';
       } else {
          selComp.setOptions(distTypeLASelectOptions);
+         defaultSelValue = 'simla';
       }
       selComp.onValueChange = function (v) {
          if (v == 'sim' || v == 'simla') {
@@ -8489,54 +8500,61 @@ var LLScoreDistributionParameter = (function () {
          detailContainer,
          simParamContainer
       ]);
-      controller.getParameters = function () {
-         return {
-            'type': selComp.get(),
-            'count': parseInt(simParamCount.value),
-            'perfect_percent': parseFloat(simParamPerfectPercent.value),
-            'speed': parseInt(simParamSpeedComponent.get()),
-            'combo_fever_pattern': parseInt(simParamComboFeverPatternComponent.get()),
-            'combo_fever_limit': parseInt(simParamComboFeverLimitComponent.get()),
-            'over_heal_pattern': parseInt(simParamOverHealComponent.get()),
-            'perfect_accuracy_pattern': parseInt(simParamPerfectAccuracyComponent.get()),
-            'trigger_limit_pattern': parseInt(simParamTriggerLimitComponent.get())
-         };
+      /** @type {LLH.Layout.ScoreDistParam.ScoreDistParamController} */
+      var controller = {
+         'getParameters': function () {
+            return {
+               'type': selComp.getOrElse(defaultSelValue),
+               'count': parseInt(simParamCount.value),
+               'perfect_percent': parseFloat(simParamPerfectPercent.value),
+               'speed': parseInt(simParamSpeedComponent.getOrElse(DEFAULT_SPEED)),
+               'combo_fever_pattern': /** @type {LLH.Core.ComboFeverPattern} */ (parseInt(simParamComboFeverPatternComponent.getOrElse(DEFAULT_COMBO_FEVER_PATTERN))),
+               'combo_fever_limit': /** @type {LLH.Core.ComboFeverLimit} */ (parseInt(simParamComboFeverLimitComponent.getOrElse(DEFAULT_COMBO_FEVER_LIMIT))),
+               'over_heal_pattern': /** @type {LLH.Core.YesNoNumberType} */ (parseInt(simParamOverHealComponent.getOrElse(DEFAULT_OVER_HEAL))),
+               'perfect_accuracy_pattern': /** @type {LLH.Core.YesNoNumberType} */ (parseInt(simParamPerfectAccuracyComponent.getOrElse(DEFAULT_PERFECT_ACCURACY))),
+               'trigger_limit_pattern': /** @type {LLH.Core.YesNoNumberType} */ (parseInt(simParamTriggerLimitComponent.getOrElse(DEFAULT_TRIGGER_LIMIT)))
+            };
+         },
+         'setParameters': function (data) {
+            if (!data) return;
+            if (data.type) selComp.set(data.type);
+            if (data.count !== undefined) simParamCount.value = data.count + '';
+            if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent + '';
+            if (data.speed) simParamSpeedComponent.set(data.speed + '');
+            if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern + '');
+            if (data.combo_fever_limit) simParamComboFeverLimitComponent.set(data.combo_fever_limit + '');
+            if (data.over_heal_pattern !== undefined) simParamOverHealComponent.set(data.over_heal_pattern + '');
+            if (data.perfect_accuracy_pattern !== undefined) simParamPerfectAccuracyComponent.set(data.perfect_accuracy_pattern + '');
+            if (data.trigger_limit_pattern !== undefined) simParamTriggerLimitComponent.set(data.trigger_limit_pattern + '');
+         },
+         'element': container
       };
-      controller.setParameters = function (data) {
-         if (!data) return;
-         if (data.type) selComp.set(data.type);
-         if (data.count !== undefined) simParamCount.value = data.count + '';
-         if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent + '';
-         if (data.speed) simParamSpeedComponent.set(data.speed + '');
-         if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern + '');
-         if (data.combo_fever_limit) simParamComboFeverLimitComponent.set(data.combo_fever_limit + '');
-         if (data.over_heal_pattern !== undefined) simParamOverHealComponent.set(data.over_heal_pattern + '');
-         if (data.perfect_accuracy_pattern !== undefined) simParamPerfectAccuracyComponent.set(data.perfect_accuracy_pattern + '');
-         if (data.trigger_limit_pattern !== undefined) simParamTriggerLimitComponent.set(data.trigger_limit_pattern + '');
-      };
-      return container;
+      return controller;
    }
 
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter_Options} options
-    */
-   function LLScoreDistributionParameter_cls(id, options) {
-      var element = LLUnit.getElement(id);
-      /** @type {LLH.Layout.ScoreDistParam.ScoreDistParamController} */
-      var controller = {};
-      if (!options) options = {};
-      var mode = options.mode || 'normal';
-      element.appendChild(createDistributionTypeSelector(controller, mode));
-      this.saveData = controller.getParameters;
-      this.loadData = controller.setParameters;
+   /** @extends {LLH.Mixin.SaveLoadJsonBase<LLH.Layout.ScoreDistParam.ScoreDistParamSaveData>} */
+   class LLScoreDistributionParameter_cls extends SaveLoadJsonBase {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter_Options} options
+       */
+      constructor(id, options) {
+         super();
+         var element = LLUnit.getElement(id);
+         if (!options) options = {};
+         var mode = options.mode || 'normal';
+         this._controller = createDistributionTypeSelector(mode);
+         element.appendChild(this._controller.element);
+      }
+      saveData() {
+         return this._controller.getParameters();
+      }
+      /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamSaveData} [data] */
+      loadData(data) {
+         this._controller.setParameters(data);
+      }
    }
-   /** @type {typeof LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
-   var cls = LLScoreDistributionParameter_cls;
-   var proto = cls.prototype;
-   LLSaveLoadJsonMixin(proto);
-   return cls;
+   return LLScoreDistributionParameter_cls;
 })();
 
 var LLScoreDistributionChart = (function () {
