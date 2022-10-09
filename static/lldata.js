@@ -4709,7 +4709,7 @@ var LLSisGem = (function () {
          }
       }
       /**
-       * @param {LLH.TODO.GemStockType} gemStock 
+       * @param {LLH.Internal.GemStockSaveDataType} gemStock 
        * @param {string[]} gemStockKeys 
        * @returns {number}
        */
@@ -4724,7 +4724,7 @@ var LLSisGem = (function () {
                return 0;
             }
          }
-         return cur;
+         return /** @type {number} */ (cur);
       }
       isEffectRangeSelf() { return this.meta.effect_range == LLConstValue.SIS_RANGE_SELF; }
       isEffectRangeAll() { return this.meta.effect_range == LLConstValue.SIS_RANGE_TEAM; }
@@ -4770,7 +4770,7 @@ var LLSisGem = (function () {
          this.gemStockKeys = ret;
          return ret;
       }
-      /** @param {LLH.TODO.GemStockType} gemStock */
+      /** @param {LLH.Internal.GemStockSaveDataType} gemStock */
       getGemStockCount(gemStock) {
          return LLSisGem_cls.getGemStockCount(gemStock, this.getGemStockKeys());
       }
@@ -6764,7 +6764,7 @@ var LLTeam = (function() {
       }
       /**
        * @param {LLH.Model.LLMap_SaveData} mapdata 
-       * @param {LLH.TODO.GemStockType} gemStock 
+       * @param {LLH.Internal.GemStockSaveDataType} gemStock 
        */
       autoArmGem(mapdata, gemStock) {
          var mapcolor = mapdata.attribute;
@@ -7017,7 +7017,7 @@ var LLTeam = (function() {
       }
       /**
        * @param {LLH.Model.LLMap_SaveData} mapdata 
-       * @param {LLH.TODO.GemStockType} gemStock 
+       * @param {LLH.Internal.GemStockSaveDataType} gemStock 
        * @param {LLH.Model.LLMember[]} submembers 
        */
       autoUnit(mapdata, gemStock, submembers) {
@@ -7216,6 +7216,7 @@ var LLSaveData = (function () {
       return ret;
    };
    var getGemStockV11 = function (data) {
+      /** @type {LLH.Internal.GemStockNodeExpandType} */
       var ret = {};
       var gemv1 = [9];
       for (var i = 1; i < 16; i++) {
@@ -7423,6 +7424,13 @@ var LLSaveData = (function () {
       }
       return ret;
    };
+   /**
+    * @param {LLH.Internal.NormalGemMetaType | undefined} meta 
+    * @param {string} current_sub 
+    * @param {string[]} subtypes 
+    * @param {(meta: LLH.Internal.NormalGemMetaType | undefined, subtypes: string[]) => number} callback 
+    * @returns {LLH.Internal.GemStockSaveDataType | number}
+    */
    var recursiveMakeGemStockDataImpl = function (meta, current_sub, subtypes, callback) {
       if (!current_sub) {
          return callback(meta, subtypes);
@@ -7444,16 +7452,25 @@ var LLSaveData = (function () {
       } else {
          throw 'Unexpected current_sub "' + current_sub + '"';
       }
-      if (!meta[current_sub]) return recursiveMakeGemStockDataImpl(meta, next_sub, subtypes, callback);
+      if ((!meta) || (!meta[current_sub])) return recursiveMakeGemStockDataImpl(meta, next_sub, subtypes, callback);
+      /** @type {LLH.Internal.GemStockNodeExpandType} */
       var ret = {};
       for (var i = 0; i < types.length; i++) {
          ret[types[i]] = recursiveMakeGemStockDataImpl(meta, next_sub, subtypes.concat(types[i]), callback);
       }
       return ret;
    };
+   /**
+    * @param {LLH.Internal.NormalGemMetaType | undefined} meta 
+    * @param {(meta: LLH.Internal.NormalGemMetaType | undefined, subtypes: string[]) => number} callback 
+    */
    var recursiveMakeGemStockData = function (meta, callback) {
       return recursiveMakeGemStockDataImpl(meta, 'per_grade', [], callback);
    };
+   /**
+    * @param {LLH.Internal.GemStockSaveDataType} stock 
+    * @param {number} fillnum 
+    */
    var fillDefaultGemStock = function (stock, fillnum) {
       if (stock.ALL !== undefined) return;
       var keys = LLConst.Gem.getNormalGemTypeKeys();
@@ -7470,7 +7487,6 @@ var LLSaveData = (function () {
          this.rawVersion = checkSaveDataVersionImpl(data);
          /** @type {LLH.Internal.MemberSaveDataType[]} */
          this.teamMember = [];
-         this.hasGemStock = false;
          if (this.rawVersion == 0) {
             if (data !== undefined) {
                console.error("Unknown save data:");
@@ -7499,6 +7515,9 @@ var LLSaveData = (function () {
             this.gemStock = dataGeV101.gemstock;
             this.hasGemStock = true;
             this.subMember = dataGeV101.submember;
+         } else {
+            this.gemStock = {};
+            this.hasGemStock = false;
          }
          if (this.rawVersion <= 102) {
             convertV102ToV103(this);
@@ -7512,6 +7531,7 @@ var LLSaveData = (function () {
          return checkSaveDataVersionImpl(data);
       }
       static makeFullyExpandedGemStock() {
+         /** @type {LLH.Internal.GemStockSaveDataType} */
          var ret = {};
          fillDefaultGemStock(ret, 9);
          return ret;
@@ -7540,16 +7560,16 @@ var LLSaveData = (function () {
 
 /** @type {typeof LLH.Layout.GemStock.LLGemStockComponent} */
 var LLGemStockComponent = (function () {
-   var createElement = LLUnit.createElement;
-   var STOCK_SUB_TYPE_START = 0;
-   var STOCK_SUB_TYPE_GEM = 1;
-   var STOCK_SUB_TYPE_GRADE = 2;
-   var STOCK_SUB_TYPE_MEMBER = 3;
-   var STOCK_SUB_TYPE_UNIT = 4;
-   var STOCK_SUB_TYPE_COLOR = 5;
+   const createElement = LLUnit.createElement;
+   const STOCK_SUB_TYPE_START = 0;
+   const STOCK_SUB_TYPE_GEM = 1;
+   const STOCK_SUB_TYPE_GRADE = 2;
+   const STOCK_SUB_TYPE_MEMBER = 3;
+   const STOCK_SUB_TYPE_UNIT = 4;
+   const STOCK_SUB_TYPE_COLOR = 5;
    /**
     * @param {number} curSubType 
-    * @param {LLH.Internal.NormalGemMetaType} gemMeta 
+    * @param {LLH.Internal.NormalGemMetaType} [gemMeta] 
     * @returns {number}
     */
    function getNextSubType(curSubType, gemMeta) {
@@ -7558,26 +7578,26 @@ var LLGemStockComponent = (function () {
       }
       if (curSubType == STOCK_SUB_TYPE_GEM) {
          curSubType += 1;
-         if (gemMeta.per_grade) return curSubType;
+         if (gemMeta && gemMeta.per_grade) return curSubType;
       }
       if (curSubType == STOCK_SUB_TYPE_GRADE) {
          curSubType += 1;
-         if (gemMeta.per_member) return curSubType;
+         if (gemMeta && gemMeta.per_member) return curSubType;
       }
       if (curSubType == STOCK_SUB_TYPE_MEMBER) {
          curSubType += 1;
-         if (gemMeta.per_unit) return curSubType;
+         if (gemMeta && gemMeta.per_unit) return curSubType;
       }
       if (curSubType == STOCK_SUB_TYPE_UNIT) {
          curSubType += 1;
-         if (gemMeta.per_color) return curSubType;
+         if (gemMeta && gemMeta.per_color) return curSubType;
       }
       return curSubType + 1;
    }
    /**
     * @param {string} curKey 
     * @param {number} curSubType 
-    * @returns 
+    * @returns {string}
     */
    function getGemKeyText(curKey, curSubType) {
       if (curSubType == STOCK_SUB_TYPE_GEM) {
@@ -7592,6 +7612,11 @@ var LLGemStockComponent = (function () {
       }
       return curKey;
    }
+   /**
+    * @param {HTMLElement} arrowSpan 
+    * @param {LLH.Component.LLComponentBase} subGroupComp 
+    * @param {boolean} [visible] 
+    */
    function toggleSubGroup(arrowSpan, subGroupComp, visible) {
       if (visible === undefined) {
          subGroupComp.toggleVisible();
@@ -7608,8 +7633,8 @@ var LLGemStockComponent = (function () {
    /**
     * 
     * @param {string} text 
-    * @param {number} val 
-    * @param {any} controller 
+    * @param {string} val 
+    * @param {LLH.Layout.GemStock.LLGemStockComponent_NodeController} controller 
     * @param {HTMLElement} [subGroup] 
     * @returns {HTMLElement[]}
     */
@@ -7617,6 +7642,7 @@ var LLGemStockComponent = (function () {
       var item;
       var textSpan = createElement('span', {'className': 'gem-text', 'innerHTML': text});
 
+      /** @type {HTMLInputElement} */
       var gemCountInput = createElement('input', {'type': 'text', 'size': 2, 'className': 'gem-count num-size-2'}, undefined, {'click': function (e) {
          var curEvent = window.event || e;
          curEvent.cancelBubble = true;
@@ -7639,8 +7665,8 @@ var LLGemStockComponent = (function () {
          var subGroupDiv = createElement('div', {'className': 'list-group-item subtype-padding'}, [subGroup]);
          var subGroupComp = new LLComponentBase(subGroupDiv);
 
-         controller.fold = function() { toggleSubGroup(arrowSpan, subGroupComp, 0); };
-         controller.unfold = function() { toggleSubGroup(arrowSpan, subGroupComp, 1); };
+         controller.fold = function() { toggleSubGroup(arrowSpan, subGroupComp, false); };
+         controller.unfold = function() { toggleSubGroup(arrowSpan, subGroupComp, true); };
          item = createElement('div', {'className': 'list-group-item'}, [arrowSpan, textSpan, gemCountInput], {'click': function () {
             toggleSubGroup(arrowSpan, subGroupComp); 
          }});
@@ -7650,7 +7676,9 @@ var LLGemStockComponent = (function () {
          return [item];
       }
    }
+   /** @param {string} text */
    function makeControllerOnChangeFunc(text) {
+      /** @param {string} v */
       return function(v) {
          var num = parseInt(v);
          if (isNaN(num)) num = 0;
@@ -7686,7 +7714,12 @@ var LLGemStockComponent = (function () {
          }
       };
    }
+   /** @param {LLH.Layout.GemStock.LLGemStockComponent_GroupController} [controllers] */
    function makeControllerPushChangeFunc(controllers) {
+      /**
+       * @this {LLH.Layout.GemStock.LLGemStockComponent_NodeController}
+       * @param {number} n
+       */
       return function(n) {
          if (controllers) {
             for (var i in controllers) {
@@ -7697,17 +7730,22 @@ var LLGemStockComponent = (function () {
                }
             }
          }
-         this.set(n);
+         if (this.set) this.set(n + '');
          this.min = n;
          this.max = n;
-      }
+      };
    }
+   /** @param {LLH.Layout.GemStock.LLGemStockComponent_GroupController} [controllers] */
    function makeControllerDeserializeFunc(controllers) {
+      /**
+       * @this {LLH.Layout.GemStock.LLGemStockComponent_NodeController}
+       * @param {LLH.Internal.GemStockSaveDataType | number} data
+       */
       return function(data) {
          if (typeof(data) == 'number' || typeof(data) == 'string') {
-            this.onchange(data);
+            if (this.onchange) this.onchange(data + '');
          } else if (data.ALL !== undefined) {
-            this.onchange(data.ALL);
+            if (this.onchange) this.onchange(data.ALL + '');
             if (this.fold) this.fold();
          } else {
             if (controllers) {
@@ -7733,12 +7771,18 @@ var LLGemStockComponent = (function () {
          }
       }
    }
+   /** @param {LLH.Layout.GemStock.LLGemStockComponent_GroupController} [controllers] */
    function makeControllerSerializeFunc(controllers) {
+      /**
+       * @this {LLH.Layout.GemStock.LLGemStockComponent_NodeController}
+       * @returns {LLH.Internal.GemStockSaveDataType | number}
+       */
       return function() {
          if (controllers) {
             if (this.min == this.max) {
-               return {'ALL': parseInt(this.get())};
+               return {'ALL': (this.get ? parseInt(this.get()) : 0)};
             }
+            /** @type {LLH.Internal.GemStockSaveDataType} */
             var ret = {};
             for (var i in controllers) {
                if (i == 'ALL') continue;
@@ -7746,7 +7790,7 @@ var LLGemStockComponent = (function () {
             }
             return ret;
          } else {
-            return parseInt(this.get());
+            return (this.get ? parseInt(this.get()) : 0);
          }
       }
    }
@@ -7755,13 +7799,14 @@ var LLGemStockComponent = (function () {
     * @param {any} data 
     * @param {number} curSubType STOCK_SUB_TYPE_*
     * @param {LLH.Internal.NormalGemMetaType} [gemMeta]
-    * @returns {{items: HTMLElement[], controller: any}}
+    * @returns {LLH.Layout.GemStock.LLGemStockComponent_Gui}
     */
    function buildStockGUI(curKey, data, curSubType, gemMeta) {
       if (typeof(data) == 'number' || typeof(data) == 'string') {
-         var val = parseInt(data);
+         var val = parseInt(data + '');
          if (val > 9) val = 9;
          if (val < 0) val = 0;
+         /** @type {LLH.Layout.GemStock.LLGemStockComponent_NodeController} */
          var controller = {
             'onchange': makeControllerOnChangeFunc(curKey),
             'pushchange': makeControllerPushChangeFunc(),
@@ -7771,11 +7816,12 @@ var LLGemStockComponent = (function () {
             'max': val
          };
          return {
-            'items': createListGroupItem(getGemKeyText(curKey, curSubType), val, controller),
-            'controller': {'ALL': controller}
+            'items': createListGroupItem(getGemKeyText(curKey, curSubType), val + '', controller),
+            'controller': /** @type {LLH.Layout.GemStock.LLGemStockComponent_GroupController} */ ({'ALL': controller})
          };
       } else {
          var items = [];
+         /** @type {LLH.Layout.GemStock.LLGemStockComponent_GroupController} */
          var controllers = {};
          var minVal = 9;
          var maxVal = 0;
@@ -7788,6 +7834,7 @@ var LLGemStockComponent = (function () {
             controllers[dataKey] = ret.controller;
             items = items.concat(ret.items);
          }
+         /** @type {LLH.Layout.GemStock.LLGemStockComponent_NodeController} */
          var controller = {
             'onchange': makeControllerOnChangeFunc(curKey),
             'pushchange': makeControllerPushChangeFunc(controllers),
@@ -7797,7 +7844,7 @@ var LLGemStockComponent = (function () {
             'max': maxVal
          };
          var subGroup = createListGroup(items);
-         var retItems = createListGroupItem(getGemKeyText(curKey, curSubType), (minVal == maxVal ? minVal : minVal + '+'), controller, subGroup);
+         var retItems = createListGroupItem(getGemKeyText(curKey, curSubType), (minVal == maxVal ? minVal + '' : minVal + '+'), controller, subGroup);
          if (minVal == maxVal && controller.fold) controller.fold();
          controllers['ALL'] = controller;
          return {
@@ -7806,39 +7853,31 @@ var LLGemStockComponent = (function () {
          };
       }
    };
-   // controllers:
-   // {
-   //    'ALL': controller, //for current node and control all its sub nodes
-   //    '<subtype>': controllers,
-   //    '<subtype>': controllers, ...
-   // }
-   // controller:
-   // {
-   //    'onchange': function (v), // v: new value; called when deserialize or input by user
-   //    'pushchange': function (n), // set self node value and all its sub node value to n
-   //    'raisechange': function (key, minv, maxv), // key: self node's subtype name; minv/maxv: min/max value in current sub-tree; recalculate the value to display and raise
-   //    'deserialize': function (data),
-   //    'serialize': function (),
-   //    'get': function (), // get node value
-   //    'set': function (v), // set node value
-   //    'fold': function (), // fold the current sub-tree
-   //    'unfold': function (), // unfold the current sub-tree
-   //    'min': min,
-   //    'max': max,
-   // }
 
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    */
-   function LLGemStockComponent_cls(id) {
-      var data = LLSaveData.makeFullyExpandedGemStock();
-      var gui = buildStockGUI('技能宝石仓库', data, STOCK_SUB_TYPE_START);
-      LLUnit.getElement(id).appendChild(createListGroup(gui.items));
-      this.loadData = function(data) { gui.controller.ALL.deserialize(data); };
-      this.saveData = function() { return gui.controller.ALL.serialize(); }
+   /** @extends {LLH.Mixin.SaveLoadJsonBase<LLH.Internal.GemStockSaveDataType>} */
+   class LLGemStockComponent_cls extends SaveLoadJsonBase {
+      /** @param {LLH.Component.HTMLElementOrId} id  */
+      constructor(id) {
+         super();
+         var data = LLSaveData.makeFullyExpandedGemStock();
+         var gui = buildStockGUI('技能宝石仓库', data, STOCK_SUB_TYPE_START);
+         LLUnit.getElement(id).appendChild(createListGroup(gui.items));
+         this._gui = gui;
+      }
+      saveData() {
+         var ret = this._gui.controller.ALL.serialize();
+         if (typeof(ret) == 'number') {
+            console.error('Unexpected serialized gem stock: ' + ret);
+            return undefined;
+         }
+         return ret;
+      }
+      /** @param {LLH.Internal.GemStockSaveDataType} [data] */
+      loadData(data) {
+         if (data === undefined) return;
+         this._gui.controller.ALL.deserialize(data);
+      }
    };
-   LLSaveLoadJsonMixin(LLGemStockComponent_cls.prototype);
    return LLGemStockComponent_cls;
 })();
 

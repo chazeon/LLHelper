@@ -375,6 +375,25 @@ declare namespace LLH {
             member_gem?: boolean;
         }
 
+        type GemStockPerGradeKeys = '1' | '2' | '3';
+        type GemStockPerMemberMuseKeys = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+        type GemStockPerMemberAqoursKeys = '101' | '102' | '103' | '104' | '105' | '106' | '107' | '108' | '109';
+        type GemStockPerMemberNijiKeys = '201' | '202' | '203' | '204' | '205' | '206' | '207' | '208' | '209' | '212' | '213' | '214';
+        type GemStockPerMemberLiellaKeys = '301' | '302' | '303' | '304' | '305';
+        type GemStockPerMemberKeys = GemStockPerMemberMuseKeys | GemStockPerMemberAqoursKeys | GemStockPerMemberNijiKeys | GemStockPerMemberLiellaKeys;
+        type GemStockPerUnitKeys = '4' | '5' | '60' | '143';
+        type GemStockPerColorKeys = Core.AttributeType;
+        type GemStockPerTypeKeys = keyof ConstUtil.GemType;
+        type GemStockNodeExpandKeys = GemStockPerGradeKeys | GemStockPerMemberKeys | GemStockPerUnitKeys | GemStockPerColorKeys | GemStockPerTypeKeys;
+        interface GemStockNodeAllType {
+            ALL: number;
+        }
+        interface GemStockNodeExpandType {
+            ALL?: undefined;
+            [subType: GemStockNodeExpandKeys]: GemStockNodeAllType | GemStockNodeExpandType | number;
+        }
+        type GemStockSaveDataType = GemStockNodeAllType | GemStockNodeExpandType;
+
         namespace Legacy {
             interface MemberSaveDataTypeV2 extends SubMemberSaveDataType, AttributesValue {
                 hp: number;
@@ -397,7 +416,7 @@ declare namespace LLH {
         interface UnitSaveDataTypeV104 {
             version: 104;
             team: MemberSaveDataType[];
-            gemstock: TODO.GemStockType;
+            gemstock: GemStockSaveDataType;
             submember: SubMemberSaveDataType[];
         }
         type UnitSaveDataType = UnitSaveDataTypeV104;
@@ -1254,12 +1273,12 @@ declare namespace LLH {
             getEffectValue(): number;
             getNormalGemType(): Internal.NormalGemCategoryIdType;
             getGemStockKeys(): string[];
-            getGemStockCount(gemStock: TODO.GemStockType): number;
+            getGemStockCount(gemStock: Internal.GemStockSaveDataType): number;
             getAttributeType(): Core.AttributeType | undefined;
             setAttributeType(newAttribute: Core.AttributeType): void;
 
             static getGemSlot(type: Internal.NormalGemCategoryIdType): number;
-            static getGemStockCount(gemStock: TODO.GemStockType, gemStockKeys: string[]): number;
+            static getGemStockCount(gemStock: Internal.GemStockSaveDataType, gemStockKeys: string[]): number;
 
             type: Internal.NormalGemCategoryIdType;
             color?: Core.AttributeType;
@@ -1442,8 +1461,8 @@ declare namespace LLH {
             simulateScoreDistribution(mapdata: LLMap_SaveData, noteData: API.NoteDataType[], simCount: number): void;
             calculatePercentileNaive(): void;
             calculateMic(): void;
-            autoArmGem(mapdata: LLMap_SaveData, gemStock: TODO.GemStockType): void;
-            autoUnit(mapdata: LLMap_SaveData, gemStock: TODO.GemStockType, submembers: LLMember[]): void;
+            autoArmGem(mapdata: LLMap_SaveData, gemStock: Internal.GemStockSaveDataType): void;
+            autoUnit(mapdata: LLMap_SaveData, gemStock: Internal.GemStockSaveDataType, submembers: LLMember[]): void;
             getResults(): Internal.CalculateResultType;
         }
 
@@ -1641,7 +1660,7 @@ declare namespace LLH {
             rawData: Internal.UnitAnySaveDataType;
             rawVersion: number;
             teamMember: Internal.MemberSaveDataType[];
-            gemStock: TODO.GemStockType;
+            gemStock: Internal.GemStockSaveDataType;
             hasGemStock: boolean;
             subMember: Internal.SubMemberSaveDataType[];
 
@@ -1872,15 +1891,40 @@ declare namespace LLH {
         }
 
         namespace GemStock {
-            class LLGemStockComponent implements Mixin.SaveLoadJson {
+            interface LLGemStockComponent_NodeController {
+                /** v: new value; called when deserialize or input by user */
+                onchange?: (v: string) => void;
+                /** set self node value and all its sub node value to n */
+                pushchange?: (n: number) => void;
+                /** key: self node's subtype name; minv/maxv: min/max value in current sub-tree; recalculate the value to display and raise */
+                raisechange?: (key: string, minv: number, maxv: number) => void;
+                deserialize(data: Internal.GemStockSaveDataType | number): void;
+                serialize(): Internal.GemStockSaveDataType | number;
+                /** get node value */
+                get?: () => string;
+                /** set node value */
+                set?: (v: string) => void;
+                /** fold the current sub-tree */
+                fold?: () => void;
+                /** unfold the current sub-tree */
+                unfold?: () => void;
+                min: number;
+                max: number;
+            }
+            interface LLGemStockComponent_GroupController {
+                /** for current node and control all its sub nodes */
+                ALL: LLGemStockComponent_NodeController;
+                [subType: string]: LLGemStockComponent_GroupController;
+            }
+            interface LLGemStockComponent_Gui {
+                items: HTMLElement[];
+                controller: LLGemStockComponent_GroupController;
+            }
+            class LLGemStockComponent extends Mixin.SaveLoadJsonBase<Internal.GemStockSaveDataType> {
                 constructor (id: Component.HTMLElementOrId);
 
-                saveData(): any;
-                loadData(data: any): void;
-
-                // implements
-                saveJson(): string;
-                loadJson(jsonData?: string): void;
+                override saveData(): Internal.GemStockSaveDataType | undefined;
+                override loadData(data?: Internal.GemStockSaveDataType): void;
             }
         }
 
@@ -2069,10 +2113,6 @@ declare namespace LLH {
             map: Model.LLMap_SaveData;
             result: Internal.CalculateResultType;
         }
-    }
-
-    namespace TODO {
-        type GemStockType = any;
     }
 }
 
