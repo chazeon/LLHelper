@@ -7172,23 +7172,27 @@ var LLSaveData = (function () {
    //   team member def change
    //     removed: gemnum, gemsinglepercent, gemallpercent, gemskill, gemacc, gemmember, gemnonet
    //     added: gemlist (normal gem meta key list)
-   /** @param {LLH.Internal.UnitSaveDataType} data */
+   /** @param {LLH.Internal.UnitAnySaveDataType} data */
    var checkSaveDataVersionImpl = function (data) {
       if (data === undefined) return 0;
-      if (data.version !== undefined) return parseInt(data.version);
-      if (data.length === undefined && Object.keys(data).length == 15) return 11;
-      if (data.length == 0) return 0;
-      if (!data[0]) return 0;
-      var member = data[0];
+      var dataGeV101 = /** @type {LLH.Internal.UnitSaveDataTypeV104} */ (data);
+      if (dataGeV101.version !== undefined) return dataGeV101.version;
+      var dataLtV101 = /** @type {LLH.Internal.Legacy.UnitSaveDataTypeV2} */ (data);
+      if (dataLtV101.length === undefined && Object.keys(data).length == 15) return 11;
+      if (dataLtV101.length == 0) return 0;
+      if (!dataLtV101[0]) return 0;
+      var member = dataLtV101[0];
       if (!(member.cardid && (member.mezame !== undefined) && member.skilllevel)) return 0;
       if (member.maxcost && !member.smile) return 10;
-      if (data.length == 9) return 1;
-      if (data.length == 10) return 2;
+      if (dataLtV101.length == 9) return 1;
+      if (dataLtV101.length == 10) return 2;
       return 0;
    };
+   /** @param {LLH.Internal.Legacy.UnitSaveDataTypeV2} data */
    var getTeamMemberV1V2 = function (data) {
       var ret = [];
       for (var i = 0; i < 9; i++) {
+         /** @type {LLH.Internal.MemberSaveDataType} */
          var member = {};
          var cur = data[i];
          for (var j in cur) {
@@ -7197,8 +7201,13 @@ var LLSaveData = (function () {
          if (member.maxcost === undefined) {
             var totalCost = 0;
             convertMemberV103ToV104([member]);
-            for (var j = 0; j < member.gemlist.length; j++) {
-               totalCost += LLConst.Gem.getNormalGemMeta(LLConst.GemType[member.gemlist[j]]).slot;
+            if (member.gemlist) {
+               for (var k = 0; k < member.gemlist.length; k++) {
+                  var gemMeta = LLConst.Gem.getNormalGemMeta(LLConst.GemType[member.gemlist[k]]);
+                  if (gemMeta) {
+                     totalCost += gemMeta.slot;
+                  }
+               }
             }
             member.maxcost = totalCost;
          }
@@ -7244,6 +7253,7 @@ var LLSaveData = (function () {
       'pure': 3,
       'cool': 4
    };
+   /** @param {LLH.Model.LLSaveData} me */
    var convertV102ToV103 = function (me) {
       if (me.hasGemStock && me.gemStock) {
          var stock = me.gemStock;
@@ -7281,9 +7291,9 @@ var LLSaveData = (function () {
       if (me.teamMember) {
          var teamMember = me.teamMember;
          for (var i = 0; i < teamMember.length; i++) {
-            var curMember = teamMember[i];
-            if (curMember.gemmember && parseInt(curMember.gemmember) == 1) {
-               var memberColor = LLConst.Member.getMemberColor(parseInt(LLCardData.getAllCachedBriefData()[curMember.cardid].typeid));
+            var curMember = /** @type {LLH.Internal.Legacy.MemberSaveDataTypeV103} */ (teamMember[i]);
+            if (curMember.gemmember && parseInt(curMember.gemmember + '') == 1) {
+               var memberColor = LLConst.Member.getMemberColor(LLCardData.getAllCachedBriefData()[curMember.cardid].typeid);
                curMember.gemmember = GEM_MEMBER_COLOR_102_TO_103[memberColor];
             } else if (!curMember.gemmember) {
                curMember.gemmember = 0;
@@ -7313,39 +7323,40 @@ var LLSaveData = (function () {
       '0.04': ['AMUL_40'],
       '0.042': ['AMUL_24', 'AMUL_18']
    };
-   /** @param {LLH.Internal.MemberSaveDataType[]} members */
+   /** @param {LLH.Internal.Legacy.MemberSaveDataTypeV103ToV104[]} members */
    var convertMemberV103ToV104 = function (members) {
       for (var i = 0; i < members.length; i++) {
          var member = members[i];
          if (member.gemlist !== undefined) continue;
-         /** @type {string[]} */
+         /** @type {LLH.Internal.NormalGemCategoryKeyType[]} */
          var gemList = [];
-         if (member.gemnum) {
-            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemnum]);
+         var memberV103 = /** @type {LLH.Internal.Legacy.MemberSaveDataTypeV103} */ (member);
+         if (memberV103.gemnum) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[memberV103.gemnum]);
          }
-         if (member.gemsinglepercent) {
-            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemsinglepercent]);
+         if (memberV103.gemsinglepercent) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[memberV103.gemsinglepercent]);
          }
-         if (member.gemallpercent) {
-            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[member.gemallpercent]);
+         if (memberV103.gemallpercent) {
+            gemList = gemList.concat(CONVERT_MEMBER_103_TO_104[memberV103.gemallpercent]);
          }
-         if (member.gemskill == '1') {
+         if (memberV103.gemskill == '1') {
             var isHeal = false;
-            if (member.cardid && LLCardData) {
-               var cardbrief = (LLCardData.getAllCachedBriefData() || {})[member.cardid];
+            if (memberV103.cardid && LLCardData) {
+               var cardbrief = (LLCardData.getAllCachedBriefData() || {})[memberV103.cardid];
                if (cardbrief && cardbrief.skilleffect == LLConstValue.SKILL_EFFECT_HEAL) {
                   isHeal = true;
                }
             }
             gemList.push(isHeal ? 'HEAL_480' : 'SCORE_250');
          }
-         if (member.gemacc == '1') {
+         if (memberV103.gemacc == '1') {
             gemList.push('EMUL_33');
          }
-         if (member.gemmember && member.gemmember != '0') {
+         if (memberV103.gemmember && memberV103.gemmember != '0') {
             gemList.push('MEMBER_29');
          }
-         if (member.gemnonet == '1') {
+         if (memberV103.gemnonet == '1') {
             gemList.push('NONET_42');
          }
          member.gemlist = gemList;
@@ -7453,12 +7464,13 @@ var LLSaveData = (function () {
       }
    };
    class LLSaveData_cls {
-      /** @param {LLH.Internal.UnitSaveDataType} data */
+      /** @param {LLH.Internal.UnitAnySaveDataType} data */
       constructor(data) {
          this.rawData = data;
          this.rawVersion = checkSaveDataVersionImpl(data);
          /** @type {LLH.Internal.MemberSaveDataType[]} */
          this.teamMember = [];
+         this.hasGemStock = false;
          if (this.rawVersion == 0) {
             if (data !== undefined) {
                console.error("Unknown save data:");
@@ -7468,8 +7480,9 @@ var LLSaveData = (function () {
             this.hasGemStock = false;
             this.subMember = [];
          } else if (this.rawVersion == 1 || this.rawVersion == 2) {
-            this.teamMember = getTeamMemberV1V2(data);
-            this.gemStock = getGemStockV1V2(data);
+            var dataV2 = /** @type {LLH.Internal.Legacy.UnitSaveDataTypeV2} */ (data);
+            this.teamMember = getTeamMemberV1V2(dataV2);
+            this.gemStock = getGemStockV1V2(dataV2);
             this.hasGemStock = true;
             this.subMember = [];
          } else if (this.rawVersion == 10) {
@@ -7481,10 +7494,11 @@ var LLSaveData = (function () {
             this.hasGemStock = true;
             this.subMember = [];
          } else if (this.rawVersion >= 101) {
-            this.teamMember = data.team;
-            this.gemStock = data.gemstock;
+            var dataGeV101 = /** @type {LLH.Internal.UnitSaveDataTypeV104} */ (data);
+            this.teamMember = dataGeV101.team;
+            this.gemStock = dataGeV101.gemstock;
             this.hasGemStock = true;
-            this.subMember = data.submember;
+            this.subMember = dataGeV101.submember;
          }
          if (this.rawVersion <= 102) {
             convertV102ToV103(this);
@@ -7493,7 +7507,7 @@ var LLSaveData = (function () {
             convertV103ToV104(this);
          }
       }
-      /** @param {LLH.Internal.UnitSaveDataType} data */
+      /** @param {LLH.Internal.UnitAnySaveDataType} data */
       static checkSaveDataVersion(data) {
          return checkSaveDataVersionImpl(data);
       }

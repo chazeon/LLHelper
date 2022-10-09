@@ -43,6 +43,7 @@ declare namespace LLH {
         type TriggerTargetMemberType = UnitTypeIdType[];
 
         type YesNoNumberType = 0 | 1;
+        type YesNoStringType = '0' | '1';
         type MezameType = YesNoNumberType;
         /** note speed: 1~10 */
         type NoteSpeedType = number;
@@ -374,6 +375,25 @@ declare namespace LLH {
             member_gem?: boolean;
         }
 
+        namespace Legacy {
+            interface MemberSaveDataTypeV2 extends SubMemberSaveDataType, AttributesValue {
+                hp: number;
+            }
+            interface MemberSaveDataTypeV103 extends SubMemberSaveDataType, AttributesValue {
+                hp: number;
+                gemlist: undefined;
+                gemnum?: '0' | '200' | '450' | '650' | '1400' | '1600' | '1850' | '2050';
+                gemsinglepercent?: '0.1' | '0.16' | '0.26' | '0.28' | '0.38' | '0.44';
+                gemallpercent?: '0.018' | '0.024' | '0.04' | '0.042';
+                gemskill?: Core.YesNoStringType;
+                gemacc?: Core.YesNoStringType;
+                gemmember?: Core.YesNoStringType | 0 | 1 | 2 | 3 | 4;
+                gemnonet?: Core.YesNoStringType | Core.YesNoNumberType;
+            }
+            type MemberSaveDataTypeV103ToV104 = MemberSaveDataTypeV103 | MemberSaveDataType;
+
+            type UnitSaveDataTypeV2 = MemberSaveDataTypeV2[];
+        }
         interface UnitSaveDataTypeV104 {
             version: 104;
             team: MemberSaveDataType[];
@@ -381,7 +401,7 @@ declare namespace LLH {
             submember: SubMemberSaveDataType[];
         }
         type UnitSaveDataType = UnitSaveDataTypeV104;
-        type UnitAnySaveDataType = UnitSaveDataTypeV104;
+        type UnitAnySaveDataType = UnitSaveDataTypeV104 | Legacy.UnitSaveDataTypeV2;
 
         interface CalculateResultType {
             attrStrength: number[];
