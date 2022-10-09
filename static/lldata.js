@@ -7886,7 +7886,9 @@ var LLSubMemberComponent = (function () {
       slotInput.addEventListener('change', function() {
          localMember.maxcost = parseInt(slotInput.value);
       });
+      /** @type {HTMLButtonElement} */
       var deleteButton = createElement('button', {'className': 'btn btn-default btn-block', 'type': 'button', 'innerHTML': '删除'});
+      /** @type {HTMLButtonElement} */
       var swapButton = createElement('button', {'className': 'btn btn-default btn-block', 'type': 'button', 'innerHTML': '换位'});
       var unDelete = function() {
          deleteButton.innerHTML = '删除';
@@ -7922,16 +7924,16 @@ var LLSubMemberComponent = (function () {
                return;
             }
          }
-         levelInput.value = m.skilllevel;
-         slotInput.value = m.maxcost;
+         levelInput.value = m.skilllevel + '';
+         slotInput.value = m.maxcost + '';
          imageComp.setCard(m.cardid + '', m.mezame);
       };
       controller.startSwapping = function() {
          swapButton.innerHTML = '选择';
          swapButton.className = 'btn btn-primary btn-block';
-         deleteButton.disabled = 'disabled';
-         levelInput.disabled = 'disabled';
-         slotInput.disabled = 'disabled';
+         deleteButton.disabled = true;
+         levelInput.disabled = true;
+         slotInput.disabled = true;
          bSwapping = true;
          return this.getMember();
       };
@@ -7939,9 +7941,9 @@ var LLSubMemberComponent = (function () {
          if (bSwapping) {
             swapButton.innerHTML = '换位';
             swapButton.className = 'btn btn-default btn-block';
-            deleteButton.disabled = '';
-            levelInput.disabled = '';
-            slotInput.disabled = '';
+            deleteButton.disabled = false;
+            levelInput.disabled = false;
+            slotInput.disabled = false;
             bSwapping = false;
          }
          var ret = this.getMember();
@@ -7960,88 +7962,107 @@ var LLSubMemberComponent = (function () {
       return panel;
    }
 
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    */
-   function LLSubMemberComponent_cls(id) {
-      var element = LLUnit.getElement(id);
-      /** @type {LLH.Layout.SubMember.LLSubMemberComponent_MemberContainerController[]} */
-      var controllers = [];
-      var swapper;
-      var me = this;
-      var callCountChange = function () {
-         if (me.onCountChange) me.onCountChange(me.count());
-      };
-      var commonHandleDelete = function () {
-         for (var i = 0; i < controllers.length; i++) {
-            if (controllers[i] === this) {
-               controllers.splice(i, 1);
-               break;
-            }
+   /** @extends {LLH.Mixin.SaveLoadJsonBase<LLH.Internal.SubMemberSaveDataType[]>} */
+   class LLSubMemberComponent_cls extends SaveLoadJsonBase {
+      /** @param {LLH.Component.HTMLElementOrId} id */
+      constructor(id) {
+         super();
+         this.element = LLUnit.getElement(id);
+         /** @type {LLH.Layout.SubMember.LLSubMemberComponent_OnCountChangeCallback=} */
+         this.onCountChange = undefined;
+         /** @type {LLH.Layout.SubMember.LLSubMemberComponent_MemberContainerController[]} */
+         this._controllers = [];
+         /** @type {LLH.Misc.LLSwapper<LLH.Internal.SubMemberSaveDataType>=} */
+         this._swapper = undefined;
+      }
+      _callCountChange() {
+         if (this.onCountChange) {
+            this.onCountChange(this.count());
          }
-         this.removeElement();
-         callCountChange();
-      };
-      var commonHandleSwap = function () {
-         if (swapper && swapper.onSwap) {
-            swapper.onSwap(this);
-         }
-      };
-      this.add = function (member, skipCountChange) {
+      }
+      /**
+       * @param {LLH.Internal.SubMemberSaveDataType} member 
+       * @param {boolean} [skipCountChange] 
+       */
+      add(member, skipCountChange) {
          /** @type {LLH.Layout.SubMember.LLSubMemberComponent_MemberContainerController} */
          var controller = {};
          var container = createMemberContainer(member, controller);
-         element.appendChild(container);
-         controllers.push(controller);
-         controller.onDelete = commonHandleDelete;
-         controller.onSwap = commonHandleSwap;
-         controller.removeElement = function() { element.removeChild(container); };
-         if (!skipCountChange) callCountChange();
-      };
-      this.remove = function (start, n) {
+         var me = this;
+         this.element.appendChild(container);
+         this._controllers.push(controller);
+         controller.onDelete = function () {
+            for (var i = 0; i < me._controllers.length; i++) {
+               if (me._controllers[i] === controller) {
+                  me._controllers.splice(i, 1);
+                  break;
+               }
+            }
+            controller.removeElement();
+            me._callCountChange();
+         };
+         controller.onSwap = function () {
+            if (me._swapper && me._swapper.onSwap) {
+               me._swapper.onSwap(controller);
+            }
+         };
+         controller.removeElement = function () { me.element.removeChild(container); };
+         if (!skipCountChange) this._callCountChange();
+      }
+      /**
+       * @param {number} [start]
+       * @param {number} [n]
+       */
+      remove(start, n) {
          if (!n) return;
          start = start || 0;
          var end = start + n;
-         if (end > controllers.length) end = controllers.length;
+         if (end > this._controllers.length) end = this._controllers.length;
          if (end <= start) return;
          for (var i = start; i < end; i++) {
-            controllers[i].removeElement();
+            this._controllers[i].removeElement();
          }
-         controllers.splice(start, end-start);
-         callCountChange();
-      };
-      this.count = function () { return controllers.length; };
-      this.empty = function () { return controllers.length <= 0; };
-      this.setSwapper = function (sw) {
-         swapper = sw;
-      };
-      this.loadData = function (data) {
+         this._controllers.splice(start, end - start);
+         this._callCountChange();
+      }
+      count() {
+         return this._controllers.length;
+      }
+      empty() {
+         return this._controllers.length <= 0;
+      }
+      /** @param {LLH.Misc.LLSwapper<LLH.Internal.SubMemberSaveDataType>} sw */
+      setSwapper(sw) {
+         this._swapper = sw;
+      }
+      /** @param {LLH.Layout.SubMember.LLSubMemberComponent_OnCountChangeCallback} callback */
+      setOnCountChange(callback) {
+         this.onCountChange = callback;
+      }
+      saveData() {
+         var ret = [];
+         for (var i = 0; i < this._controllers.length; i++) {
+            ret.push(this._controllers[i].getMember());
+         }
+         return ret;
+      }
+      /** @param {LLH.Internal.SubMemberSaveDataType[]} [data] */
+      loadData(data) {
+         if (!data) return;
          var i = 0;
-         for (; i < data.length && i < controllers.length; i++) {
-            controllers[i].setMember(data[i]);
+         for (; i < data.length && i < this._controllers.length; i++) {
+            this._controllers[i].setMember(data[i]);
          }
          if (i < data.length) {
             for (; i < data.length; i++) {
                this.add(data[i], true);
             }
-            callCountChange();
+            this._callCountChange();
          }
-         if (i < controllers.length) {
-            this.remove(i, controllers.length - i);
+         if (i < this._controllers.length) {
+            this.remove(i, this._controllers.length - i);
          }
-      };
-      this.saveData = function () {
-         var ret = [];
-         for (var i = 0; i < controllers.length; i++) {
-            ret.push(controllers[i].getMember());
-         }
-         return ret;
-      };
-   };
-   LLSaveLoadJsonMixin(LLSubMemberComponent_cls.prototype);
-   LLSubMemberComponent_cls.prototype.setOnCountChange = function (callback) {
-      this.onCountChange = callback;
+      }
    };
    return LLSubMemberComponent_cls;
 })();

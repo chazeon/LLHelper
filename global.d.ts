@@ -1878,24 +1878,20 @@ declare namespace LLH {
 
             type LLSubMemberComponent_OnCountChangeCallback = (count: number) => void;
 
-            class LLSubMemberComponent implements Mixin.SaveLoadJson {
+            class LLSubMemberComponent extends Mixin.SaveLoadJsonBase<Internal.SubMemberSaveDataType[]> {
                 constructor (id: Component.HTMLElementOrId);
 
                 onCountChange?: LLSubMemberComponent_OnCountChangeCallback;
 
                 add(member: Internal.SubMemberSaveDataType, skipCountChange?: boolean): void;
-                remove(start: number, n: number): void;
+                remove(start?: number, n?: number): void;
                 count(): number;
                 empty(): boolean;
-                setSwapper(swapper: Misc.LLSwapper): void;
+                setSwapper(swapper: Misc.LLSwapper<Internal.SubMemberSaveDataType>): void;
                 setOnCountChange(callback: LLSubMemberComponent_OnCountChangeCallback): void;
 
-                saveData(): Internal.SubMemberSaveDataType[];
-                loadData(data: Internal.SubMemberSaveDataType[]): void;
-
-                // implements
-                saveJson(): string;
-                loadJson(jsonData?: string): void;
+                override saveData(): Internal.SubMemberSaveDataType[];
+                override loadData(data?: Internal.SubMemberSaveDataType[]): void;
             }
         }
 
