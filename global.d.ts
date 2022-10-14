@@ -1966,9 +1966,14 @@ declare namespace LLH {
             }
         }
         namespace UnitResult {
-            interface LLUnitResultComponent_ResultController {
+            interface LLUnitResultComponent_ResultController extends Controller.ControllerBaseSingleElement {
                 update(team: Model.LLTeam): void;
                 updateError(err: any): void;
+            }
+            interface LLUnitResultComponent_Controller extends Controller.ControllerBase {
+                showResult(team: Model.LLTeam): void;
+                showError(errorMessage: string): void;
+                hideError(): void;
             }
             class LLUnitResultComponent {
                 constructor(id: Component.HTMLElementOrId);

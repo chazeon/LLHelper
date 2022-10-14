@@ -10011,90 +10011,87 @@ var LLUnitResultComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
 
-   /**
-    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller
-    * @returns {HTMLElement}
-    */
-   function createAttributeResult(controller) {
+   function createAttributeResult() {
       var resultSmile = createElement('td');
       var resultPure = createElement('td');
       var resultCool = createElement('td');
 
-      controller.update = function (team) {
-         var calResult = team.getResults();
-         resultSmile.innerHTML = calResult.finalAttr.smile + ' (+' + calResult.bonusAttr.smile + ')';
-         resultPure.innerHTML = calResult.finalAttr.pure + ' (+' + calResult.bonusAttr.pure + ')';
-         resultCool.innerHTML = calResult.finalAttr.cool + ' (+' + calResult.bonusAttr.cool + ')';
-      };
-
-      controller.updateError = function (e) {
-         resultSmile.innerHTML = 'error';
-         resultPure.innerHTML = 'error';
-         resultCool.innerHTML = 'error';
-      };
-
-      return createElement('table', {'border': '1'},
-         createElement('tbody', undefined, [
-            createElement('tr', undefined, [
-               createElement('td', undefined, 'smile'),
-               createElement('td', undefined, 'pure'),
-               createElement('td', undefined, 'cool')
-            ]),
-            createElement('tr', undefined, [
-               resultSmile,
-               resultPure,
-               resultCool
+      /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} */
+      var controller = {
+         'update': function (team) {
+            var calResult = team.getResults();
+            resultSmile.innerHTML = calResult.finalAttr.smile + ' (+' + calResult.bonusAttr.smile + ')';
+            resultPure.innerHTML = calResult.finalAttr.pure + ' (+' + calResult.bonusAttr.pure + ')';
+            resultCool.innerHTML = calResult.finalAttr.cool + ' (+' + calResult.bonusAttr.cool + ')';
+         },
+         'updateError': function (e) {
+            resultSmile.innerHTML = 'error';
+            resultPure.innerHTML = 'error';
+            resultCool.innerHTML = 'error';
+         },
+         'element': createElement('table', {'border': '1'},
+            createElement('tbody', undefined, [
+               createElement('tr', undefined, [
+                  createElement('td', undefined, 'smile'),
+                  createElement('td', undefined, 'pure'),
+                  createElement('td', undefined, 'cool')
+               ]),
+               createElement('tr', undefined, [
+                  resultSmile,
+                  resultPure,
+                  resultCool
+               ])
             ])
-         ])
-      );
+         )
+      };
+
+      return controller;
    }
 
    /**
-    * 
-    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller 
     * @param {string} label 
-    * @param {function(LLH.Model.LLTeam): (LLH.Component.HTMLElementOrString)} callback Callback to fetch result from team
-    * @returns {HTMLElement}
+    * @param {(team: LLH.Model.LLTeam) => LLH.Component.HTMLElementOrString} callback Callback to fetch result from team
     */
-   function createScalarResult(controller, label, callback) {
+   function createScalarResult(label, callback) {
       var resultElement = createElement('nospan');
-      controller.update = function (team) {
-         updateSubElements(resultElement, callback(team), true);
-      };
-      controller.updateError = function (e) {
-         updateSubElements(resultElement, 'error: ' + e, true);
-      };
 
-      return createElement('div', undefined, [
-         label + '：',
-         resultElement
-      ]);
+      /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} */
+      var controller = {
+         'update': function (team) {
+            updateSubElements(resultElement, callback(team), true);
+         },
+         'updateError': function (e) {
+            updateSubElements(resultElement, 'error: ' + e, true);
+         },
+         'element': createElement('div', undefined, [
+            label + '：',
+            resultElement
+         ])
+      };
+      return controller;
    }
 
-   /**
-    * @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller 
-    * @returns {HTMLElement}
-    */
-   function createMicResult(controller) {
+   function createMicResult() {
       var resultElement = createElement('div');
       var comp = new LLMicDisplayComponent(resultElement);
-      controller.update = function (team) {
-         team.calculateMic();
-         var calResult = team.getResults();
-         comp.set(calResult.micNumber, calResult.equivalentURLevel);
-      };
-      controller.updateError = function (e) {
-         comp.set(0, 0);
+
+      /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} */
+      var controller = {
+         'update': function (team) {
+            team.calculateMic();
+            var calResult = team.getResults();
+            comp.set(calResult.micNumber, calResult.equivalentURLevel);
+         },
+         'updateError': function (e) {
+            comp.set(0, 0);
+         },
+         'element': resultElement
       };
 
-      return resultElement;
+      return controller;
    }
 
-   /**
-    * @param {LLH.Layout.UnitResult.LLUnitResultComponent} controller 
-    * @returns {LLH.Component.SubElements}
-    */
-   function renderResults(controller) {
+   function renderResults() {
       /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController[]} */
       var resultControllers = [];
       /** @type {HTMLElement[]} */
@@ -10102,63 +10099,73 @@ var LLUnitResultComponent = (function () {
       var resultContainer = createElement('div', {'style': {'display': 'none'}});
       var errorContainer = createElement('div', {'style': {'display': 'none', 'color': 'red'}});
 
-      function addResultController() {
-         /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} */
-         var controller = {};
+      /** @param {LLH.Layout.UnitResult.LLUnitResultComponent_ResultController} controller */
+      function addResultController(controller) {
          resultControllers.push(controller);
-         return controller;
+         resultElements.push(controller.element);
       }
-      resultElements.push(createAttributeResult(addResultController()));
-      resultElements.push(createScalarResult(addResultController(), '卡组HP', (team) => team.getResults().totalHP.toFixed()));
-      resultElements.push(createScalarResult(addResultController(), '卡组强度', (team) => team.getResults().totalStrength + ' (属性 ' + team.getResults().totalAttrStrength + ' + 技能 ' + team.getResults().totalSkillStrength + ')'));
-      resultElements.push(createMicResult(addResultController()));
-      resultElements.push(createScalarResult(addResultController(), '期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore.toFixed()));
-      resultElements.push(createScalarResult(addResultController(), '期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
-      resultElements.push(createScalarResult(addResultController(), '平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage || 0)));
-      resultElements.push(createScalarResult(addResultController(), '平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel || 0)));
-      resultElements.push(createScalarResult(addResultController(), '平均方宝石加成', (team) => LLUnit.numberToPercentString((team.getResults().averageLABonus || 1)-1, 4)));
-      resultElements.push(createScalarResult(addResultController(), '期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
-      resultElements.push(createScalarResult(addResultController(), '失败率', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
-
-      controller.showResult = function (team) {
-         for (var i = 0; i < resultControllers.length; i++) {
-            try {
-               resultControllers[i].update(team);
-            } catch (e) {
-               resultControllers[i].updateError(e);
-               console.error(e);
-            }
-         }
-         resultContainer.style.display = '';
-         resultContainer.scrollIntoView();
-      };
-
-      controller.showError = function (errorMessage) {
-         updateSubElements(errorContainer, errorMessage, true);
-         errorContainer.style.display = '';
-         errorContainer.scrollIntoView();
-      };
-
-      controller.hideError = function () {
-         errorContainer.style.display = 'none';
-      };
-
+      addResultController(createAttributeResult());
+      addResultController(createScalarResult('卡组HP', (team) => team.getResults().totalHP.toFixed()));
+      addResultController(createScalarResult('卡组强度', (team) => team.getResults().totalStrength + ' (属性 ' + team.getResults().totalAttrStrength + ' + 技能 ' + team.getResults().totalSkillStrength + ')'));
+      addResultController(createMicResult());
+      addResultController(createScalarResult('期望得分', (team) => team.getResults().naiveExpection !== undefined ? team.getResults().naiveExpection.toFixed() : team.averageScore + ''));
+      addResultController(createScalarResult('期望回复', (team) => LLUnit.healNumberToString(team.getResults().averageHeal)));
+      addResultController(createScalarResult('平均每局伤害', (team) => LLUnit.healNumberToString(team.getResults().averageDamage || 0)));
+      addResultController(createScalarResult('平均最高溢出奶等级', (team) => LLUnit.healNumberToString(team.getResults().averageOverHealLevel || 0)));
+      addResultController(createScalarResult('平均方宝石加成', (team) => LLUnit.numberToPercentString((team.getResults().averageLABonus || 1)-1, 4)));
+      addResultController(createScalarResult('期望判定覆盖率(模拟)', (team) => LLUnit.numberToPercentString(team.getResults().averageAccuracyNCoverage)));
+      addResultController(createScalarResult('失败率', (team) => LLUnit.numberToPercentString(team.getResults().failRate)));
       updateSubElements(resultContainer, resultElements);
-      return [errorContainer, resultContainer];
+
+      /** @type {LLH.Layout.UnitResult.LLUnitResultComponent_Controller} */
+      var controller = {
+         'showResult': function (team) {
+            for (var i = 0; i < resultControllers.length; i++) {
+               try {
+                  resultControllers[i].update(team);
+               } catch (e) {
+                  resultControllers[i].updateError(e);
+                  console.error(e);
+               }
+            }
+            resultContainer.style.display = '';
+            resultContainer.scrollIntoView();
+         },
+         'showError': function (errorMessage) {
+            updateSubElements(errorContainer, errorMessage, true);
+            errorContainer.style.display = '';
+            errorContainer.scrollIntoView();
+         },
+         'hideError': function () {
+            errorContainer.style.display = 'none';
+         },
+         'element': [errorContainer, resultContainer]
+      };
+
+      return controller;
    }
 
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    */
-   function LLUnitResultComponent_cls(id) {
-      var container = LLUnit.getElement(id);
-      updateSubElements(container, renderResults(this));
+   class LLUnitResultComponent_cls {
+      /** @param {LLH.Component.HTMLElementOrId} id */
+      constructor(id) {
+         var container = LLUnit.getElement(id);
+         this._controller = renderResults();
+         updateSubElements(container, this._controller.element);
+      }
+      /** @param {LLH.Model.LLTeam} team */
+      showResult(team) {
+         this._controller.showResult(team);
+      }
+      /** @param {string} errorMessage */
+      showError(errorMessage) {
+         this._controller.showError(errorMessage);
+      }
+      hideError() {
+         this._controller.hideError();
+      }
    }
-   
-   /** @type {typeof LLH.Layout.UnitResult.LLUnitResultComponent} */
-   var cls = LLUnitResultComponent_cls;
-   return cls;
+
+   return LLUnitResultComponent_cls;
 })();
 
 var LLGemSelectorComponent = (function () {
