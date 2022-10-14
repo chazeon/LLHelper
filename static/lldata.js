@@ -8633,6 +8633,7 @@ var LLScoreDistributionParameter = (function () {
 
 var LLScoreDistributionChart = (function () {
    var createElement = LLUnit.createElement;
+   /** @returns {LLH.Depends.HighCharts.ChartOptions} */
    function makeCommonOptions() {
       return {
          title: {
@@ -8671,82 +8672,91 @@ var LLScoreDistributionChart = (function () {
          }
       };
    };
+   /**
+    * @param {number[]} series 
+    * @param {string} name 
+    */
    function makeSeries(series, name) {
+      /** @type {LLH.Depends.HighCharts.ChartSeriesOptions} */
       var ret = {
          'type': 'line',
          //'showCheckbox': true,
          'name': name
       }
       if (series.length == 99) {
-         ret['data'] = series;
+         ret.data = series;
       } else if (series.length == 101) {
-         ret['data'] = series.slice(1, 100).reverse();
+         ret.data = series.slice(1, 100).reverse();
       } else {
          console.error('Unknown series');
          console.log(series);
-         ret['data'] = series;
+         ret.data = series;
       }
       return ret;
    };
-   // LLScoreDistributionChart
-   // {
-   //    chart: Highcharts chart
-   //    addSeries: function(data)
-   //    clearSeries: function()
-   //    show: function()
-   //    hide: function()
-   // }
-   // options
-   // {
-   //    series: [series_data, ...]
-   //    width
-   //    height
-   // }
-   function LLScoreDistributionChart_cls(id, options) {
-      var element = LLUnit.getElement(id);
-      if (!Highcharts) {
-         console.error('Not included Highcharts');
-      }
-      var me = this;
-      var baseComponent = new LLComponentBase(element);
-      baseComponent.show(); // need show before create chart, otherwise the canvas size is wrong...
-      var canvasDiv = createElement('div');
-      var clearButton = createElement('button', {'className': 'btn btn-danger', 'type': 'button', 'innerHTML': '清空曲线'}, undefined, {
-         'click': function() {
-            me.clearSeries && me.clearSeries();
+
+   class LLScoreDistributionChart_cls {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Layout.ScoreDistChart.LLScoreDistributionChart_Options} options 
+       */
+      constructor(id, options) {
+         var element = LLUnit.getElement(id);
+         if (!Highcharts) {
+            console.error('Not included Highcharts');
          }
-      });
-      element.appendChild(canvasDiv);
-      element.appendChild(clearButton);
-      var chartOptions = makeCommonOptions();
-      var seriesOptions = [];
-      var nameId = 1;
-      if (options) {
-         if (options.series) {
-            for (; nameId <= options.series.length; nameId++) {
-               seriesOptions.push(makeSeries(options.series[nameId-1], String(nameId)));
+         var me = this;
+         var baseComponent = new LLComponentBase(element);
+         baseComponent.show(); // need show before create chart, otherwise the canvas size is wrong...
+         var canvasDiv = createElement('div');
+         var clearButton = createElement('button', { 'className': 'btn btn-danger', 'type': 'button', 'innerHTML': '清空曲线' }, undefined, {
+            'click': function () {
+               me.clearSeries();
             }
+         });
+         element.appendChild(canvasDiv);
+         element.appendChild(clearButton);
+         var chartOptions = makeCommonOptions();
+         var seriesOptions = [];
+         var nameId = 1;
+         if (options) {
+            if (options.series) {
+               for (; nameId <= options.series.length; nameId++) {
+                  seriesOptions.push(makeSeries(options.series[nameId - 1], String(nameId)));
+               }
+            }
+            if (options.width)
+               canvasDiv.style.width = options.width;
+            if (options.height)
+               canvasDiv.style.height = options.height;
          }
-         if (options.width) canvasDiv.style.width = options.width;
-         if (options.height) canvasDiv.style.height = options.height;
+         chartOptions.series = seriesOptions;
+         this.chart = Highcharts.chart(canvasDiv, chartOptions);
+         this._nameId = nameId;
+         this._baseComponent = baseComponent;
       }
-      chartOptions['series'] = seriesOptions;
-      this.chart = Highcharts.chart(canvasDiv, chartOptions);
-      this.addSeries = function(data) {
+      /** @param {number[]} data */
+      addSeries(data) {
          this.show();
-         this.chart.addSeries(makeSeries(data, String(nameId)));
-         nameId++;
-      };
-      this.clearSeries = function() {
-         if ((!this.chart.series) || (this.chart.series.length == 0)) return;
+         this.chart.addSeries(makeSeries(data, String(this._nameId)));
+         this._nameId++;
+      }
+      clearSeries() {
+         if ((!this.chart.series) || (this.chart.series.length == 0)) {
+            return;
+         }
          while (this.chart.series.length > 0) {
             this.chart.series[0].remove(false);
          }
          this.chart.redraw();
          this.hide();
-      };
-      this.show = function() { baseComponent.show(); }
-      this.hide = function() { baseComponent.hide(); }
+      }
+      show() {
+         this._baseComponent.show();
+      }
+      hide() {
+         this._baseComponent.hide();
+      }
    }
    return LLScoreDistributionChart_cls;
 })();

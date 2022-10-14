@@ -521,6 +521,78 @@ declare namespace LLH {
             reject(arg?: FailT): void;
         }
 
+        namespace HighCharts {
+            namespace V425 {
+                interface ChartTitleOptions {
+                    text?: string;
+                }
+                interface ChartCreditsOptions {
+                    text?: string;
+                    href?: string;
+                }
+                interface ChartAxisLabelOptions {
+                    format?: string;
+                }
+                interface ChartXAxisOptions {
+                    crosshair?: boolean;
+                    labels?: ChartAxisLabelOptions;
+                    max?: number;
+                    min?: number;
+                    tickInterval?: number;
+                }
+                interface ChartYAxisOptions {
+                    title?: ChartTitleOptions;
+                }
+                interface ChartTooltipOptions {
+                    headerFormat?: string;
+                    shared?: boolean;
+                }
+                interface ChartPlotLineMarkerOptions {
+                    radius?: number;
+                    symbol?: string;
+                }
+                interface ChartPlotLineOptions {
+                    marker?: ChartPlotLineMarkerOptions;
+                    pointStart?: number;
+                }
+                interface ChartPlotOptions {
+                    line?: ChartPlotLineOptions;
+                }
+                interface ChartSeriesLineOptions {
+                    type: 'line';
+                    name?: string;
+                    data?: number[];
+                }
+                type ChartSeriesOptions = ChartSeriesLineOptions;
+                interface ChartOptions {
+                    credits?: ChartCreditsOptions;
+                    plotOptions?: ChartPlotOptions;
+                    series?: ChartSeriesOptions[];
+                    title?: ChartTitleOptions;
+                    tooltip?: ChartTooltipOptions;
+                    xAxis?: ChartXAxisOptions;
+                    yAxis?: ChartYAxisOptions;
+                }
+                interface Series {
+                    remove(redraw?: boolean): void;
+                }
+                interface Chart {
+                    addSeries(options: ChartSeriesOptions): Series;
+                    redraw(): void;
+
+                    series: Series[];
+                }
+                interface Main {
+                    chart(container: Component.HTMLElementOrId, options: ChartOptions): Chart;
+                }
+            }
+
+            type ChartSeriesOptions = V425.ChartSeriesOptions;
+            type ChartType = V425.Chart;
+            type ChartOptions = V425.ChartOptions;
+            type HighChartsType = V425.Main;
+        }
+
         interface Utils {
             createDeferred<DoneT, FailT>(): Deferred<DoneT, FailT>;
             whenAll<DoneT1, FailT1, DoneT2, FailT2, DoneT3, FailT3>(
@@ -1876,6 +1948,23 @@ declare namespace LLH {
                 override loadData(data?: ScoreDistParamSaveData): void;
             }
         }
+        namespace ScoreDistChart {
+            interface LLScoreDistributionChart_Options {
+                series?: number[][];
+                width?: string;
+                height?: string;
+            }
+            class LLScoreDistributionChart {
+                constructor(id: Component.HTMLElementOrId, options?: LLScoreDistributionChart_Options);
+
+                addSeries(data: number[]): void;
+                clearSeries(): void;
+                show(): void;
+                hide(): void;
+
+                chart: Depends.HighCharts.ChartType;
+            }
+        }
         namespace UnitResult {
             interface LLUnitResultComponent_ResultController {
                 update(team: Model.LLTeam): void;
@@ -2145,3 +2234,5 @@ type LLGemSelectorComponent = LLH.Selector.LLGemSelectorComponent;
 type LLAccessorySelectorComponent = LLH.Selector.LLAccessorySelectorComponent;
 
 type LLCSkillComponent = LLH.Layout.CenterSkill.LLCSkillComponent;
+
+declare var Highcharts: LLH.Depends.HighCharts.HighChartsType;
