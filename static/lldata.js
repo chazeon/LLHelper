@@ -3125,6 +3125,10 @@ var LLUnit = {
       }
    },
 
+   /**
+    * @param {number} n 
+    * @param {number} precision 
+    */
    numberToString: function (n, precision) {
       var ret = n.toFixed(precision);
       var pos = ret.length - 1;
@@ -3134,6 +3138,7 @@ var LLUnit = {
       return ret;
    },
 
+   /** @param {number} n */
    healNumberToString: function (n) {
       return LLUnit.numberToString(n, 2);
    },
@@ -8765,23 +8770,20 @@ var LLTeamComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
 
-   // controller
-   // {
-   //    get: function()
-   //    set: function(value)
-   // }
+   /**
+    * @template T
+    * @param {LLH.Component.CreateElementOptions} options 
+    * @param {(s: string) => T} converter
+    */
    function makeInputCreator(options, converter) {
+      /** @param {LLH.Layout.Team.TeamMemberKeyGetSet<T>} controller */
       return function(controller) {
          var inputElement = createElement('input', options);
          var inputComponent = new LLValuedComponent(inputElement);
          controller.get = function() {
-            if (converter) {
-               return converter(inputComponent.get());
-            } else {
-               return inputComponent.get();
-            }
+            return converter(inputComponent.getOrElse(''));
          };
-         controller.set = function(v) { inputComponent.set(v); };
+         controller.set = function(v) { inputComponent.set(v + ''); };
          return [inputElement];
       };
    }
@@ -8805,13 +8807,8 @@ var LLTeamComponent = (function () {
       };
       return ['Lv', inputElement];
    }
-   // controller
-   // {
-   //    getMaxSlot: function()
-   //    setMaxSlot: function(value)
-   //    getUsedSlot: function()
-   //    setUsedSlot: function(value)
-   // }
+
+   /** @param {LLH.Layout.Team.TeamSlotCellController} controller */
    function slotCreator(controller) {
       var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '0', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
       var inputComponent = new LLValuedComponent(inputElement);
@@ -8828,13 +8825,13 @@ var LLTeamComponent = (function () {
          }
       };
       inputComponent.onValueChange = updateColor;
-      controller.getMaxSlot = function() { return parseInt(inputComponent.get()); };
-      controller.setMaxSlot = function(v) { inputComponent.set(v); };
+      controller.getMaxSlot = function() { return parseInt(inputComponent.getOrElse('0')); };
+      controller.setMaxSlot = function(v) { inputComponent.set(v + ''); };
       controller.getUsedSlot = function() { return curUsedSlot; };
       controller.setUsedSlot = function(v) {
          if (curUsedSlot != v) {
             curUsedSlot = v;
-            textElement.innerHTML = v;
+            textElement.innerHTML = v + '';
             updateColor();
          }
       };
@@ -8852,6 +8849,7 @@ var LLTeamComponent = (function () {
    //   setMember: callback function(i, value)
    //   getSwapper: callback function()
    // }
+   /** @param {LLH.Layout.Team.LLTeamComponent} parentController */
    function makeSwapCreator(parentController) {
       // controller
       // {
@@ -8985,22 +8983,15 @@ var LLTeamComponent = (function () {
       controller.reset = function() { controller.set(''); };
       return [textElement];
    }
-   // controller
-   // {
-   //    setColor: function(color)
-   //    :textCreator
-   // }
+
+   /** @param {LLH.Layout.Team.TeamTextWithColorCellController} controller */
    function textWithColorCreator(controller) {
       var ret = textCreator(controller);
       controller.setColor = function(c) { ret[0].style.color = c; };
       return ret;
    }
 
-   // controller
-   // {
-   //    setTooltip: function(value)
-   //    :textCreator
-   // }
+   /** @param {LLH.Layout.Team.TeamTextWithTooltipCellController} controller */
    function textWithTooltipCreator(controller) {
       var ret = textCreator(controller);
       var tooltipContent = createElement('span', {'className': 'tooltiptext'});
@@ -9437,35 +9428,49 @@ var LLTeamComponent = (function () {
       controller.show = emptyFunction;
       controller.hide = emptyFunction;
    }
-   // make getXXXs() and setXXXs(val) functions
-   function makeGet9Function(method) {
-      return function() {
-         var ret = [];
-         for (var i = 0; i < 9; i++) {
-            ret.push(method.call(this, i));
-         }
-         return ret;
-      };
+   /**
+    * @template T
+    * @param {*} target 
+    * @param {(i: LLH.Layout.Team.IndexType) => T} method 
+    */
+   function doGet9Function(target, method) {
+      /** @type {T[]} */
+      var ret = [];
+      for (var i = 0; i < 9; i++) {
+         ret.push(method.call(target, i));
+      }
+      return ret;
    }
-   function makeSet9Function(method) {
-      return function(val) {
-         if (!val) val = [];
-         for (var i = 0; i < 9; i++) {
-            method.call(this, i, val[i]);
-         }
-      };
+   /**
+    * @template T
+    * @param {T[] | undefined} val 
+    * @param {*} target
+    * @param {(i: LLH.Layout.Team.IndexType, v: T | undefined) => void} method 
+    */
+   function doSet9Function(val, target, method) {
+      for (var i = 0; i < 9; i++) {
+         method.call(target, i, val && val[i]);
+      }
    }
-   function makeHighlightMinFunction(cells) {
-      return function(arr) {
-         var minVal, i;
-         for (i = 0; i < arr.length; i++) {
-            if (i == 0 || arr[i] < minVal) minVal = arr[i];
-            cells[i].set(arr[i]);
-         }
-         for (i = 0; i < arr.length; i++) {
-            cells[i].setColor((arr[i] == minVal) ? 'red' : '');
-         }
-      };
+   /**
+    * @param {number[]} arr 
+    * @param {LLH.Layout.Team.TeamTextWithColorCellController[]} cells 
+    */
+   function doHighlightMinCell(arr, cells) {
+      var minVal = undefined;
+      var i;
+      for (i = 0; i < arr.length; i++) {
+         if (minVal === undefined || arr[i] < minVal) minVal = arr[i];
+         cells[i].set(arr[i] + '');
+      }
+      for (i = 0; i < arr.length; i++) {
+         cells[i].setColor((arr[i] == minVal) ? 'red' : '');
+      }
+   }
+   /** @param {number} [count] */
+   function countNumberToString(count) {
+      if (count === undefined) return '';
+      return LLUnit.numberToString(count, 2);
    }
 
    /**
@@ -9474,6 +9479,7 @@ var LLTeamComponent = (function () {
     */
    function createTeamTable(controller, mode) {
       var rows = [];
+      /** @type {LLH.Layout.Team.TeamControllers} */
       var controllers = {
          'weight': {},
          'avatar': {},
@@ -9515,7 +9521,6 @@ var LLTeamComponent = (function () {
          'heal': {},
       };
       var isLAGem = (mode == 'la');
-      var cardsBrief = new Array(9);
       var doFold = function() {
          for (var i = 0; i < this.owning.length; i++) {
             controllers[this.owning[i]].hide();
@@ -9539,38 +9544,9 @@ var LLTeamComponent = (function () {
       var updateSlot = function(i, slots) {
          controllers.slot.cells[i].setUsedSlot(slots);
       };
-      /** @param {string | LLH.Internal.AttributesValue} attribute */
-      var updateAccessoryAttribute = function (i, attribute) {
-         if (typeof(attribute) == 'string') {
-            controllers.accessory_smile.cells[i].set(attribute);
-            controllers.accessory_pure.cells[i].set(attribute);
-            controllers.accessory_cool.cells[i].set(attribute);
-         } else {
-            controllers.accessory_smile.cells[i].set(attribute.smile);
-            controllers.accessory_pure.cells[i].set(attribute.pure);
-            controllers.accessory_cool.cells[i].set(attribute.cool);
-         }
-      };
+
       var updateAccessoryLevel = function (i, level) {
-         controllers.accessory_icon.cells[i].updateAccessoryLevel(level);
-         var accessoryId = controllers.accessory_icon.cells[i].getAccessoryId();
-         if (accessoryId) {
-            var detail = LLAccessoryData.getCachedDetailedData(accessoryId);
-            if (detail) {
-               updateAccessoryAttribute(i, LLConst.Accessory.getAccessoryLevelAttribute(detail, level));
-            } else {
-               updateAccessoryAttribute(i, '...');
-               LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function (accessory) {
-                  if (level == controllers.accessory_icon.cells[i].getAccessoryLevel()
-                     && accessoryId == controllers.accessory_icon.cells[i].getAccessoryId()
-                  ) {
-                     updateAccessoryAttribute(i, LLConst.Accessory.getAccessoryLevelAttribute(accessory, level));
-                  }
-               });
-            }
-         } else {
-            updateAccessoryAttribute(i, '');
-         }
+         controller._updateAccessoryLevel(i, level);
       };
       for (var i in controllers) {
          if (controllers[i].owning) {
@@ -9657,27 +9633,62 @@ var LLTeamComponent = (function () {
       controllers.info.toggleFold();
       controllers.skill_active_count_sim.toggleFold();
 
-      controller.putMember = function(i, member) {
-         if (!member) member = {};
+      /** @type {LLH.Layout.Team.LLTeamComponent_Controller} */
+      var mainController = {
+         'controllers': controllers,
+         'element': createElement('table', {'className': 'table table-bordered table-hover table-condensed team-table'}, [
+            createElement('tbody', undefined, rows)
+         ]),
+         'isLAGem': isLAGem,
+         'swapper': new LLSwapper()
+      }
+      return mainController;
+   }
+
+   /** @extends {LLH.Mixin.SaveLoadJsonBase<>} */
+   class LLTeamComponent_cls extends SaveLoadJsonBase {
+      /**
+       * @param {LLH.Component.HTMLElementOrId} id 
+       * @param {LLH.Layout.Team.LLTeamComponent_Options} options 
+       */
+      constructor(id, options) {
+         super();
+         var element = LLUnit.getElement(id);
+         var mainController = createTeamTable(this, (options && options.mode) || 'normal');
+         element.appendChild(mainController.element);
+         this._controller = mainController;
+         this.onPutCardClicked = options && options.onPutCardClicked;
+         this.onPutGemClicked = options && options.onPutGemClicked;
+         this.onCenterChanged = options && options.onCenterChanged;
+         this.onPutAccessoryClicked = options && options.onPutAccessoryClicked;
+      }
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {LLH.Internal.MemberSaveDataType} [member] 
+       */
+      putMember(i, member) {
+         /** @type {Partial<LLH.Internal.MemberSaveDataType>} */
+         var partialMember = member || {};
+         var controllers = this._controller.controllers;
+         var isLAGem = this._controller.isLAGem;
          for (var k in controllers) {
             if (controllers[k].setByMember) {
-               controllers[k].setByMember(i, member);
+               controllers[k].setByMember(i, partialMember);
             }
          }
-         controllers.avatar.cells[i].update(member.cardid, member.mezame);
+         controllers.avatar.cells[i].update(partialMember.cardid, partialMember.mezame);
          var cardid = controllers.avatar.cells[i].getCardId();
          var isMezame = controllers.avatar.cells[i].getMezame();
          var cardbrief = undefined;
          if (cardid) {
             cardbrief = ((LLCardData && LLCardData.getAllCachedBriefData()) || {})[cardid];
          }
-         cardsBrief[i] = cardbrief;
          if (cardbrief) {
             controllers.info.cells[i].set(cardbrief.attribute);
             controllers.info_name.cells[i].set(LLConst.Member.getMemberName(cardbrief.typeid, LLConstValue.LANGUAGE_CN));
             controllers.skill_trigger.cells[i].set(LLConst.Skill.getSkillTriggerText(cardbrief.triggertype));
             controllers.skill_effect.cells[i].set(LLConst.Skill.getEffectBrief(cardbrief.skilleffect));
-            if (member.hp === undefined) {
+            if (partialMember.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
             if (!isLAGem) {
@@ -9689,23 +9700,33 @@ var LLTeamComponent = (function () {
             controllers.skill_trigger.cells[i].reset();
             controllers.skill_effect.cells[i].reset();
             if (!isLAGem) {
-               controllers.gem_list.cells[i].setAttributes('');
+               controllers.gem_list.cells[i].setAttributes('all');
             }
          }
-         if (member.maxcost !== undefined) {
-            controllers.slot.cells[i].setMaxSlot(parseInt(member.maxcost));
+         if (partialMember.maxcost !== undefined) {
+            controllers.slot.cells[i].setMaxSlot(partialMember.maxcost);
          } else if (cardbrief && cardbrief.rarity) {
             controllers.slot.cells[i].setMaxSlot(LLConst.Common.getDefaultMinSlot(cardbrief.rarity));
          }
-         if (member.accessory !== undefined) {
-            controller.setAccessory(i, member.accessory);
+         if (partialMember.accessory !== undefined) {
+            this.setAccessory(i, partialMember.accessory);
          }
          controllers.accessory_icon.cells[i].updateMember(cardid);
-         if (i == 4 && controller.onCenterChanged) controller.onCenterChanged();
-      };
-      controller.setMember = controller.putMember;
-      controller.setMembers = makeSet9Function(controller.setMember);
-      controller.getMember = function(i) {
+         if (i == 4 && this.onCenterChanged) this.onCenterChanged();
+      }
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {LLH.Internal.MemberSaveDataType} [member] 
+       */
+      setMember(i, member) {
+         this.putMember(i, member);
+      }
+      /** @param {LLH.Internal.MemberSaveDataType[]} [members] */
+      setMembers(members) { doSet9Function(members, this, this.putMember); }
+      /** @param {LLH.Layout.Team.IndexType} i */
+      getMember(i) {
+         var controllers = this._controller.controllers;
+         /** @type {LLH.Internal.MemberSaveDataType} */
          var retMember = {};
          for (var k in controllers) {
             if (controllers[k].setToMember) {
@@ -9717,137 +9738,213 @@ var LLTeamComponent = (function () {
          retMember.maxcost = controllers.slot.cells[i].getMaxSlot();
          retMember.accessory = controllers.accessory_icon.cells[i].get();
          return retMember;
-      };
-      controller.getMembers = makeGet9Function(controller.getMember);
-      controller.setMemberGem = function(i, gems) {
-         /** @type {string[]} */
+      }
+      getMembers() { return doGet9Function(this, this.getMember); }
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {LLH.Model.LLSisGem[]} gems 
+       */
+      setMemberGem(i, gems) {
+         /** @type {LLH.Internal.NormalGemCategoryKeyType[]} */
          var gemList = [];
          for (var j = 0; j < gems.length; j++) {
             var curGem = gems[j];
-            gemList.push(LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType()).key);
+            var gemMeta = LLConst.Gem.getNormalGemMeta(curGem.getNormalGemType());
+            if (gemMeta) {
+               gemList.push(gemMeta.key);
+            }
          }
-         controllers.gem_list.cells[i].set(gemList);
-      };
-      controller.setAccessory = function (i, accessory) {
+         this._controller.controllers.gem_list.cells[i].set(gemList);
+      }
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {LLH.Internal.AccessorySaveDataType} [accessory] 
+       */
+      setAccessory(i, accessory) {
+         var controllers = this._controller.controllers;
          if (accessory && accessory.id) {
             var accessoryBrief = LLAccessoryData.getAllCachedBriefData()[accessory.id];
             controllers.accessory_icon.cells[i].set(accessory);
             controllers.accessory_level.cells[i].set(accessory.level);
             controllers.accessory_level.cells[i].setMaxLevel(accessoryBrief.max_level);
-            updateAccessoryLevel(i, accessory.level);
+            this._updateAccessoryLevel(i, accessory.level);
          } else {
             controllers.accessory_icon.cells[i].set(undefined);
             controllers.accessory_level.cells[i].set(1);
             controllers.accessory_level.cells[i].setMaxLevel(8);
-            updateAccessoryLevel(i, 1);
+            this._updateAccessoryLevel(i, 1);
          }
-      };
-      controller.getCardId = function(i) { return controllers.avatar.cells[i].getCardId(); };
-      controller.getCardIds = makeGet9Function(controller.getCardId);
-      controller.getAccessoryId = function(i) { return controllers.accessory_icon.cells[i].getAccessoryId(); };
-      controller.getAccessoryIds = makeGet9Function(controller.getAccessoryId);
-      controller.getWeight = function(i) { return controllers.weight.cells[i].get(); };
-      controller.getWeights = makeGet9Function(controller.getWeight);
-      controller.setWeight = function(i, w) { controllers.weight.cells[i].set(w); };
-      controller.setWeights = makeSet9Function(controller.setWeight);
-      controller.setStrengthAttribute = function(i, str) { controllers.str_attr.cells[i].set(str); };
-      controller.setStrengthAttributes = makeSet9Function(controller.setStrengthAttribute);
-      controller.setStrengthDebuff = function(i, str) { controllers.str_debuff.cells[i].set(-str); };
-      controller.setStrengthDebuffs = makeSet9Function(controller.setStrengthDebuff);
-      controller.setStrengthCardTheories = makeHighlightMinFunction(controllers.str_card_theory.cells);
-      controller.setStrengthTotalTheories = makeHighlightMinFunction(controllers.str_total_theory.cells);
-      controller.setStrengthSkillTheory = function(i, str, strengthSupported) {
-         controllers.str_skill_theory.cells[i].set(str);
-         controllers.str_skill_theory.cells[i].setTooltip(strengthSupported ? undefined : '该技能暂不支持理论强度计算，仅支持模拟');
-      };
-      controller.setSkillActiveCountSim = function(i, count) { controllers.skill_active_count_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setSkillActiveCountSims = makeSet9Function(controller.setSkillActiveCountSim);
-      controller.setSkillActiveChanceSim = function(i, count) { controllers.skill_active_chance_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setSkillActiveChanceSims = makeSet9Function(controller.setSkillActiveChanceSim);
-      controller.setSkillActiveNoEffectSim = function(i, count) { controllers.skill_active_no_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setSkillActiveNoEffectSims = makeSet9Function(controller.setSkillActiveNoEffectSim);
-      controller.setSkillActiveHalfEffectSim = function(i, count) { controllers.skill_active_half_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setSkillActiveHalfEffectSims = makeSet9Function(controller.setSkillActiveHalfEffectSim);
-      controller.setAccessoryActiveCountSim = function(i, count) { controllers.accessory_active_count_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setAccessoryActiveCountSims = makeSet9Function(controller.setAccessoryActiveCountSim);
-      controller.setAccessoryActiveChanceSim = function(i, count) { controllers.accessory_active_chance_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setAccessoryActiveChanceSims = makeSet9Function(controller.setAccessoryActiveChanceSim);
-      controller.setAccessoryActiveNoEffectSim = function(i, count) { controllers.accessory_active_no_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setAccessoryActiveNoEffectSims = makeSet9Function(controller.setAccessoryActiveNoEffectSim);
-      controller.setAccessoryActiveHalfEffectSim = function(i, count) { controllers.accessory_active_half_effect_sim.cells[i].set(count === undefined ? '' : LLUnit.numberToString(count, 2)); };
-      controller.setAccessoryActiveHalfEffectSims = makeSet9Function(controller.setAccessoryActiveHalfEffectSim);
-      controller.setHeal = function(i, heal) { controllers.heal.cells[i].set(heal); };
-
-      var swapper = new LLSwapper();
-      controller.setSwapper = function(sw) { swapper = sw; };
-      controller.getSwapper = function() { return swapper; };
-      controller.setMapAttribute = function (mapAttr) {
-         if (!isLAGem) {
-            controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, mapAttr));
+      }
+      /** @param {LLH.Layout.Team.IndexType} i */
+      getCardId(i) { return this._controller.controllers.avatar.cells[i].getCardId(); }
+      getCardIds() { return doGet9Function(this, this.getCardId); }
+      /** @param {LLH.Layout.Team.IndexType} i */
+      getAccessoryId(i) { return this._controller.controllers.accessory_icon.cells[i].getAccessoryId() || ''; }
+      getAccessoryIds() { return doGet9Function(this, this.getAccessoryId); }
+      /** @param {LLH.Layout.Team.IndexType} i */
+      getWeight(i) { return this._controller.controllers.weight.cells[i].get(); }
+      getWeights() { return doGet9Function(this, this.getWeight); }
+      /** @type {(i: LLH.Layout.Team.IndexType, w?: number) => void} */
+      setWeight(i, w) { this._controller.controllers.weight.cells[i].set(w || 0); }
+      /** @param {number[]} [weights] */
+      setWeights(weights) { doSet9Function(weights, this, this.setWeight); }
+      /** @param {LLH.Misc.LLSwapper} swapper */
+      setSwapper(swapper) { this._controller.swapper = swapper; }
+      getSwapper() { return this._controller.swapper; }
+      /** @param {LLH.Core.AttributeType} attribute */
+      setMapAttribute(attribute) {
+         if (!this._controller.isLAGem) {
+            this._controller.controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, attribute));
          }
-      };
-      controller.isAllMembersPresent = function () {
-         var cardIds = controller.getCardIds();
+      }
+      isAllMembersPresent() {
+         var cardIds = this.getCardIds();
          for (var i = 0; i < cardIds.length; i++) {
             if (!cardIds[i]) return false;
          }
          return true;
-      };
-
-      controller.saveData = controller.getMembers;
-      controller.loadData = function (members) {
-         LLSaveData.normalizeMemberGemList(members);
-         controller.setMembers(members);
-      };
-      return createElement('table', {'className': 'table table-bordered table-hover table-condensed team-table'}, [
-         createElement('tbody', undefined, rows)
-      ]);
-   }
-
-   /**
-    * @constructor
-    * @param {LLH.Component.HTMLElementOrId} id 
-    * @param {LLH.Layout.Team.LLTeamComponent_Options} options 
-    * @this {LLH.Layout.Team.LLTeamComponent}
-    */
-   function LLTeamComponent_cls(id, options) {
-      var element = LLUnit.getElement(id);
-      element.appendChild(createTeamTable(this, (options && options.mode) || 'normal'));
-      this.onPutCardClicked = options && options.onPutCardClicked;
-      this.onPutGemClicked = options && options.onPutGemClicked;
-      this.onCenterChanged = options && options.onCenterChanged;
-      this.onPutAccessoryClicked = options && options.onPutAccessoryClicked;
-   }
-   /** @type {typeof LLH.Layout.Team.LLTeamComponent} */
-   var cls = LLTeamComponent_cls;
-   var proto = cls.prototype;
-   LLSaveLoadJsonMixin(proto);
-
-   proto.setResult = function (result) {
-      var cardStrengthList = [], totalStrengthList = [];
-      var calResult = result.getResults();
-      for (var i=0;i<9;i++){
-         var curCardStrength = calResult.attrStrength[i]+result.avgSkills[i].strength;
-         var curStrength = curCardStrength - result.attrDebuff[i];
-         cardStrengthList.push(curCardStrength);
-         totalStrengthList.push(curStrength);
-         this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLConst.Skill.isStrengthSupported(result.members[i].card));
-         this.setHeal(i, LLUnit.healNumberToString(result.avgSkills[i].averageHeal));
       }
 
-      this.setStrengthAttributes(calResult.attrStrength);
-      this.setStrengthCardTheories(cardStrengthList);
-      this.setStrengthTotalTheories(totalStrengthList);
-      this.setSkillActiveCountSims(calResult.averageSkillsActiveCount);
-      this.setSkillActiveChanceSims(calResult.averageSkillsActiveChanceCount);
-      this.setSkillActiveNoEffectSims(calResult.averageSkillsActiveNoEffectCount);
-      this.setSkillActiveHalfEffectSims(calResult.averageSkillsActiveHalfEffectCount);
-      this.setAccessoryActiveCountSims(calResult.averageAccessoryActiveCount);
-      this.setAccessoryActiveChanceSims(calResult.averageAccessoryActiveChanceCount);
-      this.setAccessoryActiveNoEffectSims(calResult.averageAccessoryActiveNoEffectCount);
-      this.setAccessoryActiveHalfEffectSims(calResult.averageAccessoryActiveHalfEffectCount);
-   };
-   return cls;
+      //===== results =====
+      /** @type {(i: LLH.Layout.Team.IndexType, s?: number) => void} */
+      setStrengthAttribute(i, strength) { this._controller.controllers.str_attr.cells[i].set(strength === undefined ? '' : strength + ''); }
+      /** @param {number[]} [strengths] */
+      setStrengthAttributes(strengths) { doSet9Function(strengths, this, this.setStrengthAttribute); }
+      /** @type {(i: LLH.Layout.Team.IndexType, s?: number) => void} */
+      setStrengthDebuff(i, strength) { this._controller.controllers.str_debuff.cells[i].set(strength === undefined ? '' : (-strength) + ''); }
+      /** @param {number[]} [strengths] */
+      setStrengthDebuffs(strengths) { doSet9Function(strengths, this, this.setStrengthDebuff); }
+      /** @param {number[]} strengths */
+      setStrengthCardTheories(strengths) { doHighlightMinCell(strengths, this._controller.controllers.str_card_theory.cells); }
+      /** @param {number[]} strengths */
+      setStrengthTotalTheories(strengths) { doHighlightMinCell(strengths, this._controller.controllers.str_total_theory.cells); }
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {number} strength 
+       * @param {boolean} strengthSupported 
+       */
+      setStrengthSkillTheory(i, strength, strengthSupported) {
+         var cell = this._controller.controllers.str_skill_theory.cells[i];
+         cell.set(strength + '');
+         cell.setTooltip(strengthSupported ? undefined : '该技能暂不支持理论强度计算，仅支持模拟');
+      }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setSkillActiveCountSim(i, count) { this._controller.controllers.skill_active_count_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setSkillActiveCountSims(counts) { doSet9Function(counts, this, this.setSkillActiveCountSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setSkillActiveChanceSim(i, count) { this._controller.controllers.skill_active_chance_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setSkillActiveChanceSims(counts) { doSet9Function(counts, this, this.setSkillActiveChanceSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setSkillActiveNoEffectSim(i, count) { this._controller.controllers.skill_active_no_effect_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setSkillActiveNoEffectSims(counts) { doSet9Function(counts, this, this.setSkillActiveNoEffectSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setSkillActiveHalfEffectSim(i, count) { this._controller.controllers.skill_active_half_effect_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setSkillActiveHalfEffectSims(counts) { doSet9Function(counts, this, this.setSkillActiveHalfEffectSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setAccessoryActiveCountSim(i, count) { this._controller.controllers.accessory_active_count_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setAccessoryActiveCountSims(counts) { doSet9Function(counts, this, this.setAccessoryActiveCountSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setAccessoryActiveChanceSim(i, count) { this._controller.controllers.accessory_active_chance_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setAccessoryActiveChanceSims(counts) { doSet9Function(counts, this, this.setAccessoryActiveChanceSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setAccessoryActiveNoEffectSim(i, count) { this._controller.controllers.accessory_active_no_effect_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setAccessoryActiveNoEffectSims(counts) { doSet9Function(counts, this, this.setAccessoryActiveNoEffectSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, c?: number) => void} */
+      setAccessoryActiveHalfEffectSim(i, count) { this._controller.controllers.accessory_active_half_effect_sim.cells[i].set(countNumberToString(count)); }
+      /** @param {number[]} [counts] */
+      setAccessoryActiveHalfEffectSims(counts) { doSet9Function(counts, this, this.setAccessoryActiveHalfEffectSim); }
+      /** @type {(i: LLH.Layout.Team.IndexType, h: number) => void} */
+      setHeal(i, heal) { this._controller.controllers.heal.cells[i].set(LLUnit.healNumberToString(heal)); }
+      /** @param {LLH.Model.LLTeam} result */
+      setResult(result) {
+         var cardStrengthList = [], totalStrengthList = [];
+         var calResult = result.getResults();
+         for (var i=0;i<9;i++){
+            var curCardStrength = calResult.attrStrength[i]+result.avgSkills[i].strength;
+            var curStrength = curCardStrength - result.attrDebuff[i];
+            cardStrengthList.push(curCardStrength);
+            totalStrengthList.push(curStrength);
+            this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLConst.Skill.isStrengthSupported(result.members[i].card));
+            this.setHeal(i, result.avgSkills[i].averageHeal);
+         }
+   
+         this.setStrengthAttributes(calResult.attrStrength);
+         this.setStrengthCardTheories(cardStrengthList);
+         this.setStrengthTotalTheories(totalStrengthList);
+         this.setSkillActiveCountSims(calResult.averageSkillsActiveCount);
+         this.setSkillActiveChanceSims(calResult.averageSkillsActiveChanceCount);
+         this.setSkillActiveNoEffectSims(calResult.averageSkillsActiveNoEffectCount);
+         this.setSkillActiveHalfEffectSims(calResult.averageSkillsActiveHalfEffectCount);
+         this.setAccessoryActiveCountSims(calResult.averageAccessoryActiveCount);
+         this.setAccessoryActiveChanceSims(calResult.averageAccessoryActiveChanceCount);
+         this.setAccessoryActiveNoEffectSims(calResult.averageAccessoryActiveNoEffectCount);
+         this.setAccessoryActiveHalfEffectSims(calResult.averageAccessoryActiveHalfEffectCount);
+      }
+      //===== internal methods =====
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {number} level 1~8
+       */
+      _updateAccessoryLevel(i, level) {
+         var controllers = this._controller.controllers;
+         var me = this;
+         controllers.accessory_icon.cells[i].updateAccessoryLevel(level);
+         var accessoryId = controllers.accessory_icon.cells[i].getAccessoryId();
+         if (accessoryId) {
+            var detail = LLAccessoryData.getCachedDetailedData(accessoryId);
+            if (detail) {
+               me._updateAccessoryAttribute(i, LLConst.Accessory.getAccessoryLevelAttribute(detail, level));
+            } else {
+               me._updateAccessoryAttribute(i, '...');
+               LoadingUtil.startSingle(LLAccessoryData.getDetailedData(accessoryId)).then(function (accessory) {
+                  if (level == controllers.accessory_icon.cells[i].getAccessoryLevel()
+                     && accessoryId == controllers.accessory_icon.cells[i].getAccessoryId()
+                  ) {
+                     me._updateAccessoryAttribute(i, LLConst.Accessory.getAccessoryLevelAttribute(accessory, level));
+                  }
+               });
+            }
+         } else {
+            me._updateAccessoryAttribute(i, '');
+         }
+      }
+      /**
+       * @param {LLH.Layout.Team.IndexType} i 
+       * @param {string | LLH.Internal.AttributesValue} attribute 
+       */
+      _updateAccessoryAttribute(i, attribute) {
+         var controllers = this._controller.controllers;
+         if (typeof(attribute) == 'string') {
+            controllers.accessory_smile.cells[i].set(attribute);
+            controllers.accessory_pure.cells[i].set(attribute);
+            controllers.accessory_cool.cells[i].set(attribute);
+         } else {
+            controllers.accessory_smile.cells[i].set(attribute.smile + '');
+            controllers.accessory_pure.cells[i].set(attribute.pure + '');
+            controllers.accessory_cool.cells[i].set(attribute.cool + '');
+         }
+      }
+
+      //===== override =====
+      saveData() {
+         return this.getMembers();
+      }
+      /** @param {LLH.Internal.MemberSaveDataType[]} [members] */
+      loadData(members) {
+         if (!members) return;
+         LLSaveData.normalizeMemberGemList(members);
+         this.setMembers(members);
+      }
+   }
+
+   return LLTeamComponent_cls;
 })();
 
 var LLCSkillComponent = (function () {

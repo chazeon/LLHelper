@@ -1379,6 +1379,8 @@ declare namespace LLH {
             isEffectHeal(): boolean;
             isEffectScore(): boolean;
 
+            averageHeal: number;
+            strength: number;
             // TODO: properties
         }
 
@@ -1751,12 +1753,17 @@ declare namespace LLH {
                 set(v: T): void;
                 get(): T;
             }
+            type TeamInputFloatCellController = TeamMemberKeyGetSet<number>;
+            type TeamInputIntCellController = TeamMemberKeyGetSet<number>;
             interface TeamAvatarCellController {
                 update(cardid?: Core.CardIdOrStringType, mezame?: Core.MezameType): void;
                 getCardId(): Core.CardIdType;
                 getMezame(): Core.MezameType;
             }
-            interface TeamAccessoryIconCellController extends TeamMemberKeyGetSet<Internal.AccessorySaveDataType> {
+            interface TeamAccessoryIconCellController {
+                set(v?: Internal.AccessorySaveDataType): void;
+                get(): Internal.AccessorySaveDataType;
+
                 updateAccessoryLevel(level: number): void;
                 updateMember(cardid: Core.CardIdOrStringType): void;
                 getAccessoryId(): Core.AccessoryIdStringType | undefined;
@@ -1765,9 +1772,21 @@ declare namespace LLH {
             interface TeamTextCellController extends TeamMemberKeyGetSet<string> {
                 reset(): void;
             }
+            interface TeamTextWithColorCellController extends TeamTextCellController {
+                setColor(color: string): void;
+            }
+            interface TeamTextWithTooltipCellController extends TeamTextCellController {
+                setTooltip(tooltip?: string): void;
+            }
             interface TeamSkillLevelCellController extends TeamMemberKeyGetSet<number> {
                 setMaxLevel(maxLevel: number): void;
                 onChange?: (i: IndexType, level: number) => void;
+            }
+            interface TeamSlotCellController {
+                getMaxSlot(): number;
+                setMaxSlot(value: number): void;
+                getUsedSlot(): number;
+                setUsedSlot(value: number): void;
             }
             interface TeamRowController<TCellController> {
                 headColor?: string; // in
@@ -1815,13 +1834,57 @@ declare namespace LLH {
             interface TeamNormalGemListController extends TeamGemListController, TeamMemberKeyGetSet<Internal.NormalGemCategoryKeyType[]> {
                 onListChange?: (position: number, slots: number) => void;
 
-                setAttributes(memberAttribute?: Core.AttributeType, mapAttribute?: Core.AttributeType): void;
+                setAttributes(memberAttribute?: Core.AttributeAllType, mapAttribute?: Core.AttributeType): void;
                 add(normalGemMetaKey: Internal.NormalGemCategoryKeyType): void;
             }
             interface TeamLAGemListController extends TeamGemListController, TeamMemberKeyGetSet<Core.SisIdType[]> {
                 onListChange?: (position: number, slots: number) => void;
 
                 add(gemId: Core.SisIdType): void;
+            }
+            interface TeamControllers {
+                weight: TeamRowController<TeamInputFloatCellController>;
+                avatar: TeamRowController<TeamAvatarCellController>;
+                info: TeamRowController<TeamTextCellController>;
+                info_name: TeamRowController<TeamTextCellController>;
+                skill_trigger: TeamRowController<TeamTextCellController>;
+                skill_effect: TeamRowController<TeamTextCellController>;
+                hp: TeamRowController<TeamInputIntCellController>;
+                smile: TeamRowController<TeamInputIntCellController>;
+                pure: TeamRowController<TeamInputIntCellController>;
+                cool: TeamRowController<TeamInputIntCellController>;
+                // 'skill_level': {'memberKey': 'skilllevel'},
+                skill_level: TeamRowController<TeamSkillLevelCellController>;
+                slot: TeamRowController<TeamSlotCellController>;
+                // 'put_gem': {},
+                gem_list: TeamRowController<TeamNormalGemListController>;
+                la_gem_list: TeamRowController<TeamLAGemListController>;
+                // 'put_accessory': {},
+                // 'accessory_icon': {},
+                accessory_icon: TeamRowController<TeamAccessoryIconCellController>;
+                accessory_level: TeamRowController<TeamSkillLevelCellController>;
+                accessory_smile: TeamRowController<TeamTextCellController>;
+                accessory_pure: TeamRowController<TeamTextCellController>;
+                accessory_cool: TeamRowController<TeamTextCellController>;
+                str_attr: TeamRowController<TeamTextCellController>;
+                str_skill_theory: TeamRowController<TeamTextWithTooltipCellController>;
+                str_card_theory: TeamRowController<TeamTextWithColorCellController>;
+                str_debuff: TeamRowController<TeamTextCellController>;
+                str_total_theory: TeamRowController<TeamTextWithColorCellController>;
+                skill_active_count_sim: TeamRowController<TeamTextCellController>;
+                skill_active_chance_sim: TeamRowController<TeamTextCellController>;
+                skill_active_no_effect_sim: TeamRowController<TeamTextCellController>;
+                skill_active_half_effect_sim: TeamRowController<TeamTextCellController>;
+                accessory_active_count_sim: TeamRowController<TeamTextCellController>;
+                accessory_active_chance_sim: TeamRowController<TeamTextCellController>;
+                accessory_active_no_effect_sim: TeamRowController<TeamTextCellController>;
+                accessory_active_half_effect_sim: TeamRowController<TeamTextCellController>;
+                heal: TeamRowController<TeamTextCellController>;
+            }
+            interface LLTeamComponent_Controller extends Controller.ControllerBaseSingleElement {
+                controllers: TeamControllers;
+                isLAGem: boolean;
+                swapper: Misc.LLSwapper;
             }
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
@@ -1831,7 +1894,7 @@ declare namespace LLH {
 
                 mode?: LayoutMode;
             }
-            class LLTeamComponent implements Mixin.SaveLoadJson {
+            class LLTeamComponent extends Mixin.SaveLoadJsonBase<Internal.MemberSaveDataType[]> {
                 constructor(id: Component.HTMLElementOrId, options: LLTeamComponent_Options);
 
                 putMember(i: IndexType, member?: Internal.MemberSaveDataType): void;
@@ -1848,42 +1911,47 @@ declare namespace LLH {
                 getAccessoryIds(): Core.AccessoryIdStringType[];
                 getWeight(i: IndexType): number;
                 getWeights(): number[];
-                setWeight(i: IndexType, w: number): void;
-                setWeights(weights: number[]): void;
+                setWeight(i: IndexType, w?: number): void;
+                setWeights(weights?: number[]): void;
                 setSwapper(swapper: Misc.LLSwapper): void;
                 getSwapper(): Misc.LLSwapper;
                 setMapAttribute(attribute: Core.AttributeType): void;
                 isAllMembersPresent(): boolean;
 
                 // results
-                setStrengthAttribute(i: IndexType, strength: number): void;
-                setStrengthAttributes(strengths: number[]): void;
-                setStrengthDebuff(i: IndexType, strength: number): void;
-                setStrengthDebuffs(strengths: number[]): void;
+                setStrengthAttribute(i: IndexType, strength?: number): void;
+                setStrengthAttributes(strengths?: number[]): void;
+                setStrengthDebuff(i: IndexType, strength?: number): void;
+                setStrengthDebuffs(strengths?: number[]): void;
                 setStrengthCardTheories(strengths: number[]): void;
                 setStrengthTotalTheories(strengths: number[]): void;
                 setStrengthSkillTheory(i: IndexType, strength: number, strengthSupported: boolean): void;
-                setSkillActiveCountSim(i: IndexType, count: number): void;
-                setSkillActiveCountSims(counts: number[]): void;
-                setSkillActiveChanceSim(i: IndexType, count: number): void;
-                setSkillActiveChanceSims(counts: number[]): void;
-                setSkillActiveNoEffectSim(i: IndexType, count: number): void;
-                setSkillActiveNoEffectSims(counts: number[]): void;
-                setSkillActiveHalfEffectSim(i: IndexType, count: number): void;
-                setSkillActiveHalfEffectSims(counts: number[]): void;
-                setAccessoryActiveCountSim(i: IndexType, count: number): void;
-                setAccessoryActiveCountSims(counts: number[]): void;
-                setAccessoryActiveChanceSim(i: IndexType, count: number): void;
-                setAccessoryActiveChanceSims(counts: number[]): void;
-                setAccessoryActiveNoEffectSim(i: IndexType, count: number): void;
-                setAccessoryActiveNoEffectSims(counts: number[]): void;
-                setAccessoryActiveHalfEffectSim(i: IndexType, count: number): void;
-                setAccessoryActiveHalfEffectSims(counts: number[]): void;
+                setSkillActiveCountSim(i: IndexType, count?: number): void;
+                setSkillActiveCountSims(counts?: number[]): void;
+                setSkillActiveChanceSim(i: IndexType, count?: number): void;
+                setSkillActiveChanceSims(counts?: number[]): void;
+                setSkillActiveNoEffectSim(i: IndexType, count?: number): void;
+                setSkillActiveNoEffectSims(counts?: number[]): void;
+                setSkillActiveHalfEffectSim(i: IndexType, count?: number): void;
+                setSkillActiveHalfEffectSims(counts?: number[]): void;
+                setAccessoryActiveCountSim(i: IndexType, count?: number): void;
+                setAccessoryActiveCountSims(counts?: number[]): void;
+                setAccessoryActiveChanceSim(i: IndexType, count?: number): void;
+                setAccessoryActiveChanceSims(counts?: number[]): void;
+                setAccessoryActiveNoEffectSim(i: IndexType, count?: number): void;
+                setAccessoryActiveNoEffectSims(counts?: number[]): void;
+                setAccessoryActiveHalfEffectSim(i: IndexType, count?: number): void;
+                setAccessoryActiveHalfEffectSims(counts?: number[]): void;
                 setHeal(i: IndexType, heal: number): void;
                 setResult(result: Model.LLTeam): void;
 
-                saveData(): Internal.MemberSaveDataType[];
-                loadData(members: Internal.MemberSaveDataType[]): void;
+                // internal method
+                _updateAccessoryLevel(i: IndexType, level: number): void;
+                _updateAccessoryAttribute(i: IndexType, attribute: string | Internal.AttributesValue): void;
+
+                // override
+                override saveData(): Internal.MemberSaveDataType[];
+                override loadData(members?: Internal.MemberSaveDataType[]): void;
 
                 // callbacks
                 onPutCardClicked?: (i: IndexType) => void;
@@ -1891,9 +1959,6 @@ declare namespace LLH {
                 onPutAccessoryClicked?: (i: IndexType) => Internal.AccessorySaveDataType | undefined;
                 onCenterChanged?: () => void;
 
-                // implements
-                saveJson(): string;
-                loadJson(jsonData: string): void;
             }
         }
         namespace Language {
