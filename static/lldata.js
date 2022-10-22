@@ -1078,11 +1078,13 @@ var LLAvatarComponent = (function () {
          if (!options) {
             options = {};
          }
-         var id = /** @type {HTMLImageElement} */ (LLUnit.getOrCreateElement(options.id, 'img', {
+         /** @type {HTMLImageElement} */
+         var id = LLUnit.getOrCreateElement(options.id, 'img', {
             'src': '/static/null.png',
             'className': (options.smallAvatar ? 'avatar' : '')
-         }));
+         });
          super(id, options);
+         this.element = id;
          /** @type {LLH.Core.CardIdStringType=} */
          this.cardId = undefined;
          this.mezame = false;
@@ -8770,50 +8772,65 @@ var LLTeamComponent = (function () {
    var createElement = LLUnit.createElement;
    var updateSubElements = LLUnit.updateSubElements;
 
-   /**
-    * @template T
-    * @param {LLH.Component.CreateElementOptions} options 
-    * @param {(s: string) => T} converter
-    */
-   function makeInputCreator(options, converter) {
-      /** @param {LLH.Layout.Team.TeamMemberKeyGetSet<T>} controller */
-      return function(controller) {
-         var inputElement = createElement('input', options);
-         var inputComponent = new LLValuedComponent(inputElement);
-         controller.get = function() {
-            return converter(inputComponent.getOrElse(''));
-         };
-         controller.set = function(v) { inputComponent.set(v + ''); };
-         return [inputElement];
+   /** @type {LLH.Layout.Team.TeamInputFloatCellCreator} */
+   function inputCellCreator(options, i) {
+      var inputElement = createElement('input', options.elementOptions);
+      var inputComponent = new LLValuedComponent(inputElement);
+      return {
+         'get': function() {
+            return options.converter(inputComponent.getOrElse(''));
+         },
+         'set': function(v) { inputComponent.set(v + ''); },
+         'element': inputElement
       };
    }
 
-   /** @param {LLH.Layout.Team.TeamSkillLevelCellController} controller */
-   function skillLevelCreator(controller, col) {
+   /** @type {LLH.Layout.Team.TeamSkillLevelCellCreator} */
+   function skillLevelCellCreator(options, i) {
       /** @type {HTMLInputElement} */
       var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '1', 'min': '1', 'max': '8', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
       var inputComponent = new LLValuedComponent(inputElement);
-      controller.get = function() {
-         return parseInt(inputComponent.get());
-      };
-      controller.set = function(v) { inputComponent.set(v + ''); };
-      controller.setMaxLevel = function (maxLevel) {
-         inputElement.max = maxLevel + '';
+      /** @type {LLH.Layout.Team.TeamSkillLevelCellController} */
+      var controller = {
+         'get': function() {
+            return parseInt(inputComponent.getOrElse('1'));
+         },
+         'set': function(v) { inputComponent.set(v + ''); },
+         'setMaxLevel': function (maxLevel) {
+            inputElement.max = maxLevel + '';
+         },
+         'onChange': options.onChange,
+         'element': ['Lv', inputElement]
       };
       inputComponent.onValueChange = function (newValue) {
          if (controller.onChange) {
-            controller.onChange(col, parseInt(newValue));
+            controller.onChange(i, parseInt(newValue));
          }
       };
-      return ['Lv', inputElement];
+      return controller;
    }
 
-   /** @param {LLH.Layout.Team.TeamSlotCellController} controller */
-   function slotCreator(controller) {
-      var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '0', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
+   /** @type {LLH.Layout.Team.TeamSlotCellCreator} */
+   function slotCellCreator(options, i) {
+      var inputElement = createElement('input', {'type': 'number', 'step': '1', 'size': 1, 'value': '0',
+         'min': '0', 'max': '8', 'autocomplete': 'off', 'className': 'form-control num-size-1'});
       var inputComponent = new LLValuedComponent(inputElement);
       var textElement = createElement('span', {'innerHTML': '0'});
       var curUsedSlot = 0;
+      /** @type {LLH.Layout.Team.TeamSlotCellController} */
+      var controller = {
+         'getMaxSlot': function() { return parseInt(inputComponent.getOrElse('0')); },
+         'setMaxSlot': function(v) { inputComponent.set(v + ''); },
+         'getUsedSlot': function() { return curUsedSlot; },
+         'setUsedSlot': function(v) {
+            if (curUsedSlot != v) {
+               curUsedSlot = v;
+               textElement.innerHTML = v + '';
+               updateColor();
+            }
+         },
+         'element': [textElement, '/', inputElement]
+      };
       var updateColor = function() {
          var curMaxSlot = controller.getMaxSlot();
          if (curUsedSlot == curMaxSlot) {
@@ -8825,85 +8842,82 @@ var LLTeamComponent = (function () {
          }
       };
       inputComponent.onValueChange = updateColor;
-      controller.getMaxSlot = function() { return parseInt(inputComponent.getOrElse('0')); };
-      controller.setMaxSlot = function(v) { inputComponent.set(v + ''); };
-      controller.getUsedSlot = function() { return curUsedSlot; };
-      controller.setUsedSlot = function(v) {
-         if (curUsedSlot != v) {
-            curUsedSlot = v;
-            textElement.innerHTML = v + '';
-            updateColor();
-         }
-      };
-      return [textElement, '/', inputElement];
+
+      return controller;
    }
 
-   function makeButtonCreator(text, clickFunc) {
-      return function(controller, i) {
-         return [createElement('button', {'type': 'button', 'className': 'btn btn-default', 'innerHTML': text+(i+1)}, undefined, {'click': function(){clickFunc(i);}})];
+   /** @type {LLH.Layout.Team.TeamButtonCellCreator} */
+   function buttonCreator(options, i) {
+      var text = (options.text === undefined ? options.head : options.text);
+      return {
+         'element': createElement('button', {'type': 'button', 'className': 'btn btn-default', 'innerHTML': text+(i+1)}, undefined,
+            {'click': function(){ options.clickFunc(i); }}
+         )
       };
    }
-   // parentController
-   // {
-   //   getMember: callback function(i)
-   //   setMember: callback function(i, value)
-   //   getSwapper: callback function()
-   // }
-   /** @param {LLH.Layout.Team.LLTeamComponent} parentController */
-   function makeSwapCreator(parentController) {
-      // controller
-      // {
-      //   startSwapping: function()
-      //   finishSwapping: function(value)
-      // }
-      return function(controller, i) {
-         var bSwapping = false;
-         var buttonElement = createElement('button', {'type': 'button', 'className': 'btn btn-default btn-block', 'innerHTML': '换位'+(i+1)}, undefined, {'click': function() {
-            var swapper = parentController.getSwapper();
-            if (swapper) swapper.onSwap(controller);
-            if (i == 4 && parentController.onCenterChanged) parentController.onCenterChanged();
-         }});
-         controller.startSwapping = function() {
+
+   /** @type {LLH.Layout.Team.TeamSwapperCellCreator} */
+   function swapperCreator(options, i) {
+      var bSwapping = false;
+      var teamComponent = options.teamComponent;
+      /** @type {LLH.Layout.Team.TeamSwapperController} */
+      var controller;
+      var buttonElement = createElement('button', {'type': 'button', 'className': 'btn btn-default btn-block', 'innerHTML': '换位'+(i+1)}, undefined, {'click': function() {
+         var swapper = teamComponent.getSwapper();
+         if (swapper) swapper.onSwap(controller);
+         if (i == 4 && teamComponent.onCenterChanged) teamComponent.onCenterChanged();
+      }});
+      controller = {
+         'startSwapping': function() {
             buttonElement.innerHTML = '选择';
             buttonElement.className = 'btn btn-primary btn-block';
             bSwapping = true;
-            return parentController.getMember(i);
-         };
-         controller.finishSwapping = function(v) {
+            return teamComponent.getMember(i);
+         },
+         'finishSwapping': function(v) {
             if (bSwapping) {
                buttonElement.innerHTML = '换位' + (i+1);
                buttonElement.className = 'btn btn-default btn-block';
                bSwapping = false;
             }
-            var ret = parentController.getMember(i);
-            parentController.setMember(i, v);
+            var ret = teamComponent.getMember(i);
+            teamComponent.setMember(i, v);
             return ret;
-         };
-         return  [buttonElement];
+         },
+         'element': buttonElement
       };
+      return controller;
    }
 
-   /** @param {LLH.Layout.Team.TeamAvatarCellController} controller */
-   function avatarCreator(controller) {
+   /** @type {LLH.Layout.Team.TeamAvatarCellCreator} */
+   function avatarCreator(options, i) {
       var avatarComp = new LLAvatarComponent({'smallAvatar': true});
+      /** @type {LLH.Core.CardIdType=} */
       var curCardid = undefined;
+      /** @type {LLH.Core.MezameType=} */
       var curMezame = undefined;
-      controller.update = function(cardid, mezame) {
-         cardid = parseInt(cardid || 0);
-         mezame = mezame || 0;
-         if (cardid != curCardid || mezame != curMezame) {
-            curCardid = cardid;
-            curMezame = mezame;
-            avatarComp.setCard(cardid + '', mezame);
-         }
+      return {
+         'update': function(cardid, mezame) {
+            if (typeof(cardid) == 'string') {
+               cardid = parseInt(cardid || '0');
+            } else if (cardid === undefined) {
+               cardid = 0;
+            }
+            mezame = mezame || 0;
+            if (cardid != curCardid || mezame != curMezame) {
+               curCardid = cardid;
+               curMezame = mezame;
+               avatarComp.setCard(cardid + '', mezame);
+            }
+         },
+         'getCardId': function() { return curCardid || 0; },
+         'getMezame': function() { return curMezame || 0; },
+         'element': avatarComp.element
       };
-      controller.getCardId = function() { return curCardid || 0; };
-      controller.getMezame = function() { return curMezame || 0; };
-      return [avatarComp.element];
    }
 
-   /** @param {LLH.Layout.Team.TeamAccessoryIconCellController} controller */
-   function accessoryIconCreator(controller, col) {
+   /** @type {LLH.Layout.Team.TeamAccessoryIconCellCreator} */
+   function accessoryIconCreator(options, i) {
       var accessoryComponent = new LLAccessoryComponent(createElement('div'), {'size': 64});
       /** @type {LLH.API.AccessoryDataType=} */
       var curAccessory = undefined;
@@ -8916,14 +8930,18 @@ var LLTeamComponent = (function () {
       var validateAndUpdateIcon = function () {
          if ((!curAccessory) || LLConst.Accessory.canEquipAccessory(curAccessory, curLevel, curCardId)) {
             if (!isValid) {
-               accessoryComponent.element.style.filter = '';
+               if (accessoryComponent.element) {
+                  accessoryComponent.element.style.filter = '';
+               }
                accTooltip.style.display = 'none';
                accTooltip.className = '';
                isValid = true;
             }
          } else {
             if (isValid) {
-               accessoryComponent.element.style.filter = 'grayscale(100%)';
+               if (accessoryComponent.element) {
+                  accessoryComponent.element.style.filter = 'grayscale(100%)';
+               }
                accTooltip.style.display = '';
                accTooltip.className = tooltipClassName;
                accTooltip.innerHTML = '不可装备';
@@ -8931,434 +8949,538 @@ var LLTeamComponent = (function () {
             }
          }
       };
-      controller.set = function (accessorySaveData) {
-         if ((!accessorySaveData) || (!accessorySaveData.id)) {
-            curAccessory = undefined;
-            accessoryComponent.setAccessory(undefined);
-         } else {
-            curAccessory = LLAccessoryData.getAllCachedBriefData()[accessorySaveData.id];
-            accessoryComponent.setAccessory(curAccessory);
-            curLevel = accessorySaveData.level;
-         }
-         validateAndUpdateIcon();
+      return {
+         'set': function (accessorySaveData) {
+            if ((!accessorySaveData) || (!accessorySaveData.id)) {
+               curAccessory = undefined;
+               accessoryComponent.setAccessory(undefined);
+            } else {
+               curAccessory = LLAccessoryData.getAllCachedBriefData()[accessorySaveData.id];
+               accessoryComponent.setAccessory(curAccessory);
+               curLevel = accessorySaveData.level;
+            }
+            validateAndUpdateIcon();
+         },
+         'get': function () {
+            if (curAccessory) {
+               return {
+                  'id': curAccessory.id,
+                  'level': curLevel
+               };
+            } else {
+               return {};
+            }
+         },
+         'updateMember': function(cardid) {
+            curCardId = cardid;
+            validateAndUpdateIcon();
+         },
+         'updateAccessoryLevel': function (level) {
+            curLevel = level;
+            validateAndUpdateIcon();
+         },
+         'getAccessoryId': function () {
+            return (curAccessory ? curAccessory.id : undefined);
+         },
+         'getAccessoryLevel': function () {
+            return curLevel;
+         },
+         'element': accContainer
       };
-      controller.get = function () {
-         if (curAccessory) {
-            return {
-               'id': curAccessory.id,
-               'level': curLevel
-            };
-         } else {
-            return {};
-         }
-      };
-      controller.updateMember = function(cardid) {
-         curCardId = cardid;
-         validateAndUpdateIcon();
-      };
-      controller.updateAccessoryLevel = function (level) {
-         curLevel = level;
-         validateAndUpdateIcon();
-      };
-      controller.getAccessoryId = function () {
-         return (curAccessory ? curAccessory.id : undefined);
-      };
-      controller.getAccessoryLevel = function () {
-         return curLevel;
-      };
-      return [accContainer];
    }
 
-   /** @param {LLH.Layout.Team.TeamTextCellController} controller */
-   function textCreator(controller) {
+   /** @type {LLH.Layout.Team.TeamTextCellCreator} */
+   function textCreator(options, i) {
       var textElement = createElement('span');
       var curValue = '';
-      controller.set = function(v) {
-         if (curValue !== v) {
-            curValue = v;
-            textElement.innerHTML = v;
-         }
+      return {
+         'set': function(v) {
+            if (curValue !== v) {
+               curValue = v;
+               textElement.innerHTML = v;
+            }
+         },
+         'get': function() { return curValue; },
+         'reset': function() { this.set(''); },
+         'element': textElement
       };
-      controller.get = function() { return curValue; };
-      controller.reset = function() { controller.set(''); };
-      return [textElement];
    }
 
-   /** @param {LLH.Layout.Team.TeamTextWithColorCellController} controller */
-   function textWithColorCreator(controller) {
-      var ret = textCreator(controller);
-      controller.setColor = function(c) { ret[0].style.color = c; };
-      return ret;
+   /** @type {LLH.Layout.Team.TeamTextWithColorCellCreator} */
+   function textWithColorCreator(options, i) {
+      var textController = textCreator(options, i);
+      return {
+         'get': textController.get,
+         'set': textController.set,
+         'reset': textController.reset,
+         'element': textController.element,
+         'setColor': function(c) { textController.element.style.color = c; }
+      };
    }
 
-   /** @param {LLH.Layout.Team.TeamTextWithTooltipCellController} controller */
-   function textWithTooltipCreator(controller) {
-      var ret = textCreator(controller);
+   /** @type {LLH.Layout.Team.TeamTextWithTooltipCellCreator} */
+   function textWithTooltipCreator(options, i) {
+      var textController = textCreator(options, i);
       var tooltipContent = createElement('span', {'className': 'tooltiptext'});
       var tooltipElement = createElement('span', {'className': 'lltooltip llsup'}, ['(*)', tooltipContent]);
       var tooltipComponent = new LLComponentBase(tooltipElement);
       tooltipComponent.hide();
-      ret.push(tooltipElement);
-      controller.setTooltip = function(v) {
-         if (v === undefined) {
-            tooltipComponent.hide();
-         } else {
-            tooltipContent.innerHTML = v;
-            tooltipComponent.show();
+      return {
+         'get': textController.get,
+         'set': textController.set,
+         'reset': textController.reset,
+         'element': [textController.element, tooltipElement],
+         'setTooltip': function(v) {
+            if (v === undefined) {
+               tooltipComponent.hide();
+            } else {
+               tooltipContent.innerHTML = v;
+               tooltipComponent.show();
+            }
          }
-      };
-      return ret;
-   }
-
-   /**
-    * @param {LLH.Layout.Team.TeamGemListItemController} controller 
-    * @param {string} dotClass
-    * @param {boolean} [popLeft]
-    * @returns {HTMLElement} 
-    */
-   function renderGemListItem(controller, dotClass, popLeft) {
-      var callbackOnDelete = function () {
-         controller.onDelete && controller.onDelete();
-      };
-      var btnName = createElement('button', {'type': 'button', 'className': 'btn btn-default'}, undefined, {'click': callbackOnDelete});
-      var dots = [];
-      for (var i = 0; i < 8; i++) {
-         dots.push(createElement('div', {'style': {'display': 'none'}}));
       }
-      var btnDots = createElement('span', {'className': dotClass}, dots);
-      var btnTooltip = createElement('span', {'className': 'tooltiptext' + (popLeft ? ' pop-left' : '')});
-      var btnContainer = createElement('div', {'className': 'lltooltip'}, [btnName, btnTooltip]);
-      var curSlot = 0;
-      var curId = undefined;
-      controller.setName = function (newName) {
-         updateSubElements(btnName, [newName, btnDots], true);
-      };
-      controller.setGemColor = function (newColor) {
-         for (var i = 0; i < 8; i++) {
-            dots[i].style['background-color'] = newColor;
-         }
-      };
-      controller.setSlot = function (newSlot) {
-         for (var i = 0; i < 8; i++) {
-            dots[i].style.display = (i < newSlot ? '' : 'none');
-         }
-         curSlot = newSlot;
-      };
-      controller.getSlot = function () {
-         return curSlot;
-      };
-      controller.setTooltip = function (newTooltip) {
-         btnTooltip.innerHTML = newTooltip + '<br/>点击移除该宝石';
-      };
-      controller.setId = function (id) {
-         curId = id;
-      };
-      controller.getId = function () {
-         return curId;
-      };
-      return btnContainer;
    }
 
    /**
-    * @param {LLH.Layout.Team.TeamNormalGemListItemController} controller 
-    * @param {number} metaId
-    * @param {LLH.Core.AttributeType} [attribute]
-    * @param {boolean} [popLeft]
-    * @returns {HTMLElement} 
+    * @template GemIdType
+    * @implements {LLH.Controller.ControllerBaseSingleElement}
     */
-   function renderNormalGemListItem(controller, metaId, attribute, popLeft) {
-      var myAttr = attribute;
-      var ret = renderGemListItem(controller, 'gem-dot', popLeft);
-      controller.resetMetaId = function (id) {
-         controller.setId(id);
+   class LLTeamGemListItemComponent {
+      /** @param {LLH.Layout.Team.LLTeamGemListItemComponent_Options} options */
+      constructor(options) {
+         this.onDelete = options.onDelete;
+         var me = this;
+         this._btnName = createElement('button', {'type': 'button', 'className': 'btn btn-default'}, undefined, {'click': function () {
+            if (me.onDelete) me.onDelete();
+         }});
+         /** @type {HTMLElement[]} */
+         var dots = [];
+         for (var i = 0; i < 8; i++) {
+            dots.push(createElement('div', {'style': {'display': 'none'}}));
+         }
+         this._dots = dots;
+         this._btnDots = createElement('span', {'className': options.dotClass}, dots);
+         this._btnTooltip = createElement('span', {'className': 'tooltiptext' + (options.popLeft ? ' pop-left' : '')});
+         this.element = createElement('div', {'className': 'lltooltip'}, [this._btnName, this._btnTooltip]);
+         this._curSlot = 0;
+         /** @type {GemIdType=} */
+         this._curId = undefined;
+      }
+      /** @param {string} newName */
+      setName(newName) {
+         updateSubElements(this._btnName, [newName, this._btnDots], true);
+      }
+      /** @param {string} newColor */
+      setGemColor(newColor) {
+         for (var i = 0; i < 8; i++) {
+            this._dots[i].style['background-color'] = newColor;
+         }
+      }
+      /** @param {number} newSlot */
+      setSlot(newSlot) {
+         for (var i = 0; i < 8; i++) {
+            this._dots[i].style.display = (i < newSlot ? '' : 'none');
+         }
+         this._curSlot = newSlot;
+      }
+      getSlot() {
+         return this._curSlot;
+      }
+      /** @param {string} newTooltip */
+      setTooltip(newTooltip) {
+         this._btnTooltip.innerHTML = newTooltip + '<br/>点击移除该宝石';
+      }
+      /** @param {GemIdType} id */
+      setId(id) {
+         this._curId = id;
+      }
+      getId() {
+         return this._curId;
+      }
+   }
+
+   /** @extends {LLTeamGemListItemComponent<LLH.Internal.NormalGemCategoryIdType>} */
+   class LLTeamNormalGemListItemComponent extends LLTeamGemListItemComponent {
+      /** @param {LLH.Layout.Team.LLTeamNormalGemListItemComponent_Options} options */
+      constructor(options) {
+         super({'dotClass': 'gem-dot', 'popLeft': options.popLeft, 'onDelete': options.onDelete});
+         this._attr = options.attribute;
+         this.setId(options.metaId);
+         this.setAttribute(options.attribute);
+      }
+      /** @param {LLH.Internal.NormalGemCategoryIdType} id */
+      setId(id) {
+         super.setId(id);
          var meta = LLConst.Gem.getNormalGemMeta(id);
-         controller.setName(LLConst.Gem.getNormalGemName(meta));
-         controller.setSlot(meta.slot);
-         controller.setTooltip(LLConst.Gem.getNormalGemNameAndDescription(meta));
-      };
-      controller.resetAttribute = function (attr) {
-         myAttr = attr;
-         controller.setGemColor(LLConst.Common.getAttributeColor(myAttr));
-      };
-      controller.resetMetaId(metaId);
-      controller.resetAttribute(attribute);
-      return ret;
+         if (meta) {
+            this.setName(LLConst.Gem.getNormalGemName(meta) || '未知宝石');
+            this.setSlot(meta.slot);
+            this.setTooltip(LLConst.Gem.getNormalGemNameAndDescription(meta));
+         } else {
+            this.setName('未知宝石');
+            this.setSlot(1);
+            this.setTooltip('未知宝石');
+         }
+      }
+      /** @param {LLH.Core.AttributeAllType} [attr] */
+      setAttribute(attr) {
+         this._attr = attr;
+         this.setGemColor(LLConst.Common.getAttributeColor(attr));
+      }
    }
 
-   /**
-    * @param {LLH.Layout.Team.TeamLAGemListItemController} controller 
-    * @param {number} gemId
-    * @param {boolean} [popLeft]
-    * @returns {HTMLElement} 
-    */
-   function renderLAGemListItem(controller, gemId, popLeft) {
-      var ret = renderGemListItem(controller, 'gem-square', popLeft);
-      controller.resetGemId = function (id) {
-         controller.setId(id);
-         /** @type {LLH.API.SisDataType} */
+   /** @extends {LLTeamGemListItemComponent<LLH.Core.SisIdType>} */
+   class LLTeamLAGemListItemComponent extends LLTeamGemListItemComponent {
+      /** @param {LLH.Layout.Team.LLTeamLAGemListItemComponent_Options} options */
+      constructor(options) {
+         super({'dotClass': 'gem-square', 'popLeft': options.popLeft, 'onDelete': options.onDelete});
+         this.setId(options.gemId);
+      }
+      /** @param {LLH.Core.SisIdType} id */
+      setId(id) {
+         super.setId(id);
          var gemData = LLSisData.getAllCachedBriefData()[id];
-         controller.setName(LLConst.Gem.getGemBriefDescription(gemData, true));
-         controller.setSlot(gemData.size);
-         controller.setTooltip(LLConst.Gem.getGemDescription(gemData, true));
-         controller.setGemColor(LLConst.Gem.getGemColor(gemData));
-      };
-      controller.resetGemId(gemId);
-      return ret;
+         this.setName(LLConst.Gem.getGemBriefDescription(gemData, true));
+         this.setSlot(gemData.size);
+         this.setTooltip(LLConst.Gem.getGemDescription(gemData, true));
+         this.setGemColor(LLConst.Gem.getGemColor(gemData));
+      }
    }
 
    /**
-    * @param {LLH.Layout.Team.TeamGemListController} controller 
-    * @returns {HTMLElement}
+    * @template GemIdType
+    * @template {LLTeamGemListItemComponent<GemIdType>} ItemType
+    * @implements {LLH.Controller.ControllerBaseSingleElement}
     */
-   function renderGemList(controller) {
-      var listContainer = createElement('div', {'className': 'gem-list'});
-      /** @type {HTMLElement[]} */
-      var listItems = [];
-      /** @type {LLH.Layout.Team.TeamGemListItemController[]} */
-      var listItemControllers = [];
-      controller.getCount = function () {
-         return listItems.length;
-      };
-      controller.getItemController = function (itemIndex) {
-         return listItemControllers[itemIndex];
-      };
-      controller.getTotalSlot = function () {
+   class LLTeamGemListComponent {
+      /** @param {number} position */
+      constructor(position) {
+         this.element = createElement('div', {'className': 'gem-list'});
+         /** @type {ItemType[]} */
+         this._listItemControllers = [];
+         this._position = position;
+         /** @type {((position: number, slots: number) => void) | undefined} */
+         this.onListChange = undefined;
+      }
+      getCount() {
+         return this._listItemControllers.length;
+      }
+      /** @param {number} itemIndex */
+      getItemController(itemIndex) {
+         return this._listItemControllers[itemIndex];
+      }
+      getTotalSlot() {
          var totalSlot = 0;
-         for (var i = 0; i < listItemControllers.length; i++) {
-            totalSlot += listItemControllers[i].getSlot();
+         for (var i = 0; i < this._listItemControllers.length; i++) {
+            totalSlot += this._listItemControllers[i].getSlot();
          }
          return totalSlot;
-      };
-      controller.forEachItemController = function (callback) {
-         for (var i = 0; i < listItemControllers.length; i++) {
-            if (callback(listItemControllers[i], i)) break;
+      }
+      /**
+       * callback return true to break loop
+       * @param {(itemController: ItemType, itemIndex: number) => boolean} callback 
+       */
+      forEachItemController(callback) {
+         for (var i = 0; i < this._listItemControllers.length; i++) {
+            if (callback(this._listItemControllers[i], i)) break;
          }
-      };
-      controller.mapItemController = function (callback) {
-         return listItemControllers.map(callback);
-      };
-      controller.addListItem = function (element, itemController) {
-         listItems.push(element);
-         listItemControllers.push(itemController);
-         updateSubElements(listContainer, element);
-      };
-      controller.removeListItemByIndex = function (itemIndex) {
-         if (itemIndex === undefined || itemIndex < 0 || itemIndex >= listItems.length) {
+      }
+      /**
+       * @template T
+       * @param {(itemController: ItemType, itemIndex: number) => T} callback
+       */
+      mapItemController(callback) {
+         return this._listItemControllers.map(callback);
+      }
+      /** @param {ItemType} itemComponent */
+      addListItem(itemComponent) {
+         this._listItemControllers.push(itemComponent);
+         updateSubElements(this.element, itemComponent.element);
+      }
+      /** @param {number} itemIndex */
+      removeListItemByIndex(itemIndex) {
+         if (itemIndex === undefined || itemIndex < 0 || itemIndex >= this._listItemControllers.length) {
             console.error('Invalid index to delete: ' + itemIndex);
             return false;
          }
-         listContainer.removeChild(listItems[itemIndex]);
-         listItems.splice(itemIndex, 1);
-         listItemControllers.splice(itemIndex, 1);
+         this.element.removeChild(this._listItemControllers[itemIndex].element);
+         this._listItemControllers.splice(itemIndex, 1);
          return true;
-      };
-      controller.removeListItemByController = function (itemController) {
-         for (var i = 0; i < listItemControllers.length; i++) {
-            if (itemController === listItemControllers[i]) {
-               return controller.removeListItemByIndex(i);
+      }
+      /** @param {ItemType} itemComponent */
+      removeListItemByController(itemComponent) {
+         for (var i = 0; i < this._listItemControllers.length; i++) {
+            if (itemComponent === this._listItemControllers[i]) {
+               return this.removeListItemByIndex(i);
             }
          }
          console.error('Invalid controller to delete');
-         console.info(itemController);
+         console.info(itemComponent);
          return false;
-      };
-      controller.hasListItemId = function (itemId) {
-         for (var i = 0; i < listItemControllers.length; i++) {
-            if (listItemControllers[i].getId() == itemId) {
+      }
+      /** @param {GemIdType} itemId */
+      hasListItemId(itemId) {
+         for (var i = 0; i < this._listItemControllers.length; i++) {
+            if (this._listItemControllers[i].getId() == itemId) {
                return true;
             }
          }
          return false;
-      };
-      return listContainer;
+      }
+      callbackListChange() {
+         if (this.onListChange !== undefined) {
+            this.onListChange(this._position, this.getTotalSlot());
+         }
+      }
    }
 
-   /**
-    * @param {LLH.Layout.Team.TeamNormalGemListController} controller 
-    * @param {number} position
-    * @returns {HTMLElement[]}
-    */
-   function normalGemListCreator(controller, position) {
-      /** @type {LLH.Core.AttributeType=} */
-      var memberAttribute = undefined;
-      /** @type {LLH.Core.AttributeType=} */
-      var mapAttribute = undefined;
-      var listContainer = renderGemList(controller);
-
-      /** @param {number} normalGemMetaId */
-      var getAttributeForGem = function (normalGemMetaId) {
-         if (LLConst.Gem.isGemFollowMemberAttribute(normalGemMetaId)) {
-            // these gems use member attribute
-            return memberAttribute;
-         } else {
-            // other gems use map attribute
-            return mapAttribute;
-         }
-      };
-      /** @param {LLH.Layout.Team.TeamNormalGemListItemController} curController */
-      var updateOneColor = function (curController) {
-         curController.resetAttribute(getAttributeForGem(curController.getId()));
-      };
-      var callbackListChange = function () {
-         if (controller.onListChange) {
-            controller.onListChange(position, controller.getTotalSlot());
-         }
-      };
-      /**
-       * @param {number} normalGemMetaId 
-       * @param {boolean} doCallback 
-       */
-      var addListItem = function (normalGemMetaId, doCallback) {
-         /** @type {LLH.Layout.Team.TeamNormalGemListItemController} */
-         var itemController = {
-            'onDelete': function () {
-               controller.removeListItemByController(itemController);
-               callbackListChange();
+   /** @extends {LLTeamGemListComponent<LLH.Internal.NormalGemCategoryIdType, LLTeamNormalGemListItemComponent>} */
+   class LLTeamNormalGemListComponent extends LLTeamGemListComponent {
+      /** @param {number} position */
+      constructor(position) {
+         super(position);
+         /** @type {LLH.Core.AttributeAllType=} */
+         this._memberAttribute = undefined;
+         /** @type {LLH.Core.AttributeType=} */
+         this._mapAttribute = undefined;
+      }
+      get() {
+         /** @type {LLH.Internal.NormalGemCategoryKeyType[]} */
+         var ret = [];
+         for (var i = 0; i < this.getCount(); i++) {
+            var curItem = this.getItemController(i);
+            var curId = curItem.getId();
+            if (curId === undefined) {
+               console.warn('Unexpected empty normal gem list item');
+               console.info(curItem);
+               continue;
             }
-         };
-         var item = renderNormalGemListItem(itemController, normalGemMetaId, getAttributeForGem(normalGemMetaId), position >= 7);
-         controller.addListItem(item, itemController);
-         if (doCallback) {
-            callbackListChange();
+            var curMeta = LLConst.Gem.getNormalGemMeta(curId);
+            if (curMeta === undefined) {
+               console.warn('Unknown normal gem id ' + curId);
+               continue;
+            }
+            ret.push(curMeta.key);
          }
-      };
-      controller.get = function () {
-         return controller.mapItemController((itemController) => LLConst.Gem.getNormalGemMeta(itemController.getId()).key);
-      };
-      controller.set = function (normalGemMetaKeyList) {
+         return ret;
+      }
+      /** @param {LLH.Internal.NormalGemCategoryKeyType[]} [normalGemMetaKeyList] */
+      set(normalGemMetaKeyList) {
          if (normalGemMetaKeyList === undefined) {
             normalGemMetaKeyList = [];
          }
          var i = 0;
          for (; i < normalGemMetaKeyList.length; i++) {
+            /** @type {LLH.Internal.NormalGemCategoryIdType=} */
             var curId = LLConst.GemType[normalGemMetaKeyList[i]];
-            if (i < controller.getCount()) {
-               /** @type {LLH.Layout.Team.TeamNormalGemListItemController} */
-               var curController = controller.getItemController(i);
+            if (curId === undefined) continue;
+            if (i < this.getCount()) {
+               var curController = this.getItemController(i);
                if (curController.getId() != curId) {
-                  curController.resetMetaId(curId);
-                  curController.resetAttribute(getAttributeForGem(curId))
+                  curController.setId(curId);
+                  curController.setAttribute(this._getAttributeForGem(curId))
                }
             } else {
-               addListItem(curId, false);
+               this._addListItem(curId, false);
             }
          }
-         for (; i < controller.getCount();) {
-            controller.removeListItemByIndex(i);
+         for (; i < this.getCount();) {
+            this.removeListItemByIndex(i);
          }
-         callbackListChange();
-      };
-      controller.setAttributes = function (memberAttr, mapAttr) {
+         this.callbackListChange();
+      }
+      /**
+       * @param {LLH.Core.AttributeAllType} [memberAttr] 
+       * @param {LLH.Core.AttributeType} [mapAttr] 
+       */
+      setAttributes(memberAttr, mapAttr) {
          if (memberAttr !== undefined) {
-            memberAttribute = memberAttr;
+            this._memberAttribute = memberAttr;
          }
          if (mapAttr !== undefined) {
-            mapAttribute = mapAttr;
+            this._mapAttribute = mapAttr;
          }
-         controller.forEachItemController(updateOneColor);
-      };
-      controller.add = function (normalGemMetaKey) {
+         for (var i = 0; i < this.getCount(); i++) {
+            var curController = this.getItemController(i);
+            var curId = curController.getId();
+            if (curId === undefined) continue;
+            curController.setAttribute(this._getAttributeForGem(curId));
+         }
+      }
+      /** @param {LLH.Internal.NormalGemCategoryKeyType} normalGemMetaKey */
+      add(normalGemMetaKey) {
          var gemId = LLConst.GemType[normalGemMetaKey];
          if (gemId === undefined) return;
-         if (controller.hasListItemId(gemId)) {
+         if (this.hasListItemId(gemId)) {
             console.info('Cannot add gem ' + normalGemMetaKey + ', it is already added');
             return;
          }
-         addListItem(gemId, true);
-      };
-      return [listContainer];
-   }
-
-   /**
-    * @param {LLH.Layout.Team.TeamLAGemListController} controller 
-    * @param {number} position
-    * @returns {HTMLElement[]}
-    */
-   function laGemListCreator(controller, position) {
-      var listContainer = renderGemList(controller);
-      var callbackListChange = function () {
-         if (controller.onListChange) {
-            controller.onListChange(position, controller.getTotalSlot());
-         }
-      };
+         this._addListItem(gemId, true);
+      }
       /**
-       * @param {number} gemId 
+       * @param {LLH.Internal.NormalGemCategoryIdType} normalGemMetaId 
        * @param {boolean} doCallback 
        */
-       var addListItem = function (gemId, doCallback) {
-         /** @type {LLH.Layout.Team.TeamLAGemListItemController} */
-         var itemController = {
+      _addListItem(normalGemMetaId, doCallback) {
+         var me = this;
+         var item = new LLTeamNormalGemListItemComponent({
+            'attribute': this._getAttributeForGem(normalGemMetaId),
+            'metaId': normalGemMetaId,
+            'popLeft': (this._position >= 7),
             'onDelete': function () {
-               controller.removeListItemByController(itemController);
-               callbackListChange();
+               me.removeListItemByController(item);
+               me.callbackListChange();
             }
-         };
-         var item = renderLAGemListItem(itemController, gemId, position >= 7);
-         controller.addListItem(item, itemController);
+         });
+         this.addListItem(item);
          if (doCallback) {
-            callbackListChange();
+            this.callbackListChange();
          }
-      };
-      controller.get = function () {
-         return controller.mapItemController((itemController) => itemController.getId());
-      };
-      controller.set = function (gemIdList) {
+      }
+      /** @param {LLH.Internal.NormalGemCategoryIdType} normalGemMetaId */
+      _getAttributeForGem(normalGemMetaId) {
+         if (LLConst.Gem.isGemFollowMemberAttribute(normalGemMetaId)) {
+            // these gems use member attribute
+            return this._memberAttribute;
+         } else {
+            // other gems use map attribute
+            return this._mapAttribute;
+         }
+      }
+   }
+
+   /** @extends {LLTeamGemListComponent<LLH.Core.SisIdType, LLTeamLAGemListItemComponent>} */
+   class LLTeamLAGemListComponent extends LLTeamGemListComponent {
+      /** @param {number} position */
+      constructor(position) {
+         super(position);
+      }
+      get() {
+         /** @type {LLH.Core.SisIdType[]} */
+         var ret = [];
+         for (var i = 0; i < this.getCount(); i++) {
+            var curItem = this.getItemController(i);
+            var curId = curItem.getId();
+            if (curId === undefined) {
+               console.warn('Unexpected empty normal gem list item');
+               console.info(curItem);
+               continue;
+            }
+            ret.push(curId);
+         }
+         return ret;
+      }
+      /** @param {LLH.Core.SisIdType[]} [gemIdList] */
+      set(gemIdList) {
          if (gemIdList === undefined) {
             gemIdList = [];
          }
          var i = 0;
          for (; i < gemIdList.length; i++) {
             var curId = gemIdList[i];
-            if (i < controller.getCount()) {
-               /** @type {LLH.Layout.Team.TeamLAGemListItemController} */
-               var curController = controller.getItemController(i);
+            if (i < this.getCount()) {
+               var curController = this.getItemController(i);
                if (curController.getId() != curId) {
-                  curController.resetGemId(curId);
+                  curController.setId(curId);
                }
             } else {
-               addListItem(curId, false);
+               this._addListItem(curId, false);
             }
          }
-         for (; i < controller.getCount();) {
-            controller.removeListItemByIndex(i);
+         for (; i < this.getCount();) {
+            this.removeListItemByIndex(i);
          }
-         callbackListChange();
-      };
-      controller.add = function (gemId) {
+         this.callbackListChange();
+      }
+      /** @param {LLH.Core.SisIdType} gemId */
+      add(gemId) {
          if (gemId === undefined) return;
-         if (controller.hasListItemId(gemId)) {
+         if (this.hasListItemId(gemId)) {
             console.info('Cannot add gem ' + gemId + ', it is already added');
             return;
          }
-         addListItem(gemId, true);
-      };
-      return [listContainer];
+         this._addListItem(gemId, true);
+      }
+      /**
+       * @param {LLH.Core.SisIdType} gemId 
+       * @param {boolean} doCallback 
+       */
+      _addListItem(gemId, doCallback) {
+         var me = this;
+         var item = new LLTeamLAGemListItemComponent({
+            'gemId': gemId,
+            'popLeft': (this._position >= 7),
+            'onDelete': function () {
+               me.removeListItemByController(item);
+               me.callbackListChange();
+            }
+         });
+         this.addListItem(item);
+         if (doCallback) {
+            this.callbackListChange();
+         }
+      }
+   }
+
+   /** @type {LLH.Layout.Team.TeamNormalGemListCellCreator} */
+   function normalGemListCreator(options, i) {
+      var ret = new LLTeamNormalGemListComponent(i);
+      ret.onListChange = options.onListChange;
+      return ret;
+   }
+
+   /** @type {LLH.Layout.Team.TeamLAGemListCellCreator} */
+   function laGemListCreator(options, i) {
+      var ret = new LLTeamLAGemListComponent(i);
+      ret.onListChange = options.onListChange;
+      return ret;
    }
 
    /**
-    * @template CellController
-    * @param {string} head 
-    * @param {(controller: CellController, index: number) => HTMLElement[]} cellCreator 
-    * @param {LLH.Layout.Team.TeamRowController<CellController>} controller 
-    * @param {(controller: CellController, index: number) => void} [cellControllerDeco]
-    * @returns {HTMLElement}
+    * @param {Partial<LLH.Layout.Team.TeamControllers>} controllers 
+    * @param {(keyof LLH.Layout.Team.TeamControllers)[]} keys 
+    * @param {boolean} isFold 
     */
-   function createRowFor9(head, cellCreator, controller, cellControllerDeco) {
-      var headElement;
-      if (controller.fold) {
-         var arrowSpan = createElement('span', {'className': 'tri-down'});
-         var textSpan = createElement('span', {'innerHTML': head});
-         var visible = true;
-         var toggleFold = function () {
-            if (!(controller.fold && controller.unfold)) {
-               return;
+   function foldRows(controllers, keys, isFold) {
+      for (var i = 0; i < keys.length; i++) {
+         var rowController = controllers[keys[i]];
+         if (rowController) {
+            if (isFold) {
+               if (rowController.hide) {
+                  rowController.hide();
+               }
+            } else {
+               if (rowController.show) {
+                  rowController.show();
+               }
             }
+         }
+      }
+   }
+
+   /**
+    * @template {LLH.Controller.ControllerBase} TCellController
+    * @template {LLH.Layout.Team.TeamRowOptionBase} TRowOption
+    * @param {LLH.Layout.Team.TeamCellCreator<TCellController, TRowOption>} cellCreator 
+    * @param {TRowOption} options 
+    * @param {Partial<LLH.Layout.Team.TeamControllers>} controllers 
+    */
+   function createRow(cellCreator, options, controllers) {
+      var headElement;
+      /** @type {(() => void) | undefined} */
+      var toggleFold = undefined;
+      if (options.owning) {
+         var arrowSpan = createElement('span', {'className': 'tri-down'});
+         var textSpan = createElement('span', {'innerHTML': options.head});
+         var visible = true;
+         var owning = options.owning;
+         toggleFold = function () {
             if (visible) {
-               controller.fold();
+               foldRows(controllers, owning, true);
                arrowSpan.className = 'tri-right';
                visible = false;
             } else {
-               controller.unfold();
+               foldRows(controllers, owning, false);
                arrowSpan.className = 'tri-down';
                visible = true;
             }
@@ -9367,67 +9489,96 @@ var LLTeamComponent = (function () {
             'click': toggleFold
          });
          headElement.style.cursor = 'pointer';
-         controller.toggleFold = toggleFold;
       } else {
-         headElement = createElement('th', {'scope': 'row', 'innerHTML': head});
+         headElement = createElement('th', {'scope': 'row', 'innerHTML': options.head});
       }
-      if (controller.headColor) {
-         headElement.style.color = controller.headColor;
+      /** @type {LLH.Layout.Team.TeamRowController<TCellController, TRowOption>['setByMember']} */
+      var setByMember = undefined;
+      /** @type {LLH.Layout.Team.TeamRowController<TCellController, TRowOption>['setToMember']} */
+      var setToMember = undefined;
+      if (options.memberKey) {
+         var memberKey = options.memberKey;
+         var memberDefault = options.memberDefault;
+         setByMember = function(i, member) {
+            if (member[memberKey] !== undefined) {
+               this.cells[i].set(member[memberKey]);
+            } else if (memberDefault !== undefined) {
+               this.cells[i].set(memberDefault);
+            }
+         };
+         setToMember = function(i, member) {
+            member[memberKey] = this.cells[i].get();
+         };
+      }
+      if (options.headColor) {
+         headElement.style.color = options.headColor;
       }
       var cells = [headElement];
       var cellControllers = [];
       for (var i = 0; i < 9; i++) {
-         var cellController = {};
-         var tdElement = createElement('td', undefined, cellCreator(cellController, i));
-         if (controller.cellColor) {
-            tdElement.style.color = controller.cellColor;
-         }
-         if (cellControllerDeco) {
-            cellControllerDeco(cellController, i);
+         var cellController = cellCreator(options, i);
+         var tdElement = createElement('td', undefined, cellController.element);
+         if (options.cellColor) {
+            tdElement.style.color = options.cellColor;
          }
          cells.push(tdElement);
          cellControllers.push(cellController);
       }
       var rowElement = createElement('tr', undefined, cells);
       var rowComponent = new LLComponentBase(rowElement);
-      controller.cells = cellControllers;
-      controller.show = function(){ rowComponent.show(); }
-      controller.hide = function(){ rowComponent.hide(); }
-      return rowElement;
-   }
-   /**
-    * @param {LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller
-    * @param {string[]} [dummyCellMethods]
-    */
-   function dummyCellCreator(controller, dummyCellMethods) {
-      var val = undefined;
-      controller.get = function () {
-         return val;
+
+      /** @type {LLH.Layout.Team.TeamRowController<TCellController>} */
+      var rowController = {
+         'cells': cellControllers,
+         'show': function () { rowComponent.show(); },
+         'hide': function () { rowComponent.hide(); },
+         'toggleFold': toggleFold,
+         'setByMember': setByMember,
+         'setToMember': setToMember,
+         'element': rowElement
       };
-      controller.set = function (v) {
-         val = v;
-      };
-      if (dummyCellMethods) {
-         for (var i = 0; i < dummyCellMethods.length; i++) {
-            controller[dummyCellMethods[i]] = function () {};
-         }
-      }
-      return controller;
+      return rowController;
    }
+
+   /** @template T */
+   function createInMemoryCell() {
+      /** @type {T=} */
+      var value = undefined;
+      /** @type {LLH.Layout.Team.TeamInMemoryCellController<T>} */
+      var cellController = {
+         'get': function () { return value; },
+         'set': function (v) { value = v; }
+      };
+      return cellController;
+   }
+
    /**
-    * @param {LLH.Layout.Team.TeamRowController<LLH.Layout.Team.TeamMemberKeyGetSet<any>} controller
-    * @param {string[]} [dummyCellMethods]
+    * @template {keyof LLH.Internal.MemberSaveDataType} K
+    * @param {LLH.Layout.Team.TeamInMemoryRowOption<K>} options
     */
-   function createDummyRowFor9(controller, dummyCellMethods) {
-      var cellControllers = [];
-      var emptyFunction = function () {};
+   function createInMemoryRow(options) {
+      /** @type {LLH.Layout.Team.TeamInMemoryCellController<LLH.Internal.MemberSaveDataType[K]>[]} */
+      var cells = [];
       for (var i = 0; i < 9; i++) {
-         cellControllers.push(dummyCellCreator({}, dummyCellMethods));
+         cells.push(createInMemoryCell());
       }
-      controller.cells = cellControllers;
-      controller.show = emptyFunction;
-      controller.hide = emptyFunction;
+      /** @type {LLH.Layout.Team.TeamInMemoryRowController<LLH.Internal.MemberSaveDataType[K]>} */
+      var rowController = {
+         'cells': cells,
+         'setByMember': function(i, member) {
+            if (member[options.memberKey] !== undefined) {
+               this.cells[i].set(member[options.memberKey]);
+            } else if (options.memberDefault !== undefined) {
+               this.cells[i].set(options.memberDefault);
+            }
+         },
+         'setToMember': function(i, member) {
+            member[options.memberKey] = this.cells[i].get();
+         }
+      };
+      return rowController;
    }
+
    /**
     * @template T
     * @param {*} target 
@@ -9454,11 +9605,13 @@ var LLTeamComponent = (function () {
    }
    /**
     * @param {number[]} arr 
-    * @param {LLH.Layout.Team.TeamTextWithColorCellController[]} cells 
+    * @param {LLH.Layout.Team.TeamRowController<LLH.Layout.Team.TeamTextWithColorCellController>} [rowController] 
     */
-   function doHighlightMinCell(arr, cells) {
+   function doHighlightMinCell(arr, rowController) {
+      if (rowController === undefined) return;
       var minVal = undefined;
       var i;
+      var cells = rowController.cells;
       for (i = 0; i < arr.length; i++) {
          if (minVal === undefined || arr[i] < minVal) minVal = arr[i];
          cells[i].set(arr[i] + '');
@@ -9480,162 +9633,106 @@ var LLTeamComponent = (function () {
    function createTeamTable(controller, mode) {
       var rows = [];
       /** @type {LLH.Layout.Team.TeamControllers} */
-      var controllers = {
-         'weight': {},
-         'avatar': {},
-         'info': {'owning': ['info_name', 'skill_trigger', 'skill_effect']},
-         'info_name': {},
-         'skill_trigger': {},
-         'skill_effect': {},
-         'hp': {'memberKey': 'hp', 'memberDefault': 1},
-         'smile': {'headColor': 'red', 'cellColor': 'red', 'memberKey': 'smile', 'memberDefault': 0},
-         'pure': {'headColor': 'green', 'cellColor': 'green', 'memberKey': 'pure', 'memberDefault': 0},
-         'cool': {'headColor': 'blue', 'cellColor': 'blue', 'memberKey': 'cool', 'memberDefault': 0},
-         'skill_level': {'memberKey': 'skilllevel'},
-         'slot': {'owning': ['put_gem', 'gem_list', 'la_gem_list']},
-         'put_gem': {},
-         'gem_list': {'memberKey': 'gemlist'},
-         'la_gem_list': {'memberKey': 'laGemList'},
-         'put_accessory': {},
-         'accessory_icon': {},
-         'accessory_level': {'owning': ['accessory_smile', 'accessory_pure', 'accessory_cool']},
-         'accessory_smile': {'headColor': 'red', 'cellColor': 'red'},
-         'accessory_pure': {'headColor': 'green', 'cellColor': 'green'},
-         'accessory_cool': {'headColor': 'blue', 'cellColor': 'blue'},
-         'str_attr': {},
-         'str_skill_theory': {},
-         'str_card_theory': {},
-         'str_debuff': {},
-         'str_total_theory': {},
-         'skill_active_count_sim': {'owning': [
-            'skill_active_chance_sim', 'skill_active_no_effect_sim', 'skill_active_half_effect_sim',
-            'accessory_active_count_sim', 'accessory_active_chance_sim', 'accessory_active_no_effect_sim', 'accessory_active_half_effect_sim'
-         ]},
-         'skill_active_chance_sim': {},
-         'skill_active_no_effect_sim': {},
-         'skill_active_half_effect_sim': {},
-         'accessory_active_count_sim': {},
-         'accessory_active_chance_sim': {},
-         'accessory_active_no_effect_sim': {},
-         'accessory_active_half_effect_sim': {},
-         'heal': {},
-      };
+      var controllersNew = {};
       var isLAGem = (mode == 'la');
-      var doFold = function() {
-         for (var i = 0; i < this.owning.length; i++) {
-            controllers[this.owning[i]].hide();
-         }
-      };
-      var doUnfold = function() {
-         for (var i = 0; i < this.owning.length; i++) {
-            controllers[this.owning[i]].show();
-         }
-      };
-      var doSetByMember = function(i, member) {
-         if (member[this.memberKey] !== undefined) {
-            this.cells[i].set(member[this.memberKey]);
-         } else if (this.memberDefault !== undefined) {
-            this.cells[i].set(this.memberDefault);
-         }
-      };
-      var doSetToMember = function(i, member) {
-         member[this.memberKey] = this.cells[i].get();
-      };
+      /** @type {LLH.Layout.Team.LLTeamGemListComponent_OnListChangeCallback} */
       var updateSlot = function(i, slots) {
-         controllers.slot.cells[i].setUsedSlot(slots);
+         controllersNew.slot.cells[i].setUsedSlot(slots);
       };
-
-      var updateAccessoryLevel = function (i, level) {
-         controller._updateAccessoryLevel(i, level);
-      };
-      for (var i in controllers) {
-         if (controllers[i].owning) {
-            controllers[i].fold = doFold;
-            controllers[i].unfold = doUnfold;
-         }
-         if (controllers[i].memberKey) {
-            controllers[i].setByMember = doSetByMember;
-            controllers[i].setToMember = doSetToMember;
-         }
+      /**
+       * @template {LLH.Controller.ControllerBase} TCellController
+       * @template {LLH.Layout.Team.TeamRowOptionBase} TRowOption
+       * @param {LLH.Layout.Team.TeamCellCreator<TCellController, TRowOption>} cellCreator 
+       * @param {TRowOption} options 
+       */
+      var addRow = function (cellCreator, options) {
+         var controller = createRow(cellCreator, options, controllersNew);
+         rows.push(controller.element);
+         return controller;
       }
+      /** @type {LLH.Component.CreateElementOptions} */
       var number3Config = {'type': 'number', 'step': 'any', 'size': 3, 'autocomplete': 'off', 'className': 'form-control num-size-3', 'value': '0'};
+      /** @type {LLH.Component.CreateElementOptions} */
       var number1Config = {'type': 'number', 'step': '1', 'size': 1, 'autocomplete': 'off', 'className': 'form-control num-size-1', 'value': '1'};
-      rows.push(createRowFor9('权重', makeInputCreator(number3Config, parseFloat), controllers.weight));
-      rows.push(createRowFor9('放卡', makeButtonCreator('放卡', function(i) {
+      controllersNew.weight = addRow(inputCellCreator, {'head': '权重', 'elementOptions': number3Config, 'converter': parseFloat});
+      addRow(buttonCreator, {'head': '放卡', 'clickFunc': function(i) {
          controller.onPutCardClicked && controller.onPutCardClicked(i);
          if (i == 4 && controller.onCenterChanged) controller.onCenterChanged();
-      }), {}));
-      rows.push(createRowFor9('卡片', avatarCreator, controllers.avatar));
-      rows.push(createRowFor9('基本信息', textCreator, controllers.info));
-      rows.push(createRowFor9('名字', textCreator, controllers.info_name));
-      rows.push(createRowFor9('技能条件', textCreator, controllers.skill_trigger));
-      rows.push(createRowFor9('技能类型', textCreator, controllers.skill_effect));
-      rows.push(createRowFor9('HP', makeInputCreator(number1Config, parseInt), controllers.hp));
-      rows.push(createRowFor9('smile', makeInputCreator(number3Config, parseInt), controllers.smile));
-      rows.push(createRowFor9('pure', makeInputCreator(number3Config, parseInt), controllers.pure));
-      rows.push(createRowFor9('cool', makeInputCreator(number3Config, parseInt), controllers.cool));
-      rows.push(createRowFor9('技能等级', skillLevelCreator, controllers.skill_level));
-      rows.push(createRowFor9('使用槽数', slotCreator, controllers.slot));
-      rows.push(createRowFor9('放宝石', makeButtonCreator('放宝石', function (i) {
+      }});
+      controllersNew.avatar = addRow(avatarCreator, {'head': '卡片'});
+      controllersNew.info = addRow(textCreator, {'head': '基本信息', 'owning': ['info_name', 'skill_trigger', 'skill_effect']});
+      controllersNew.info_name = addRow(textCreator, {'head': '名字'});
+      controllersNew.skill_trigger = addRow(textCreator, {'head': '技能条件'});
+      controllersNew.skill_effect = addRow(textCreator, {'head': '技能类型'});
+      controllersNew.hp = addRow(inputCellCreator, {'head': 'HP', 'elementOptions': number1Config, 'converter': parseInt, 'memberKey': 'hp', 'memberDefault': 1});
+      controllersNew.smile = addRow(inputCellCreator, {'head': 'smile', 'elementOptions': number3Config, 'converter': parseInt,
+         'headColor': 'red', 'cellColor': 'red', 'memberKey': 'smile', 'memberDefault': 0});
+      controllersNew.pure = addRow(inputCellCreator, {'head': 'pure', 'elementOptions': number3Config, 'converter': parseInt,
+         'headColor': 'green', 'cellColor': 'green', 'memberKey': 'pure', 'memberDefault': 0});
+      controllersNew.cool = addRow(inputCellCreator, {'head': 'cool', 'elementOptions': number3Config, 'converter': parseInt,
+         'headColor': 'blue', 'cellColor': 'blue', 'memberKey': 'cool', 'memberDefault': 0});
+      controllersNew.skill_level = addRow(skillLevelCellCreator, {'head': '技能等级', 'memberKey': 'skilllevel'});
+      controllersNew.slot = addRow(slotCellCreator, {'head': '使用槽数', 'owning': ['put_gem', 'gem_list', 'la_gem_list']});
+      controllersNew.put_gem = addRow(buttonCreator, {'head': '放宝石', 'clickFunc': function (i) {
          if (controller.onPutGemClicked) {
             var gemKey = controller.onPutGemClicked(i);
-            if (isLAGem) {
-               controllers.la_gem_list.cells[i].add(gemKey)
-            } else {
+            if (controllersNew.la_gem_list) {
+               controllersNew.la_gem_list.cells[i].add(gemKey)
+            } else if (controllersNew.gem_list) {
                if (LLConst.GemType[gemKey] !== undefined) {
-                  controllers.gem_list.cells[i].add(gemKey);
+                  controllersNew.gem_list.cells[i].add(gemKey);
                }
             }
          }
-      }), controllers.put_gem));
+      }});
+
       if (!isLAGem) {
-         rows.push(createRowFor9('圆宝石', normalGemListCreator, controllers.gem_list, (c) => c.onListChange = updateSlot));
-         createDummyRowFor9(controllers.la_gem_list);
+         controllersNew.gem_list = addRow(normalGemListCreator, {'head': '圆宝石', 'onListChange': updateSlot, 'memberKey': 'gemlist'});
+         controllersNew.in_memory_la_gem_list = createInMemoryRow({'memberKey': 'laGemList'});
       } else {
-         createDummyRowFor9(controllers.gem_list);
-         rows.push(createRowFor9('方宝石', laGemListCreator, controllers.la_gem_list, (c) => c.onListChange = updateSlot));
+         controllersNew.in_memory_gem_list = createInMemoryRow({'memberKey': 'gemlist'});
+         controllersNew.la_gem_list = addRow(laGemListCreator, {'head': '方宝石', 'onListChange': updateSlot, 'memberKey': 'laGemList'});
       }
-      rows.push(createRowFor9('放饰品', makeButtonCreator('放饰品', function (i) {
+      controllersNew.put_accessory = addRow(buttonCreator, {'head': '放饰品', 'clickFunc': function (i) {
          if (controller.onPutAccessoryClicked) {
             controller.setAccessory(i, controller.onPutAccessoryClicked(i));
          }
-      }), controllers.put_accessory));
-      rows.push(createRowFor9('饰品', accessoryIconCreator, controllers.accessory_icon));
-      rows.push(createRowFor9('饰品等级', skillLevelCreator, controllers.accessory_level, (c) => c.onChange = updateAccessoryLevel));
-      rows.push(createRowFor9('饰品smile', textCreator, controllers.accessory_smile));
-      rows.push(createRowFor9('饰品pure', textCreator, controllers.accessory_pure));
-      rows.push(createRowFor9('饰品cool', textCreator, controllers.accessory_cool));
-      rows.push(createRowFor9('换位', makeSwapCreator(controller), {}));
-      rows.push(createRowFor9('属性强度', textCreator, controllers.str_attr));
+      }})
+      controllersNew.accessory_icon = addRow(accessoryIconCreator, {'head': '饰品'});
+      controllersNew.accessory_level = addRow(skillLevelCellCreator, {'head': '饰品等级', 'onChange': (i, level) => controller._updateAccessoryLevel(i, level),
+         'owning': ['accessory_smile', 'accessory_pure', 'accessory_cool']});
+      controllersNew.accessory_smile = addRow(textCreator, {'head': '饰品smile', 'headColor': 'red', 'cellColor': 'red'});
+      controllersNew.accessory_pure = addRow(textCreator, {'head': '饰品pure', 'headColor': 'green', 'cellColor': 'green'});
+      controllersNew.accessory_cool = addRow(textCreator, {'head': '饰品cool', 'headColor': 'blue', 'cellColor': 'blue'});
+      addRow(swapperCreator, {'head': '换位', 'teamComponent': controller});
+      controllersNew.str_attr = addRow(textCreator, {'head': '属性强度'})
       if (!isLAGem) {
-         rows.push(createRowFor9('技能强度（理论）', textWithTooltipCreator, controllers.str_skill_theory));
-         rows.push(createRowFor9('卡强度（理论）', textWithColorCreator, controllers.str_card_theory));
-      } else {
-         createDummyRowFor9(controllers.str_skill_theory, ['setTooltip']);
-         createDummyRowFor9(controllers.str_card_theory, ['setColor']);
+         controllersNew.str_skill_theory = addRow(textWithTooltipCreator, {'head': '技能强度（理论）'});
+         controllersNew.str_card_theory = addRow(textWithColorCreator, {'head': '卡强度（理论）'})
       }
-      rows.push(createRowFor9('异色异团惩罚', textCreator, controllers.str_debuff));
+      controllersNew.str_debuff = addRow(textCreator, {'head': '异色异团惩罚'});
       if (!isLAGem) {
-         rows.push(createRowFor9('实际强度（理论）', textWithColorCreator, controllers.str_total_theory));
-      } else {
-         createDummyRowFor9(controllers.str_total_theory, ['setColor']);
+         controllersNew.str_total_theory = addRow(textWithColorCreator, {'head': '实际强度（理论）'});
       }
-      rows.push(createRowFor9('技能发动次数（模拟）', textCreator, controllers.skill_active_count_sim));
-      rows.push(createRowFor9('技能发动条件达成次数（模拟）', textCreator, controllers.skill_active_chance_sim));
-      rows.push(createRowFor9('技能哑火次数（模拟）', textCreator, controllers.skill_active_no_effect_sim));
-      rows.push(createRowFor9('技能半哑火次数（模拟）', textCreator, controllers.skill_active_half_effect_sim));
-      rows.push(createRowFor9('饰品发动次数（模拟）', textCreator, controllers.accessory_active_count_sim));
-      rows.push(createRowFor9('饰品发动条件达成次数（模拟）', textCreator, controllers.accessory_active_chance_sim));
-      rows.push(createRowFor9('饰品哑火次数（模拟）', textCreator, controllers.accessory_active_no_effect_sim));
-      rows.push(createRowFor9('饰品半哑火次数（模拟）', textCreator, controllers.accessory_active_half_effect_sim));
-      rows.push(createRowFor9('回复', textCreator, controllers.heal));
+      controllersNew.skill_active_count_sim = addRow(textCreator, {'head': '技能发动次数（模拟）', 'owning': [
+         'skill_active_chance_sim', 'skill_active_no_effect_sim', 'skill_active_half_effect_sim',
+         'accessory_active_count_sim', 'accessory_active_chance_sim', 'accessory_active_no_effect_sim', 'accessory_active_half_effect_sim'
+      ]});
+      controllersNew.skill_active_chance_sim = addRow(textCreator, {'head': '技能发动条件达成次数（模拟）'});
+      controllersNew.skill_active_no_effect_sim = addRow(textCreator, {'head': '技能哑火次数（模拟）'});
+      controllersNew.skill_active_half_effect_sim = addRow(textCreator, {'head': '技能半哑火次数（模拟）'});
+      controllersNew.accessory_active_count_sim = addRow(textCreator, {'head': '饰品发动次数（模拟）'});
+      controllersNew.accessory_active_chance_sim = addRow(textCreator, {'head': '饰品发动条件达成次数（模拟）'});
+      controllersNew.accessory_active_no_effect_sim = addRow(textCreator, {'head': '饰品哑火次数（模拟）'});
+      controllersNew.accessory_active_half_effect_sim = addRow(textCreator, {'head': '饰品半哑火次数（模拟）'});
+      controllersNew.heal = addRow(textCreator, {'head': '回复'});
 
-      controllers.info.toggleFold();
-      controllers.skill_active_count_sim.toggleFold();
+      if (controllersNew.info.toggleFold) controllersNew.info.toggleFold();
+      if (controllersNew.skill_active_count_sim.toggleFold) controllersNew.skill_active_count_sim.toggleFold();
 
       /** @type {LLH.Layout.Team.LLTeamComponent_Controller} */
       var mainController = {
-         'controllers': controllers,
+         'controllers': controllersNew,
          'element': createElement('table', {'className': 'table table-bordered table-hover table-condensed team-table'}, [
             createElement('tbody', undefined, rows)
          ]),
@@ -9645,7 +9742,7 @@ var LLTeamComponent = (function () {
       return mainController;
    }
 
-   /** @extends {LLH.Mixin.SaveLoadJsonBase<>} */
+   /** @extends {LLH.Mixin.SaveLoadJsonBase<LLH.Internal.MemberSaveDataType[]>} */
    class LLTeamComponent_cls extends SaveLoadJsonBase {
       /**
        * @param {LLH.Component.HTMLElementOrId} id 
@@ -9670,7 +9767,6 @@ var LLTeamComponent = (function () {
          /** @type {Partial<LLH.Internal.MemberSaveDataType>} */
          var partialMember = member || {};
          var controllers = this._controller.controllers;
-         var isLAGem = this._controller.isLAGem;
          for (var k in controllers) {
             if (controllers[k].setByMember) {
                controllers[k].setByMember(i, partialMember);
@@ -9691,7 +9787,7 @@ var LLTeamComponent = (function () {
             if (partialMember.hp === undefined) {
                controllers.hp.cells[i].set(isMezame ? cardbrief.hp+1 : cardbrief.hp);
             }
-            if (!isLAGem) {
+            if (controllers.gem_list) {
                controllers.gem_list.cells[i].setAttributes(cardbrief.attribute);
             }
          } else {
@@ -9699,7 +9795,7 @@ var LLTeamComponent = (function () {
             controllers.info_name.cells[i].reset();
             controllers.skill_trigger.cells[i].reset();
             controllers.skill_effect.cells[i].reset();
-            if (!isLAGem) {
+            if (controllers.gem_list) {
                controllers.gem_list.cells[i].setAttributes('all');
             }
          }
@@ -9754,7 +9850,12 @@ var LLTeamComponent = (function () {
                gemList.push(gemMeta.key);
             }
          }
-         this._controller.controllers.gem_list.cells[i].set(gemList);
+         var controllers = this._controller.controllers;
+         if (controllers.gem_list) {
+            controllers.gem_list.cells[i].set(gemList);
+         } else if (controllers.in_memory_gem_list) {
+            controllers.in_memory_gem_list.cells[i].set(gemList);
+         }
       }
       /**
        * @param {LLH.Layout.Team.IndexType} i 
@@ -9762,7 +9863,7 @@ var LLTeamComponent = (function () {
        */
       setAccessory(i, accessory) {
          var controllers = this._controller.controllers;
-         if (accessory && accessory.id) {
+         if (accessory && accessory.id !== undefined && accessory.level !== undefined) {
             var accessoryBrief = LLAccessoryData.getAllCachedBriefData()[accessory.id];
             controllers.accessory_icon.cells[i].set(accessory);
             controllers.accessory_level.cells[i].set(accessory.level);
@@ -9793,8 +9894,9 @@ var LLTeamComponent = (function () {
       getSwapper() { return this._controller.swapper; }
       /** @param {LLH.Core.AttributeType} attribute */
       setMapAttribute(attribute) {
-         if (!this._controller.isLAGem) {
-            this._controller.controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, attribute));
+         var controllers = this._controller.controllers;
+         if (controllers.gem_list) {
+            controllers.gem_list.cells.forEach(cell => cell.setAttributes(undefined, attribute));
          }
       }
       isAllMembersPresent() {
@@ -9815,16 +9917,18 @@ var LLTeamComponent = (function () {
       /** @param {number[]} [strengths] */
       setStrengthDebuffs(strengths) { doSet9Function(strengths, this, this.setStrengthDebuff); }
       /** @param {number[]} strengths */
-      setStrengthCardTheories(strengths) { doHighlightMinCell(strengths, this._controller.controllers.str_card_theory.cells); }
+      setStrengthCardTheories(strengths) { doHighlightMinCell(strengths, this._controller.controllers.str_card_theory); }
       /** @param {number[]} strengths */
-      setStrengthTotalTheories(strengths) { doHighlightMinCell(strengths, this._controller.controllers.str_total_theory.cells); }
+      setStrengthTotalTheories(strengths) { doHighlightMinCell(strengths, this._controller.controllers.str_total_theory); }
       /**
        * @param {LLH.Layout.Team.IndexType} i 
        * @param {number} strength 
        * @param {boolean} strengthSupported 
        */
       setStrengthSkillTheory(i, strength, strengthSupported) {
-         var cell = this._controller.controllers.str_skill_theory.cells[i];
+         var rowController = this._controller.controllers.str_skill_theory;
+         if (rowController === undefined) return;
+         var cell = rowController.cells[i];
          cell.set(strength + '');
          cell.setTooltip(strengthSupported ? undefined : '该技能暂不支持理论强度计算，仅支持模拟');
       }

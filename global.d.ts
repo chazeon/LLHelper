@@ -355,8 +355,8 @@ declare namespace LLH {
         }
 
         interface AccessorySaveDataType {
-            id: Core.AccessoryIdStringType;
-            level: number;
+            id?: Core.AccessoryIdStringType;
+            level?: number;
         }
 
         interface MemberSaveDataType extends SubMemberSaveDataType, AttributesValue {
@@ -785,6 +785,8 @@ declare namespace LLH {
             setCard(cardId?: Core.CardIdStringType, mezame?: boolean | Core.MezameType): void;
             getCardId(): Core.CardIdStringType | undefined;
             getMezame(): boolean;
+
+            element: HTMLImageElement;
         }
         interface LLButtonComponent_Options {
             id?: HTMLButtonElement | string;
@@ -1749,18 +1751,18 @@ declare namespace LLH {
 
         namespace Team {
             type IndexType = number; // 0~8
-            interface TeamMemberKeyGetSet<T> {
+            interface TeamMemberKeyGetSet<T> extends Controller.ControllerBase {
                 set(v: T): void;
                 get(): T;
             }
             type TeamInputFloatCellController = TeamMemberKeyGetSet<number>;
             type TeamInputIntCellController = TeamMemberKeyGetSet<number>;
-            interface TeamAvatarCellController {
+            interface TeamAvatarCellController extends Controller.ControllerBase {
                 update(cardid?: Core.CardIdOrStringType, mezame?: Core.MezameType): void;
                 getCardId(): Core.CardIdType;
                 getMezame(): Core.MezameType;
             }
-            interface TeamAccessoryIconCellController {
+            interface TeamAccessoryIconCellController extends Controller.ControllerBaseSingleElement {
                 set(v?: Internal.AccessorySaveDataType): void;
                 get(): Internal.AccessorySaveDataType;
 
@@ -1770,78 +1772,137 @@ declare namespace LLH {
                 getAccessoryLevel(): number;
             }
             interface TeamTextCellController extends TeamMemberKeyGetSet<string> {
+                element: HTMLElement;
+
                 reset(): void;
             }
             interface TeamTextWithColorCellController extends TeamTextCellController {
                 setColor(color: string): void;
             }
             interface TeamTextWithTooltipCellController extends TeamTextCellController {
+                element: HTMLElement[];
                 setTooltip(tooltip?: string): void;
             }
             interface TeamSkillLevelCellController extends TeamMemberKeyGetSet<number> {
                 setMaxLevel(maxLevel: number): void;
                 onChange?: (i: IndexType, level: number) => void;
             }
-            interface TeamSlotCellController {
+            interface TeamSlotCellController extends Controller.ControllerBase {
                 getMaxSlot(): number;
                 setMaxSlot(value: number): void;
                 getUsedSlot(): number;
                 setUsedSlot(value: number): void;
             }
-            interface TeamRowController<TCellController> {
-                headColor?: string; // in
-                cellColor?: string; // in
-                fold?: () => void; // in
-                unfold?: () => void; // in
-
+            interface TeamRowControllerBase<TCellController> {
                 cells: TCellController[]; // index 0~8
+                show?: () => void;
+                hide?: () => void;
+                setByMember?: (i: IndexType, member: Partial<Internal.MemberSaveDataType>) => void;
+                setToMember?: (i: IndexType, member: Partial<Internal.MemberSaveDataType>) => void;
+            }
+            interface TeamRowController<TCellController> extends TeamRowControllerBase<TCellController>, Controller.ControllerBaseSingleElement {
                 show(): void;
                 hide(): void;
                 toggleFold?: () => void;
             }
-            interface TeamGemListItemController {
-                onDelete?: () => void; // in
+            interface TeamInMemoryCellController<T> {
+                set(v?: T): void;
+                get(): T | undefined;
+            }
+            type TeamInMemoryRowController<T> = TeamRowControllerBase<TeamInMemoryCellController<T>>;
+            interface TeamSwapperController extends Misc.Swappable<Internal.MemberSaveDataType>, Controller.ControllerBaseSingleElement {
+            }
+
+            //===== gem list =====
+            interface LLTeamGemListItemComponent_Options {
+                dotClass: string;
+                popLeft: boolean;
+                onDelete?: () => void;
+            }
+            class LLTeamGemListItemComponent<GemIdType> implements Controller.ControllerBaseSingleElement {
+                constructor(options: LLTeamGemListItemComponent_Options);
+
+                onDelete?: () => void;
 
                 setGemColor(gemColor: string): void;
                 setName(name: string): void;
                 setTooltip(tooltip: string): void;
                 setSlot(slot: number): void;
                 getSlot(): number;
-                setId(id: number | string): void;
-                getId(): number | string;
+                setId(id: GemIdType): void;
+                getId(): GemIdType | undefined;
             }
-            interface TeamNormalGemListItemController extends TeamGemListItemController {
-                resetAttribute(attribute?: Core.AttributeType): void;
-                resetMetaId(metaId: Internal.NormalGemCategoryIdType): void;
+            interface LLTeamNormalGemListItemComponent_Options {
+                metaId: Internal.NormalGemCategoryIdType;
+                attribute?: Core.AttributeAllType;
+                popLeft: boolean;
+                onDelete?: () => void;
             }
-            interface TeamLAGemListItemController extends TeamGemListItemController {
-                resetGemId(gemId: Core.SisIdType): void;
+            class LLTeamNormalGemListItemComponent extends LLTeamGemListItemComponent<Internal.NormalGemCategoryIdType> {
+                constructor(options: LLTeamNormalGemListItemComponent_Options);
+
+                setAttribute(attribute?: Core.AttributeAllType): void;
+                override setId(id: Internal.NormalGemCategoryIdType): void;
             }
-            interface TeamGemListController {
+            interface LLTeamLAGemListItemComponent_Options {
+                gemId: Core.SisIdType;
+                popLeft: boolean;
+                onDelete?: () => void;
+            }
+            class LLTeamLAGemListItemComponent extends LLTeamGemListItemComponent<Core.SisIdType> {
+                constructor(options: LLTeamLAGemListItemComponent_Options);
+
+                override setId(id: Core.SisIdType): void;
+            }
+            type LLTeamGemListComponent_OnListChangeCallback = (position: number, slots: number) => void;
+            class LLTeamGemListComponent<GemIdType, ItemType extends LLTeamGemListItemComponent<GemIdType>>
+                implements Controller.ControllerBaseSingleElement
+            {
+                constructor(position: number);
+
+                // implements
+                element: HTMLElement;
+
+                onListChange?: LLTeamGemListComponent_OnListChangeCallback;
+
                 getCount(): number;
-                getItemController(itemIndex: number): TeamGemListItemController;
+                getItemController(itemIndex: number): ItemType;
                 getTotalSlot(): number;
                 /** callback return true to break loop */
-                forEachItemController(callback: (itemController: TeamGemListItemController, itemIndex: number) => boolean): void;
-                mapItemController<T>(callback: (itemController: TeamGemListItemController, itemIndex: number) => T): T[];
-                addListItem(element: HTMLElement, itemController: TeamGemListItemController): void;
+                forEachItemController(callback: (itemController: ItemType, itemIndex: number) => boolean): void;
+                mapItemController<T>(callback: (itemController: ItemType, itemIndex: number) => T): T[];
+                addListItem(itemComponent: ItemType): void;
                 /** return true if remove success */
                 removeListItemByIndex(itemIndex: number): boolean;
                 /** return true if remove success */
-                removeListItemByController(itemController: TeamGemListItemController): boolean;
-                hasListItemId(itemId: number): boolean;
+                removeListItemByController(itemComponent: ItemType): boolean;
+                hasListItemId(itemId: GemIdType): boolean;
+
+                callbackListChange(): void;
             }
-            interface TeamNormalGemListController extends TeamGemListController, TeamMemberKeyGetSet<Internal.NormalGemCategoryKeyType[]> {
-                onListChange?: (position: number, slots: number) => void;
+            class LLTeamNormalGemListComponent
+                extends LLTeamGemListComponent<Internal.NormalGemCategoryIdType, LLTeamNormalGemListItemComponent>
+            {
+                constructor(position: number);
 
                 setAttributes(memberAttribute?: Core.AttributeAllType, mapAttribute?: Core.AttributeType): void;
                 add(normalGemMetaKey: Internal.NormalGemCategoryKeyType): void;
+
+                get(): Internal.NormalGemCategoryKeyType[];
+                set(v?: Internal.NormalGemCategoryKeyType[]): void;
             }
-            interface TeamLAGemListController extends TeamGemListController, TeamMemberKeyGetSet<Core.SisIdType[]> {
-                onListChange?: (position: number, slots: number) => void;
+            class LLTeamLAGemListComponent
+                extends LLTeamGemListComponent<Core.SisIdType, LLTeamLAGemListItemComponent>
+            {
+                constructor(position: number);
 
                 add(gemId: Core.SisIdType): void;
+
+                get(): Core.SisIdType[];
+                set(v?: Core.SisIdType[]): void;
             }
+
+            //===== TeamControllers =====
             interface TeamControllers {
                 weight: TeamRowController<TeamInputFloatCellController>;
                 avatar: TeamRowController<TeamAvatarCellController>;
@@ -1853,24 +1914,24 @@ declare namespace LLH {
                 smile: TeamRowController<TeamInputIntCellController>;
                 pure: TeamRowController<TeamInputIntCellController>;
                 cool: TeamRowController<TeamInputIntCellController>;
-                // 'skill_level': {'memberKey': 'skilllevel'},
                 skill_level: TeamRowController<TeamSkillLevelCellController>;
                 slot: TeamRowController<TeamSlotCellController>;
-                // 'put_gem': {},
-                gem_list: TeamRowController<TeamNormalGemListController>;
-                la_gem_list: TeamRowController<TeamLAGemListController>;
-                // 'put_accessory': {},
-                // 'accessory_icon': {},
+                put_gem: TeamRowController<Controller.ControllerBase>;
+                gem_list?: TeamRowController<LLTeamNormalGemListComponent>;
+                in_memory_gem_list?: TeamInMemoryRowController<Internal.NormalGemCategoryKeyType[] | undefined>;
+                la_gem_list?: TeamRowController<LLTeamLAGemListComponent>;
+                in_memory_la_gem_list?: TeamInMemoryRowController<Core.SisIdType[] | undefined>;
+                put_accessory: TeamRowController<Controller.ControllerBase>;
                 accessory_icon: TeamRowController<TeamAccessoryIconCellController>;
                 accessory_level: TeamRowController<TeamSkillLevelCellController>;
                 accessory_smile: TeamRowController<TeamTextCellController>;
                 accessory_pure: TeamRowController<TeamTextCellController>;
                 accessory_cool: TeamRowController<TeamTextCellController>;
                 str_attr: TeamRowController<TeamTextCellController>;
-                str_skill_theory: TeamRowController<TeamTextWithTooltipCellController>;
-                str_card_theory: TeamRowController<TeamTextWithColorCellController>;
+                str_skill_theory?: TeamRowController<TeamTextWithTooltipCellController>;
+                str_card_theory?: TeamRowController<TeamTextWithColorCellController>;
                 str_debuff: TeamRowController<TeamTextCellController>;
-                str_total_theory: TeamRowController<TeamTextWithColorCellController>;
+                str_total_theory?: TeamRowController<TeamTextWithColorCellController>;
                 skill_active_count_sim: TeamRowController<TeamTextCellController>;
                 skill_active_chance_sim: TeamRowController<TeamTextCellController>;
                 skill_active_no_effect_sim: TeamRowController<TeamTextCellController>;
@@ -1881,6 +1942,57 @@ declare namespace LLH {
                 accessory_active_half_effect_sim: TeamRowController<TeamTextCellController>;
                 heal: TeamRowController<TeamTextCellController>;
             }
+
+            //===== options/creators =====
+            interface TeamRowOptionBase {
+                head: string;
+                owning?: (keyof TeamControllers)[];
+                headColor?: string;
+                cellColor?: string;
+                memberKey?: keyof Internal.MemberSaveDataType;
+                memberDefault?: Internal.MemberSaveDataType[keyof Internal.MemberSaveDataType];
+            }
+            interface TeamInputRowOption<T> extends TeamRowOptionBase {
+                elementOptions: Component.CreateElementOptions;
+                converter: (s: string) => T;
+            }
+            interface TeamButtonRowOption extends TeamRowOptionBase {
+                /** default to head */
+                text?: string;
+                clickFunc: (i: IndexType) => void;
+            }
+            interface TeamSkillLevelRowOption extends TeamRowOptionBase {
+                onChange?: (i: IndexType, level: number) => void;
+            }
+            interface TeamGemListRowOption extends TeamRowOptionBase {
+                onListChange?: LLTeamGemListComponent_OnListChangeCallback;
+            }
+            interface TeamSwapperRowOption extends TeamRowOptionBase {
+                teamComponent: LLTeamComponent;
+            }
+
+            type TeamCellCreator<TCellController extends Controller.ControllerBase, TRowOption extends TeamRowOptionBase> =
+                (options: TRowOption, i: IndexType) => TCellController;
+            type TeamInputFloatCellCreator = TeamCellCreator<TeamInputFloatCellController, TeamInputRowOption<number>>;
+            type TeamInputIntCellCreator = TeamCellCreator<TeamInputIntCellController, TeamInputRowOption<number>>;
+            type TeamButtonCellCreator = TeamCellCreator<Controller.ControllerBase, TeamButtonRowOption>;
+            type TeamAvatarCellCreator = TeamCellCreator<TeamAvatarCellController, TeamRowOptionBase>;
+            type TeamTextCellCreator = TeamCellCreator<TeamTextCellController, TeamRowOptionBase>;
+            type TeamSkillLevelCellCreator = TeamCellCreator<TeamSkillLevelCellController, TeamSkillLevelRowOption>;
+            type TeamSlotCellCreator = TeamCellCreator<TeamSlotCellController, TeamRowOptionBase>;
+            type TeamNormalGemListCellCreator = TeamCellCreator<LLTeamNormalGemListComponent, TeamGemListRowOption>;
+            type TeamLAGemListCellCreator = TeamCellCreator<LLTeamLAGemListComponent, TeamGemListRowOption>;
+            type TeamAccessoryIconCellCreator = TeamCellCreator<TeamAccessoryIconCellController, TeamRowOptionBase>;
+            type TeamSwapperCellCreator = TeamCellCreator<TeamSwapperController, TeamSwapperRowOption>;
+            type TeamTextWithTooltipCellCreator = TeamCellCreator<TeamTextWithTooltipCellController, TeamRowOptionBase>;
+            type TeamTextWithColorCellCreator = TeamCellCreator<TeamTextWithColorCellController, TeamRowOptionBase>;
+
+            interface TeamInMemoryRowOption<K extends keyof Internal.MemberSaveDataType> {
+                memberKey: K;
+                memberDefault?: Internal.MemberSaveDataType[K];
+            }
+
+            //===== component =====
             interface LLTeamComponent_Controller extends Controller.ControllerBaseSingleElement {
                 controllers: TeamControllers;
                 isLAGem: boolean;
