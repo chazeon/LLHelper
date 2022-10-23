@@ -316,6 +316,12 @@ table.gem-series tr.focused {
    background-image: url('/static/closebutton.png');
    background-size: contain;
 }
+.lltooltip .dialog-close-button {
+   visibility: hidden;
+}
+.lltooltip:hover .dialog-close-button {
+   visibility: visible;
+}
 .dialog-title-section {
    text-align: center;
    padding-right: 20px;

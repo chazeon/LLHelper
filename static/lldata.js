@@ -4721,9 +4721,14 @@ var LLSisGem = (function () {
        * @returns {number}
        */
       static getGemStockCount(gemStock, gemStockKeys) {
+         /** @type {LLH.Internal.GemStockSaveDataType | number} */
          var cur = gemStock;
          var keys = gemStockKeys;
          for (var i = 0; i < keys.length; i++) {
+            if (typeof(cur) == 'number') {
+               console.error("Unexpected gem stock keys " + keys.join('.'), gemStock);
+               return 0;
+            }
             if (cur.ALL !== undefined) return cur.ALL;
             cur = cur[keys[i]];
             if (cur === undefined) {
@@ -4731,7 +4736,12 @@ var LLSisGem = (function () {
                return 0;
             }
          }
-         return /** @type {number} */ (cur);
+         if (typeof(cur) == 'number') {
+            return cur;
+         } else {
+            console.error("Unexpected gem stock keys " + keys.join('.'), gemStock);
+            return 0;
+         }
       }
       isEffectRangeSelf() { return this.meta.effect_range == LLConstValue.SIS_RANGE_SELF; }
       isEffectRangeAll() { return this.meta.effect_range == LLConstValue.SIS_RANGE_TEAM; }
@@ -5053,7 +5063,7 @@ var LLMember = (function() {
             }
          }
          if (v.accessory && v.accessoryData) {
-            if (LLConst.Accessory.canEquipAccessory(v.accessoryData, v.accessory.level, v.cardid)) {
+            if (v.accessory.level !== undefined && LLConst.Accessory.canEquipAccessory(v.accessoryData, v.accessory.level, v.cardid)) {
                this.accessory = v.accessoryData;
                this.accessoryLevel = v.accessory.level;
                this.accessoryAttr = LLConst.Accessory.getAccessoryLevelAttribute(this.accessory, this.accessoryLevel);
@@ -8924,9 +8934,15 @@ var LLTeamComponent = (function () {
       var curLevel = undefined;
       var curCardId = undefined;
       var isValid = true;
+      var isRemovable = false;
       var tooltipClassName = 'tooltiptext';
+      var teamComponent = options.teamComponent;
       var accTooltip = createElement('span');
-      var accContainer = createElement('div', {'className': 'lltooltip', 'style': {'display': 'flex', 'flexFlow': 'row'}}, [accessoryComponent.element, accTooltip]);
+      var removeButton = createElement('a', { 'title': '移除', 'className': 'dialog-close-button', 'style': {'display': 'none'} }, undefined, {
+         'click': () => teamComponent.setAccessory(i, undefined)
+      });
+      var accContainer = createElement('div', {'className': 'lltooltip', 'style': {'display': 'flex', 'flexFlow': 'row', 'position': 'relative'}},
+         [accessoryComponent.element, removeButton, accTooltip]);
       var validateAndUpdateIcon = function () {
          if ((!curAccessory) || LLConst.Accessory.canEquipAccessory(curAccessory, curLevel, curCardId)) {
             if (!isValid) {
@@ -8946,6 +8962,17 @@ var LLTeamComponent = (function () {
                accTooltip.className = tooltipClassName;
                accTooltip.innerHTML = '不可装备';
                isValid = false;
+            }
+         }
+         if (curAccessory !== undefined) {
+            if (!isRemovable) {
+               removeButton.style.display = '';
+               isRemovable = true;
+            }
+         } else {
+            if (isRemovable) {
+               removeButton.style.display = 'none';
+               isRemovable = false;
             }
          }
       };
@@ -9698,7 +9725,7 @@ var LLTeamComponent = (function () {
             controller.setAccessory(i, controller.onPutAccessoryClicked(i));
          }
       }})
-      controllersNew.accessory_icon = addRow(accessoryIconCreator, {'head': '饰品'});
+      controllersNew.accessory_icon = addRow(accessoryIconCreator, {'head': '饰品', 'teamComponent': controller});
       controllersNew.accessory_level = addRow(skillLevelCellCreator, {'head': '饰品等级', 'onChange': (i, level) => controller._updateAccessoryLevel(i, level),
          'owning': ['accessory_smile', 'accessory_pure', 'accessory_cool']});
       controllersNew.accessory_smile = addRow(textCreator, {'head': '饰品smile', 'headColor': 'red', 'cellColor': 'red'});
@@ -9971,12 +9998,15 @@ var LLTeamComponent = (function () {
          var cardStrengthList = [], totalStrengthList = [];
          var calResult = result.getResults();
          for (var i=0;i<9;i++){
-            var curCardStrength = calResult.attrStrength[i]+result.avgSkills[i].strength;
-            var curStrength = curCardStrength - result.attrDebuff[i];
+            var avgSkill = (result.avgSkills ? result.avgSkills[i] : undefined);
+            var avgSkillStrength = (avgSkill ? avgSkill.strength : 0);
+            var avgSkillHeal = (avgSkill ? avgSkill.averageHeal : 0);
+            var curCardStrength = calResult.attrStrength[i]+avgSkillStrength;
+            var curStrength = curCardStrength - (result.attrDebuff ? result.attrDebuff[i] : 0);
             cardStrengthList.push(curCardStrength);
             totalStrengthList.push(curStrength);
-            this.setStrengthSkillTheory(i, result.avgSkills[i].strength, LLConst.Skill.isStrengthSupported(result.members[i].card));
-            this.setHeal(i, result.avgSkills[i].averageHeal);
+            this.setStrengthSkillTheory(i, avgSkillStrength, LLConst.Skill.isStrengthSupported(result.members[i].card));
+            this.setHeal(i, avgSkillHeal);
          }
    
          this.setStrengthAttributes(calResult.attrStrength);

@@ -388,10 +388,11 @@ declare namespace LLH {
         interface GemStockNodeAllType {
             ALL: number;
         }
-        interface GemStockNodeExpandType {
+        type GemStockNodeExpandType = {
+            [subType in GemStockNodeExpandKeys]?: GemStockNodeAllType | GemStockNodeExpandType | number;
+        } & {
             ALL?: undefined;
-            [subType: GemStockNodeExpandKeys]: GemStockNodeAllType | GemStockNodeExpandType | number;
-        }
+        };
         type GemStockSaveDataType = GemStockNodeAllType | GemStockNodeExpandType;
 
         namespace Legacy {
@@ -669,6 +670,7 @@ declare namespace LLH {
             maxHeight?: string;
             overflowY?: string;
             padding?: string;
+            position?: string;
             textAlign?: string;
             width?: string;
             zIndex?: string;
@@ -1779,8 +1781,9 @@ declare namespace LLH {
             interface TeamTextWithColorCellController extends TeamTextCellController {
                 setColor(color: string): void;
             }
-            interface TeamTextWithTooltipCellController extends TeamTextCellController {
+            interface TeamTextWithTooltipCellController extends TeamMemberKeyGetSet<string> {
                 element: HTMLElement[];
+                reset(): void;
                 setTooltip(tooltip?: string): void;
             }
             interface TeamSkillLevelCellController extends TeamMemberKeyGetSet<number> {
@@ -1823,6 +1826,7 @@ declare namespace LLH {
                 constructor(options: LLTeamGemListItemComponent_Options);
 
                 onDelete?: () => void;
+                element: HTMLElement;
 
                 setGemColor(gemColor: string): void;
                 setName(name: string): void;
@@ -1967,7 +1971,7 @@ declare namespace LLH {
             interface TeamGemListRowOption extends TeamRowOptionBase {
                 onListChange?: LLTeamGemListComponent_OnListChangeCallback;
             }
-            interface TeamSwapperRowOption extends TeamRowOptionBase {
+            interface TeamRowOptionWithParent extends TeamRowOptionBase {
                 teamComponent: LLTeamComponent;
             }
 
@@ -1982,8 +1986,8 @@ declare namespace LLH {
             type TeamSlotCellCreator = TeamCellCreator<TeamSlotCellController, TeamRowOptionBase>;
             type TeamNormalGemListCellCreator = TeamCellCreator<LLTeamNormalGemListComponent, TeamGemListRowOption>;
             type TeamLAGemListCellCreator = TeamCellCreator<LLTeamLAGemListComponent, TeamGemListRowOption>;
-            type TeamAccessoryIconCellCreator = TeamCellCreator<TeamAccessoryIconCellController, TeamRowOptionBase>;
-            type TeamSwapperCellCreator = TeamCellCreator<TeamSwapperController, TeamSwapperRowOption>;
+            type TeamAccessoryIconCellCreator = TeamCellCreator<TeamAccessoryIconCellController, TeamRowOptionWithParent>;
+            type TeamSwapperCellCreator = TeamCellCreator<TeamSwapperController, TeamRowOptionWithParent>;
             type TeamTextWithTooltipCellCreator = TeamCellCreator<TeamTextWithTooltipCellController, TeamRowOptionBase>;
             type TeamTextWithColorCellCreator = TeamCellCreator<TeamTextWithColorCellController, TeamRowOptionBase>;
 
@@ -1996,7 +2000,7 @@ declare namespace LLH {
             interface LLTeamComponent_Controller extends Controller.ControllerBaseSingleElement {
                 controllers: TeamControllers;
                 isLAGem: boolean;
-                swapper: Misc.LLSwapper;
+                swapper: Misc.LLSwapper<Internal.MemberSaveDataType>;
             }
             interface LLTeamComponent_Options {
                 onPutCardClicked?: (i: IndexType) => void;
@@ -2025,8 +2029,8 @@ declare namespace LLH {
                 getWeights(): number[];
                 setWeight(i: IndexType, w?: number): void;
                 setWeights(weights?: number[]): void;
-                setSwapper(swapper: Misc.LLSwapper): void;
-                getSwapper(): Misc.LLSwapper;
+                setSwapper(swapper: Misc.LLSwapper<Internal.MemberSaveDataType>): void;
+                getSwapper(): Misc.LLSwapper<Internal.MemberSaveDataType>;
                 setMapAttribute(attribute: Core.AttributeType): void;
                 isAllMembersPresent(): boolean;
 
@@ -2182,11 +2186,12 @@ declare namespace LLH {
                 min: number;
                 max: number;
             }
-            interface LLGemStockComponent_GroupController {
+            type LLGemStockComponent_GroupController = {
+                [subType in Internal.GemStockNodeExpandKeys]?: LLGemStockComponent_GroupController;
+            } & {
                 /** for current node and control all its sub nodes */
                 ALL: LLGemStockComponent_NodeController;
-                [subType: string]: LLGemStockComponent_GroupController;
-            }
+            };
             interface LLGemStockComponent_Gui {
                 items: HTMLElement[];
                 controller: LLGemStockComponent_GroupController;
