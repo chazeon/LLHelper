@@ -1031,7 +1031,7 @@ function renderPage(loadDeferred) {
                 }
                 for (var i = 0; i < floatKeys.length; i++) {
                     var floatKey = floatKeys[i];
-                    diffs.push(assertFloatEqualDynamic(calResult[floatKey], expectedResult[floatKey], 0.05, 0, floatKey + ' mismatch'));
+                    diffs.push(assertFloatEqual(calResult[floatKey], expectedResult[floatKey], Math.max(expectedResult[floatKey], 1) * 0.05, 0, floatKey + ' mismatch'));
                 }
             } else {
                 return 0;
@@ -1050,6 +1050,12 @@ function renderPage(loadDeferred) {
                 var maxAB = (a > b ? a : b);
                 assertFloatEqual(a, b, maxAB * 0.05, 0, 'percentile-' + p);
                 distInfo.push(p + '%: ' + b + ' (' + ((b-a) / a * 100).toFixed(2) + '%)');
+                if (expectedResult.simulateSurvivePercentile && expectedResult.simulateSurvivePercentile.length > 0) {
+                    a = expectedResult.simulateSurvivePercentile[p];
+                    b = calResult.simulateSurvivePercentile[p];
+                    assertFloatEqual(a, b, 5, 0, 'survive-' + p);
+                    distInfo.push(p + '%: ' + b + ' (' + ((b-a) / a * 100).toFixed(2) + '%)');    
+                }
             }
             testOptions.successResult = distInfo.join('<br/>');
         }
@@ -1085,7 +1091,7 @@ function renderPage(loadDeferred) {
             'after': test1,
             'run': function () {
                 var runs = [];
-                for (var i = 1; i <= 15; i++) {
+                for (var i = 1; i <= 18; i++) {
                     runs.push(loadAndRunTestCase(i + ''));
                 }
                 return $.when.apply($, runs);

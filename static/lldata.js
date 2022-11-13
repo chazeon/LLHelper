@@ -1675,6 +1675,28 @@ const LLConstValue = {
    'NOTE_TYPE_SWING_EVENT': 12,
    'NOTE_TYPE_SWING_HOLD': 13,
 
+   /** @type {LLH.Core.NoteTriggerType} */
+   'NOTE_TRIGGER_TYPE_ENTER': 1,
+   /** @type {LLH.Core.NoteTriggerType} */
+   'NOTE_TRIGGER_TYPE_HIT': 2,
+   /** @type {LLH.Core.NoteTriggerType} */
+   'NOTE_TRIGGER_TYPE_HOLD': 3,
+   /** @type {LLH.Core.NoteTriggerType} */
+   'NOTE_TRIGGER_TYPE_RELEASE': 4,
+   /** @type {LLH.Core.NoteTriggerType} */
+   'NOTE_TRIGGER_TYPE_MISS': 5,
+
+   /** @type {LLH.Core.NoteAccuracyType} */
+   'NOTE_ACCURACY_PERFECT': 1,
+   /** @type {LLH.Core.NoteAccuracyType} */
+   'NOTE_ACCURACY_GREAT': 2,
+   /** @type {LLH.Core.NoteAccuracyType} */
+   'NOTE_ACCURACY_GOOD': 3,
+   /** @type {LLH.Core.NoteAccuracyType} */
+   'NOTE_ACCURACY_BAD': 4,
+   /** @type {LLH.Core.NoteAccuracyType} */
+   'NOTE_ACCURACY_MISS': 5,
+
    'NOTE_WEIGHT_HOLD_FACTOR': 1.25,
    'NOTE_WEIGHT_SWING_FACTOR': 0.5,
    'NOTE_WEIGHT_PERFECT_FACTOR': 1.25,
@@ -2001,6 +2023,10 @@ var LLConst = (function () {
    };
 
    var NOTE_APPEAR_OFFSET_S = [1.8, 1.6, 1.45, 1.3, 1.15, 1, 0.9, 0.8, 0.7, 0.6];
+   var NOTE_PERFECT_OFFSET_S = [0.072, 0.064, 0.058, 0.052, 0.046, 0.04, 0.036, 0.032, 0.032, 0.032];
+   var NOTE_GREAT_OFFSET_S = [0.18, 0.16, 0.145, 0.13, 0.115, 0.1, 0.09, 0.08, 0.08, 0.08];
+   var NOTE_GOOD_OFFSET_S = [0.288, 0.256, 0.232, 0.208, 0.184, 0.16, 0.144, 0.128, 0.128, 0.128];
+   var NOTE_BAD_OFFSET_S = [0.504, 0.448, 0.406, 0.364, 0.322, 0.28, 0.252, 0.224, 0.224, 0.224];
    /** @type {{[id: LLH.Core.SongDifficultyType]: LLH.Core.NoteSpeedType}} */
    var DEFAULT_SPEED = {};
    DEFAULT_SPEED[KEYS.SONG_DIFFICULTY_EASY] = 2;
@@ -2579,10 +2605,105 @@ var LLConst = (function () {
 
    var COMBO_FEVER_PATTERN_2 = [1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 5, 6, 7, 8, 9, 10]
 
+   /** @param {LLH.Internal.NoteTriggerDataType[]} noteTriggerData */
+   function sortNoteTriggerData(noteTriggerData) {
+      noteTriggerData.sort(function(a, b) {
+         if (a.time < b.time) return -1;
+         else if (a.time > b.time) return 1;
+         else if (a.type < b.type) return -1;
+         else if (a.type > b.type) return 1;
+         else return 0;
+      });
+   }
+
+   /** @param {LLH.Internal.NoteTriggerDataGenerateParam} param */
+   function generateNoteTriggerData_fc(param) {
+      /** @type {LLH.Internal.NoteTriggerDataType[]} */
+      var noteTriggerData = param.lastGenerate || [];
+      if (noteTriggerData.length == 0) {
+         // pre-process note data
+         // assume hold note start with perfect
+         var noteData = param.notes;
+         for (var i = 0; i < noteData.length; i++) {
+            noteTriggerData.push({
+               'type': LLConstValue.NOTE_TRIGGER_TYPE_ENTER,
+               'time': constUtil.Live.getNoteAppearTime(noteData[i].timing_sec, param.speed),
+               'factor': 0,
+               'note': noteData[i]
+            });
+            if (constUtil.Live.isHoldNote(noteData[i].effect)) {
+               // HOLD is not needed here
+               noteTriggerData.push({
+                  'type': LLConstValue.NOTE_TRIGGER_TYPE_RELEASE,
+                  'time': noteData[i].timing_sec + noteData[i].effect_value,
+                  'factor': constUtil.Live.isSwingNote(noteData[i].effect) ? 0.5 : 1,
+                  'note': noteData[i]
+               });
+            } else {
+               noteTriggerData.push({
+                  'type': LLConstValue.NOTE_TRIGGER_TYPE_HIT,
+                  'time': noteData[i].timing_sec,
+                  'factor': constUtil.Live.isSwingNote(noteData[i].effect) ? 0.5 : 1,
+                  'note': noteData[i]
+               });
+            }
+         }
+         sortNoteTriggerData(noteTriggerData);
+         param.lastGenerate = noteTriggerData;
+      }
+      var totalNote = param.notes.length;
+      var curNote = 0;
+      var remainingPerfect = param.perfectCount || 0;
+      for (var i = 0; i < noteTriggerData.length; i++) {
+         var cur = noteTriggerData[i];
+         if (cur.type == LLConstValue.NOTE_TRIGGER_TYPE_RELEASE || cur.type == LLConstValue.NOTE_TRIGGER_TYPE_HIT) {
+            var isPerfect = (Math.random() * (totalNote - curNote) < remainingPerfect);
+            cur.accuracy = (isPerfect ? LLConstValue.NOTE_ACCURACY_PERFECT : LLConstValue.NOTE_ACCURACY_GREAT);
+            if (isPerfect) {
+               remainingPerfect -= 1;
+            }
+            curNote += 1;
+         }
+      }
+      return noteTriggerData;
+   }
+
+   /** @param {LLH.Internal.NoteTriggerDataGenerateParam} param */
+   function generateNoteTriggerData_miss(param) {
+      /** @type {LLH.Internal.NoteTriggerDataType[]} */
+      var noteTriggerData = param.lastGenerate || [];
+      if (noteTriggerData.length == 0) {
+         // only generate once
+         var noteData = param.notes;
+         for (var i = 0; i < noteData.length; i++) {
+            noteTriggerData.push({
+               'type': LLConstValue.NOTE_TRIGGER_TYPE_ENTER,
+               'time': constUtil.Live.getNoteAppearTime(noteData[i].timing_sec, param.speed),
+               'factor': 0,
+               'note': noteData[i]
+            });
+            // no matter hold or not, always miss at timing_sec
+            noteTriggerData.push({
+               'type': LLConstValue.NOTE_TRIGGER_TYPE_MISS,
+               'time': constUtil.Live.getNoteMissTime(noteData[i].timing_sec, param.speed),
+               'factor': 0,
+               'note': noteData[i]
+            });
+         }
+         sortNoteTriggerData(noteTriggerData);
+         param.lastGenerate = noteTriggerData;
+      }
+      return noteTriggerData;
+   }
+
+
    /** @type {LLH.ConstUtil.Live} */
    var LiveUtils = {
       getNoteAppearTime: function(noteTimeSec, speed) {
          return noteTimeSec - NOTE_APPEAR_OFFSET_S[speed - 1];
+      },
+      getNoteMissTime: function (noteTimeSec, speed) {
+         return noteTimeSec + NOTE_BAD_OFFSET_S[speed - 1];
       },
       getDefaultSpeed: function (difficulty) {
          return DEFAULT_SPEED[difficulty] || 8;
@@ -2592,6 +2713,9 @@ var LLConst = (function () {
       },
       isSwingNote: function(note_effect) {
          return (note_effect == KEYS.NOTE_TYPE_SWING || note_effect == KEYS.NOTE_TYPE_SWING_HOLD || note_effect == KEYS.NOTE_TYPE_SWING_EVENT);
+      },
+      isStarNote: function(note_effect) {
+         return (note_effect == KEYS.NOTE_TYPE_BOMB_1 || note_effect == KEYS.NOTE_TYPE_BOMB_3 || note_effect == KEYS.NOTE_TYPE_BOMB_5 || note_effect == KEYS.NOTE_TYPE_BOMB_9);
       },
       getComboScoreFactor: function (combo) {
          if (combo <= 50) return 1;
@@ -2605,6 +2729,16 @@ var LLConst = (function () {
       getComboFeverBonus: function(combo, pattern) {
          if (pattern == 1) return (combo >= 300 ? 10 : Math.pow(Math.floor(combo/10), 2)/100+1);
          return (combo >= 220 ? 10 : COMBO_FEVER_PATTERN_2[Math.floor(combo/10)]);
+      },
+      generateNoteTriggerData: function (param) {
+         if (param.method == 'fc') {
+            return generateNoteTriggerData_fc(param);
+         } else if (param.method == 'miss') {
+            return generateNoteTriggerData_miss(param);
+         } else {
+            console.error('Unknown generate method: ' + param.method);
+            return [];
+         }
       }
    };
    constUtil.Live = LiveUtils;
@@ -4649,7 +4783,13 @@ var LLMap = (function () {
       }
       /** @param {LLH.Layout.ScoreDistParam.ScoreDistParamSaveData} distParam */
       setDistParam(distParam) {
-         this.data.perfect = Math.floor((distParam.perfect_percent || 0)/100 * this.data.combo);
+         if (distParam.note_trigger_generate_method == 'miss') {
+            this.data.missCount = this.data.combo;
+            this.data.perfect = 0;
+         } else {
+            this.data.perfect = Math.floor((distParam.perfect_percent || 0)/100 * this.data.combo);
+            this.data.missCount = 0;
+         }
          this.data.speed = distParam.speed;
          this.data.combo_fever_pattern = distParam.combo_fever_pattern;
          this.data.combo_fever_limit = distParam.combo_fever_limit;
@@ -5473,10 +5613,11 @@ var LLSimulateContextStatic = (function () {
 })();
 
 var LLSimulateContext = (function() {
-   const SIM_NOTE_ENTER = 1;
-   const SIM_NOTE_HIT = 2;
-   const SIM_NOTE_HOLD = 3;
-   const SIM_NOTE_RELEASE = 4;
+   const SIM_NOTE_ENTER = LLConstValue.NOTE_TRIGGER_TYPE_ENTER;
+   const SIM_NOTE_HIT = LLConstValue.NOTE_TRIGGER_TYPE_HIT;
+   const SIM_NOTE_HOLD = LLConstValue.NOTE_TRIGGER_TYPE_HOLD;
+   const SIM_NOTE_RELEASE = LLConstValue.NOTE_TRIGGER_TYPE_RELEASE;
+   const SIM_NOTE_MISS = LLConstValue.NOTE_TRIGGER_TYPE_MISS;
    const EPSILON = 1e-8;
    const SEC_PER_FRAME = 0.016;
 
@@ -5545,6 +5686,10 @@ var LLSimulateContext = (function() {
          this.currentScore = 0;
          this.currentPerfect = 0;
          this.currentStarPerfect = 0;
+         this.currentGreat = 0;
+         this.currentGood = 0;
+         this.currentBad = 0;
+         this.currentMiss = 0;
          this.currentHPData = initHPData(staticData.totalHP);
          this.skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
          this.skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -5556,7 +5701,6 @@ var LLSimulateContext = (function() {
          this.accessoryActiveHalfEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
          this.currentAccuracyCoverNote = 0;
          this.totalPerfectScoreUp = 0; // capped at SKILL_LIMIT_PERFECT_SCORE_UP
-         this.remainingPerfect = staticData.totalPerfect;
          this.triggers = {};
          this.memberSkillOrder = [];
          this.lastFrameForLevelUp = -1;
@@ -6109,7 +6253,9 @@ var LLSimulateContext = (function() {
          return false;
       }
       setFullCombo() {
-         this.isFullCombo = true;
+         if (this.currentCombo == this.staticData.totalNote) {
+            this.isFullCombo = true;
+         }
       }
       /**
        * @param {LLH.Internal.NoteTriggerDataType[]} noteTriggerData 
@@ -6219,26 +6365,51 @@ var LLSimulateContext = (function() {
                if (curNote.type == SIM_NOTE_ENTER) {
                   this.currentNote++;
                } else if (curNote.type == SIM_NOTE_HIT || curNote.type == SIM_NOTE_RELEASE) {
-                  var isPerfect = (Math.random() * (this.staticData.totalNote - this.currentCombo) < this.remainingPerfect);
+                  var accuracy = curNote.accuracy || LLConstValue.NOTE_ACCURACY_GREAT;
                   var accuracyBonus = LLConstValue.NOTE_WEIGHT_PERFECT_FACTOR;
                   var isAccuracyState = this.isAccuracyState;
                   var comboFeverScore = 0;
                   var perfectScoreUp = 0;
-                  this.currentCombo++;
-                  if (isPerfect) {
+                  var finalAccuracy = accuracy;
+                  if (accuracy == LLConstValue.NOTE_ACCURACY_GOOD) {
+                     if (this.effects[LLConstValue.SKILL_EFFECT_ACCURACY_NORMAL] > 0) {
+                        finalAccuracy = LLConstValue.NOTE_ACCURACY_PERFECT;
+                     }
+                  } else if (accuracy == LLConstValue.NOTE_ACCURACY_GREAT) {
+                     if (isAccuracyState) {
+                        finalAccuracy = LLConstValue.NOTE_ACCURACY_PERFECT;
+                     }
+                  }
+                  if (finalAccuracy == LLConstValue.NOTE_ACCURACY_PERFECT) {
                      this.currentPerfect++;
-                     this.remainingPerfect--;
+                     this.currentCombo++;
                      perfectScoreUp = this.effects[LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP];
-                     if (isAccuracyState && this.staticData.perfectAccuracyPattern) {
+                     if (accuracy == LLConstValue.NOTE_ACCURACY_PERFECT && isAccuracyState && this.staticData.perfectAccuracyPattern) {
                         accuracyBonus = LLConstValue.NOTE_WEIGHT_ACC_PERFECT_FACTOR;
                      }
-                  } else {
-                     if (isAccuracyState) {
-                        this.currentPerfect++;
-                        perfectScoreUp = this.effects[LLConstValue.SKILL_EFFECT_PERFECT_SCORE_UP];
-                     } else {
-                        accuracyBonus = LLConstValue.NOTE_WEIGHT_GREAT_FACTOR;
+                     if (LLConst.Live.isStarNote(curNote.note.effect)) {
+                        this.currentStarPerfect++;
                      }
+                  } else if (finalAccuracy == LLConstValue.NOTE_ACCURACY_GREAT) {
+                     this.currentGreat++;
+                     this.currentCombo++;
+                     accuracyBonus = LLConstValue.NOTE_WEIGHT_GREAT_FACTOR;
+                  } else if (accuracy == LLConstValue.NOTE_ACCURACY_GOOD) {
+                     this.currentGood++;
+                     this.currentCombo = 0;
+                     if (LLConst.Live.isStarNote(curNote.note.effect)) {
+                        this.updateHP(-2);
+                     }
+                     accuracyBonus = LLConstValue.NOTE_WEIGHT_GOOD_FACTOR;
+                  } else if (accuracy == LLConstValue.NOTE_ACCURACY_BAD) {
+                     this.currentBad++;
+                     this.currentCombo = 0;
+                     if (LLConst.Live.isStarNote(curNote.note.effect)) {
+                        this.updateHP(-2);
+                     } else {
+                        this.updateHP(-1);
+                     }
+                     accuracyBonus = LLConstValue.NOTE_WEIGHT_BAD_FACTOR;
                   }
                   if (isAccuracyState) {
                      this.currentAccuracyCoverNote++;
@@ -6264,9 +6435,20 @@ var LLSimulateContext = (function() {
                   // 点击得分对CF分有加成, 1000分的CF加成上限是限制在点击得分加成之前
                   this.currentScore += Math.ceil(baseNoteScore * this.staticData.mapTapScoreUp);
                   this.totalPerfectScoreUp += perfectScoreUp;
+               } else if (curNote.type == SIM_NOTE_MISS) {
+                  this.currentMiss++;
+                  this.currentCombo = 0;
+                  // 早期版本星星note的miss伤害好像是4，现在是2
+                  this.updateHP(-2);
                }
                noteTriggerIndex++;
                curNote = (noteTriggerIndex < noteTriggerData.length ? noteTriggerData[noteTriggerIndex] : undefined);
+               this.commitHP();
+               if (this.isZeroHP()) {
+                  this.setFailTime(this.currentTime);
+                  this.updateLAGemTotalBonus();
+                  return;
+               }
             }
          }
          this.setFullCombo();
@@ -6294,10 +6476,6 @@ var LLTeam = (function() {
    ];
    var armCombinationList = [];
    var MAX_SLOT = 8;
-   const SIM_NOTE_ENTER = 1;
-   const SIM_NOTE_HIT = 2;
-   const SIM_NOTE_HOLD = 3;
-   const SIM_NOTE_RELEASE = 4;
    var getArmCombinationList = function () {
       if (armCombinationList.length > 0) return armCombinationList;
       var i;
@@ -6580,47 +6758,16 @@ var LLTeam = (function() {
             return;
          }
          var i;
-         var speed = mapdata.speed || 8;
-         /** @type {LLH.Internal.NoteTriggerDataType[]} */
-         var noteTriggerData = [];
-         // pre-process note data
-         // assume hold note start with perfect
-         for (i = 0; i < noteData.length; i++) {
-            noteTriggerData.push({
-               'type': SIM_NOTE_ENTER,
-               'time': LLConst.Live.getNoteAppearTime(noteData[i].timing_sec, speed),
-               'factor': 0,
-               'note': noteData[i]
-            });
-            if (LLConst.Live.isHoldNote(noteData[i].effect)) {
-               noteTriggerData.push({
-                  'type': SIM_NOTE_HOLD,
-                  'time': noteData[i].timing_sec,
-                  'factor': 0,
-                  'note': noteData[i]
-               });
-               noteTriggerData.push({
-                  'type': SIM_NOTE_RELEASE,
-                  'time': noteData[i].timing_sec + noteData[i].effect_value,
-                  'factor': LLConst.Live.isSwingNote(noteData[i].effect) ? 0.5 : 1,
-                  'note': noteData[i]
-               });
-            } else {
-               noteTriggerData.push({
-                  'type': SIM_NOTE_HIT,
-                  'time': noteData[i].timing_sec,
-                  'factor': LLConst.Live.isSwingNote(noteData[i].effect) ? 0.5 : 1,
-                  'note': noteData[i]
-               });
-            }
-         }
-         noteTriggerData.sort(function(a, b) {
-            if (a.time < b.time) return -1;
-            else if (a.time > b.time) return 1;
-            else if (a.type < b.type) return -1;
-            else if (a.type > b.type) return 1;
-            else return 0;
-         });
+         /** @type {LLH.Internal.NoteTriggerDataGenerateParam} */
+         var generateParam = {
+            'speed': mapdata.speed || 8,
+            'method': (mapdata.missCount == mapdata.combo ? 'miss' : 'fc'),
+            'notes': noteData,
+            'perfectCount': mapdata.perfect,
+            'missCount': mapdata.missCount || 0
+         };
+         var noteTriggerData = LLConst.Live.generateNoteTriggerData(generateParam);
+         
          var maxTime = noteTriggerData[noteTriggerData.length-1].time;
          if (mapdata.time > maxTime + 1e-8) {
             maxTime = mapdata.time;
@@ -6630,6 +6777,8 @@ var LLTeam = (function() {
          }
    
          var scores = {};
+         /** @type {number[]} */
+         var simSurviveResults = new Array(101);
          var skillsActiveCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
          var skillsActiveChanceCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
          var skillsActiveNoEffectCount = [0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -6647,6 +6796,9 @@ var LLTeam = (function() {
          var staticData = new LLSimulateContextStatic(mapdata, this, maxTime);
          for (i = 0; i < simCount; i++) {
             var env = new LLSimulateContext(staticData);
+            if (i > 0) {
+               noteTriggerData = LLConst.Live.generateNoteTriggerData(generateParam);
+            }
             env.simulate(noteTriggerData, this);
    
             if (scores[env.currentScore] !== undefined) {
@@ -6659,8 +6811,15 @@ var LLTeam = (function() {
             totalOverHealLevel += env.currentHPData.overHealLevel;
             totalAccuracyCoverNote += env.currentAccuracyCoverNote;
             totalLABonus += env.laGemTotalBonus;
+            var survivePercent = 100;
             if (env.failTime !== undefined) {
                totalFail += 1;
+               survivePercent = Math.floor(100 * (env.failTime / maxTime));
+            }
+            if (simSurviveResults[survivePercent] !== undefined) {
+               simSurviveResults[survivePercent] += 1;
+            } else {
+               simSurviveResults[survivePercent] = 1;
             }
             for (var j = 0; j < 9; j++) {
                skillsActiveCount[j] += env.skillsActiveCount[j];
@@ -6685,6 +6844,7 @@ var LLTeam = (function() {
          }
          /** @type {LLH.Internal.SimulateScoreResult[]} */
          var simResults = [];
+
          for (i in scores) {
             simResults.push({
                'score': parseInt(i),
@@ -6707,8 +6867,23 @@ var LLTeam = (function() {
                nextResultCount = Math.floor(percentile.length * simCount / 100);
             }
          }
+
+         // survive results
+         if (simSurviveResults[100] === undefined) {
+            simSurviveResults[100] = 0;
+         }
+         for (i = simSurviveResults.length - 1; i > 0; i--) {
+            if (simSurviveResults[i-1] === undefined) {
+               simSurviveResults[i-1] = simSurviveResults[i];
+            } else {
+               simSurviveResults[i-1] += simSurviveResults[i];
+            }
+         }
+
+         // results
          this.calculateResult.simulateScoreResults = simResults;
          this.calculateResult.naivePercentile = percentile;
+         this.calculateResult.simulateSurvivePercentile = simSurviveResults.map((x) => 100 * x / simCount);
          this.calculateResult.naiveExpection = Math.round(expection / simCount);
          this.calculateResult.probabilityForMinScore = minResult.count / simCount;
          this.calculateResult.probabilityForMaxScore = maxResult.count / simCount;
@@ -8457,6 +8632,11 @@ var LLScoreDistributionParameter = (function () {
    const distTypeLASelectOptions = [
       {'value': 'simla', 'text': '计算模拟分布（演唱会竞技场）'}
    ];
+   /** @type {LLH.Component.LLSelectComponent_OptionDef<LLH.Internal.NoteTriggerDataGenerateMethod>[]} */
+   const noteTriggerGenerateMethodOptions = [
+      {'value': 'fc', 'text': '默认（FC，可设置无判perfect率）'},
+      {'value': 'miss', 'text': '摆烂（全miss）'}
+   ];
    const speedSelectOptions = [
       {'value': '1', 'text': '1速'},
       {'value': '2', 'text': '2速'},
@@ -8502,13 +8682,15 @@ var LLScoreDistributionParameter = (function () {
    const DEFAULT_OVER_HEAL = '1';
    const DEFAULT_PERFECT_ACCURACY = '1';
    const DEFAULT_TRIGGER_LIMIT = '1';
+   const DEFAULT_NOTE_TRIGGER_GENERATE_METHOD = 'fc';
 
    /**
-    * @param {LLH.Component.LLSelectComponent_OptionDef[]} options 
-    * @param {string} defaultValue 
-    * @returns {LLH.Component.LLSelectComponent}
+    * @template {string} T
+    * @param {LLH.Component.LLSelectComponent_OptionDef<T>[]} options 
+    * @param {T} defaultValue 
     */
    function createSelectComponent(options, defaultValue) {
+      /** @type {LLH.Component.LLSelectComponent<T>} */
       var ret = new LLSelectComponent(LLUnit.createSelectElement({'className': 'form-control'}));
       ret.setOptions(options);
       ret.set(defaultValue);
@@ -8548,9 +8730,12 @@ var LLScoreDistributionParameter = (function () {
       var simParamOverHealComponent = createEnableDisableComponent(true);
       var simParamPerfectAccuracyComponent = createEnableDisableComponent(true);
       var simParamTriggerLimitComponent = createEnableDisableComponent(true);
+      var simParamNoteTriggerGenerateMethodComponent = createSelectComponent(noteTriggerGenerateMethodOptions, DEFAULT_NOTE_TRIGGER_GENERATE_METHOD);
+      var simParamPerfectPercentRowComponent = new LLComponentBase(createFormInlineGroup('无判perfect率：', [simParamPerfectPercent, '%']));
       var simParamContainer = createElement('div', {'className': 'filter-form label-size-12'}, [
          createFormInlineGroup('模拟次数：', [simParamCount, '（模拟次数越多越接近实际分布，但是也越慢）']),
-         createFormInlineGroup('无判perfect率：', [simParamPerfectPercent, '%']),
+         createFormInlineGroup('模拟打歌策略：', simParamNoteTriggerGenerateMethodComponent.element),
+         simParamPerfectPercentRowComponent.element,
          createFormInlineGroup('速度：', [simParamSpeedComponent.element, '（图标下落速度，1速最慢，10速最快）']),
          createFormInlineGroup('Combo Fever技能：', [simParamComboFeverPatternComponent.element, simParamComboFeverLimitComponent.element]),
          createFormInlineGroup('溢出奶：', simParamOverHealComponent.element),
@@ -8586,6 +8771,13 @@ var LLScoreDistributionParameter = (function () {
          selComp.set('simla');
          simParamContainerComponent.show();
       }
+      simParamNoteTriggerGenerateMethodComponent.onValueChange = function (v) {
+         if (v == 'fc') {
+            simParamPerfectPercentRowComponent.show();
+         } else if (v == 'miss') {
+            simParamPerfectPercentRowComponent.hide();
+         }
+      };
       var container = createElement('div', undefined, [
          createFormInlineGroup('选择分数分布计算模式：', [selComp.element, detailLink]),
          detailContainer,
@@ -8597,6 +8789,7 @@ var LLScoreDistributionParameter = (function () {
             return {
                'type': selComp.getOrElse(defaultSelValue),
                'count': parseInt(simParamCount.value),
+               'note_trigger_generate_method': simParamNoteTriggerGenerateMethodComponent.get(),
                'perfect_percent': parseFloat(simParamPerfectPercent.value),
                'speed': parseInt(simParamSpeedComponent.getOrElse(DEFAULT_SPEED)),
                'combo_fever_pattern': /** @type {LLH.Core.ComboFeverPattern} */ (parseInt(simParamComboFeverPatternComponent.getOrElse(DEFAULT_COMBO_FEVER_PATTERN))),
@@ -8610,6 +8803,7 @@ var LLScoreDistributionParameter = (function () {
             if (!data) return;
             if (data.type) selComp.set(data.type);
             if (data.count !== undefined) simParamCount.value = data.count + '';
+            if (data.note_trigger_generate_method !== undefined) simParamNoteTriggerGenerateMethodComponent.set(data.note_trigger_generate_method);
             if (data.perfect_percent !== undefined) simParamPerfectPercent.value = data.perfect_percent + '';
             if (data.speed) simParamSpeedComponent.set(data.speed + '');
             if (data.combo_fever_pattern) simParamComboFeverPatternComponent.set(data.combo_fever_pattern + '');
@@ -8648,7 +8842,7 @@ var LLScoreDistributionParameter = (function () {
    return LLScoreDistributionParameter_cls;
 })();
 
-var LLScoreDistributionChart = (function () {
+var LLChartComponentBase = (function () {
    var createElement = LLUnit.createElement;
    /** @returns {LLH.Depends.HighCharts.ChartOptions} */
    function makeCommonOptions() {
@@ -8698,27 +8892,21 @@ var LLScoreDistributionChart = (function () {
       var ret = {
          'type': 'line',
          //'showCheckbox': true,
-         'name': name
-      }
-      if (series.length == 99) {
-         ret.data = series;
-      } else if (series.length == 101) {
-         ret.data = series.slice(1, 100).reverse();
-      } else {
-         console.error('Unknown series');
-         console.log(series);
-         ret.data = series;
+         'name': name,
+         'data': series
       }
       return ret;
    };
 
-   class LLScoreDistributionChart_cls {
+   class LLChartComponentBase {
       /**
-       * @param {LLH.Component.HTMLElementOrId} id 
-       * @param {LLH.Layout.ScoreDistChart.LLScoreDistributionChart_Options} options 
+       * @param {LLH.Component.LLChartComponent_Options} [options] 
        */
-      constructor(id, options) {
-         var element = LLUnit.getElement(id);
+      constructor(options) {
+         if (!options) {
+            options = {};
+         }
+         var element = LLUnit.getOrCreateElement(options.id, 'div', {'style': {'width': '100%'}});
          if (!Highcharts) {
             console.error('Not included Highcharts');
          }
@@ -8726,14 +8914,11 @@ var LLScoreDistributionChart = (function () {
          var baseComponent = new LLComponentBase(element);
          baseComponent.show(); // need show before create chart, otherwise the canvas size is wrong...
          var canvasDiv = createElement('div');
-         var clearButton = createElement('button', { 'className': 'btn btn-danger', 'type': 'button', 'innerHTML': '清空曲线' }, undefined, {
-            'click': function () {
-               me.clearSeries();
-            }
-         });
-         element.appendChild(canvasDiv);
-         element.appendChild(clearButton);
-         var chartOptions = makeCommonOptions();
+         var clearButton = new LLButtonComponent({'colorStyle': 'danger', 'text': '清空曲线', 'click': function () {
+            me.clearSeries();
+         }});
+         LLUnit.updateSubElements(element, [canvasDiv, clearButton.element]);
+         var chartOptions = options.chartOptions || makeCommonOptions();
          var seriesOptions = [];
          var nameId = 1;
          if (options) {
@@ -8749,13 +8934,14 @@ var LLScoreDistributionChart = (function () {
          }
          chartOptions.series = seriesOptions;
          this.chart = Highcharts.chart(canvasDiv, chartOptions);
+         this.element = element;
          this._nameId = nameId;
          this._baseComponent = baseComponent;
       }
       /** @param {number[]} data */
       addSeries(data) {
          this.show();
-         this.chart.addSeries(makeSeries(data, String(this._nameId)));
+         this.chart.addSeries(makeSeries(data, this._nameId + ''));
          this._nameId++;
       }
       clearSeries() {
@@ -8775,7 +8961,115 @@ var LLScoreDistributionChart = (function () {
          this._baseComponent.hide();
       }
    }
-   return LLScoreDistributionChart_cls;
+   return LLChartComponentBase;
+})();
+
+var LLScoreDistributionChart = (function () {
+   /** @param {number[]} data */
+   function normalizeSeriesData(data) {
+      if (data.length == 99) {
+         return data;
+      } else if (data.length == 101) {
+         return data.slice(1, 100).reverse();
+      } else {
+         console.error('Unknown series');
+         console.log(data);
+         return data;
+      }
+   }
+   /** @param {number[][]} [dataArray] */
+   function normalizeSeriesDataArray(dataArray) {
+      if (dataArray === undefined) {
+         return undefined;
+      }
+      return dataArray.map((x) => normalizeSeriesData(x));
+   }
+   class LLScoreDistributionChart extends LLChartComponentBase {
+      /**
+       * @param {LLH.Component.LLChartComponent_CommonOptions} options 
+       */
+      constructor(options) {
+         super({
+            'id': options.id,
+            'series': normalizeSeriesDataArray(options.series),
+            'width': options.width,
+            'height': options.height,
+         });
+      }
+      /** @param {number[]} data */
+      addSeries(data) {
+         super.addSeries(normalizeSeriesData(data))
+      }
+   }
+   return LLScoreDistributionChart;
+})();
+
+var LLSurviveChart = (function () {
+   /** @returns {LLH.Depends.HighCharts.ChartOptions} */
+   function makeCommonOptions() {
+      return {
+         title: {
+            text: '生存曲线'
+         },
+         credits: {
+            text: 'LLhelper',
+            href: 'http://llhelper.com'
+         },
+         xAxis: {
+            min: 0,
+            max: 100,
+            tickInterval: 10,
+            crosshair: true,
+            labels: {
+               format: '{value}%'
+            },
+            title: {
+               text: '百分比歌曲时长'
+            }
+         },
+         yAxis: {
+            min: 0,
+            max: 101,
+            tickInterval: 10,
+            endOnTick: false,
+            labels: {
+               format: '{value}%'
+            },
+            title: {
+               text: '存活率'
+            }
+         },
+         tooltip: {
+            headerFormat: '<span style="font-size: 10px">{point.key}%</span><br/>',
+            shared: true
+         },
+         plotOptions: {
+            line: {
+               marker: {
+                  radius: 2,
+                  symbol: 'circle'
+               },
+               pointStart: 0
+            }
+         }
+      };
+   };
+
+   class LLSurviveChart extends LLChartComponentBase {
+      /**
+       * @param {LLH.Component.LLChartComponent_CommonOptions} options 
+       */
+      constructor(options) {
+         super({
+            'id': options.id,
+            'series': options.series,
+            'width': options.width,
+            'height': options.height,
+            'chartOptions': makeCommonOptions()
+         });
+      }
+   }
+   return LLSurviveChart;
 })();
 
 var LLTeamComponent = (function () {
