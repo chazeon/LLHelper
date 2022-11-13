@@ -49,6 +49,10 @@ declare namespace LLH {
         type NoteSpeedType = number;
         /** LLConstValue.NOTE_TYPE_... */
         type NoteEffectType = number;
+        /** LLConstValue.NOTE_TRIGGER_TYPE_... 1: enter, 2: hit, 3: hold, 4: release, 5: miss*/
+        type NoteTriggerType = 1 | 2 | 3 | 4 | 5;
+        /** LLConstValue.NOTE_ACCURACY_... 1: perfect, 2: great, 3: good, 4: bad, 5: miss */
+        type NoteAccuracyType = 1 | 2 | 3 | 4 | 5;
         /** 1 for 300 combo, 2 for 220 combo */
         type ComboFeverPattern = 1 | 2;
         type ComboFeverLimit = 1000 | 2147483647;
@@ -445,6 +449,8 @@ declare namespace LLH {
             averageAccessoryActiveHalfEffectCount: number[];
             averageLABonus: number;
             naivePercentile: number[];
+            /** [percentile of song] = percent of survive  */
+            simulateSurvivePercentile: number[];
             naiveExpection: number;
             probabilityForMinScore: number;
             probabilityForMaxScore: number;
@@ -457,13 +463,27 @@ declare namespace LLH {
         }
 
         interface NoteTriggerDataType {
-            /** 1: enter, 2: hit, 3: hold, 4: release */
-            type: 1 | 2 | 3 | 4;
+            type: Core.NoteTriggerType;
             /** float */
             time: number;
             note: API.NoteDataType;
-            /** valid for hit/release, 0.5 for swing, 1 for other, 0 for enter/hold */
+            /** valid for hit/release, 0.5 for swing, 1 for other, 0 for enter/hold/miss */
             factor: number;
+            /** valid for hit/release */
+            accuracy?: Core.NoteAccuracyType;
+        }
+
+        type NoteTriggerDataGenerateMethod = 'fc' | 'miss';
+        interface NoteTriggerDataGenerateParam {
+            notes: API.NoteDataType[];
+            speed: Core.NoteSpeedType;
+            method: NoteTriggerDataGenerateMethod;
+            perfectCount?: number;
+            greatCount?: number;
+            goodCount?: number;
+            badCount?: number;
+            missCount?: number;
+            lastGenerate?: NoteTriggerDataType[];
         }
 
         interface SimulateScoreResult {
@@ -540,8 +560,14 @@ declare namespace LLH {
                     max?: number;
                     min?: number;
                     tickInterval?: number;
+                    title?: ChartTitleOptions;
                 }
                 interface ChartYAxisOptions {
+                    labels?: ChartAxisLabelOptions;
+                    max?: number;
+                    min?: number;
+                    tickInterval?: number;
+                    endOnTick?: boolean;
                     title?: ChartTitleOptions;
                 }
                 interface ChartTooltipOptions {
@@ -884,6 +910,27 @@ declare namespace LLH {
             handleFilters(name?: string): void;
 
             override loadData(data?: Mixin.SaveLoadableGroupDataType): void;
+        }
+
+        interface LLChartComponent_CommonOptions {
+            id?: HTMLElementOrId;
+            series?: number[][];
+            width?: string;
+            height?: string;
+        }
+        interface LLChartComponent_Options extends LLChartComponent_CommonOptions {
+            chartOptions?: Depends.HighCharts.ChartOptions;
+        }
+        class LLChartComponentBase {
+            constructor(options?: LLChartComponent_Options);
+
+            addSeries(data: number[]): void;
+            clearSeries(): void;
+            show(): void;
+            hide(): void;
+
+            chart: Depends.HighCharts.ChartType;
+            element: HTMLElement;
         }
     }
 
@@ -1265,11 +1312,14 @@ declare namespace LLH {
         }
         interface Live {
             getNoteAppearTime(noteTimeSec: number, speed: Core.NoteSpeedType): number;
+            getNoteMissTime(noteTimeSec: number, speed: Core.NoteSpeedType): number;
             getDefaultSpeed(difficulty: Core.SongDifficultyType): Core.NoteSpeedType;
             isHoldNote(note_effect: Core.NoteEffectType): boolean;
             isSwingNote(note_effect: Core.NoteEffectType): boolean;
+            isStarNote(note_effect: Core.NoteEffectType): boolean;
             getComboScoreFactor(combo: number): number;
             getComboFeverBonus(combo: number, pattern: Core.ComboFeverPattern): number;
+            generateNoteTriggerData(param: Internal.NoteTriggerDataGenerateParam): Internal.NoteTriggerDataType[];
         }
         interface Song {
             getSongGroupShortName(song_group: Core.SongGroupIdType): string;
@@ -1432,6 +1482,7 @@ declare namespace LLH {
             debuff_hp_down_interval?: number;
 
             simMode?: Internal.SimulateMode;
+            missCount?: number;
         }
         class LLMap implements Mixin.SaveLoadJson {
             constructor(options?: LLMap_Options);
@@ -1674,6 +1725,10 @@ declare namespace LLH {
             currentScore: number;
             currentPerfect: number;
             currentStarPerfect: number;
+            currentGreat: number;
+            currentGood: number;
+            currentBad: number;
+            currentMiss: number;
             currentHPData: LLSimulateContext_HP;
             skillsActiveCount: number[];
             skillsActiveChanceCount: number[];
@@ -1685,7 +1740,6 @@ declare namespace LLH {
             accessoryActiveHalfEffectCount: number[];
             currentAccuracyCoverNote: number;
             totalPerfectScoreUp: number;
-            remainingPerfect: number;
             triggers: {[type: number]: LLSimulateContext_Trigger[]};
             memberSkillOrder: number[];
             lastFrameForLevelUp: number;
@@ -2114,6 +2168,8 @@ declare namespace LLH {
                 perfect_accuracy_pattern: Core.YesNoNumberType;
                 /** 0 for disabled, 1 for enabled */
                 trigger_limit_pattern: Core.YesNoNumberType;
+                /** default 'fc' */
+                note_trigger_generate_method?: Internal.NoteTriggerDataGenerateMethod;
             }
             interface ScoreDistParamController extends Controller.ControllerBaseSingleElement {
                 getParameters(): ScoreDistParamSaveData;
@@ -2130,20 +2186,15 @@ declare namespace LLH {
             }
         }
         namespace ScoreDistChart {
-            interface LLScoreDistributionChart_Options {
-                series?: number[][];
-                width?: string;
-                height?: string;
+            class LLScoreDistributionChart extends Component.LLChartComponentBase {
+                constructor(options: Component.LLChartComponent_CommonOptions);
+
+                override addSeries(data: number[]): void;
             }
-            class LLScoreDistributionChart {
-                constructor(id: Component.HTMLElementOrId, options?: LLScoreDistributionChart_Options);
-
-                addSeries(data: number[]): void;
-                clearSeries(): void;
-                show(): void;
-                hide(): void;
-
-                chart: Depends.HighCharts.ChartType;
+        }
+        namespace SurviveChart {
+            class LLSurviveChart extends Component.LLChartComponentBase {
+                constructor(options: Component.LLChartComponent_CommonOptions);
             }
         }
         namespace UnitResult {

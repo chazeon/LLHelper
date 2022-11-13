@@ -20,7 +20,10 @@ var comp_gemstock;
 /** @type {LLH.Layout.SubMember.LLSubMemberComponent} */
 var comp_submember;
 var comp_swapper = 0;
-var comp_distribution_chart = 0;
+/** @type {LLH.Layout.ScoreDistChart.LLScoreDistributionChart} */
+var comp_distribution_chart;
+/** @type {LLH.Layout.SurviveChart.LLSurviveChart} */
+var comp_survive_chart;
 /** @type {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
 var comp_distribution_param;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
@@ -276,9 +279,14 @@ function docalculate(cards, accessoryDetails, extraData) {
         document.getElementById('simresult100').innerHTML = calResult.minScore;
         document.getElementById('distributionresult').style.display = '';
         if (!comp_distribution_chart) {
-            comp_distribution_chart = new LLScoreDistributionChart('score_chart', {'series': [calResult.naivePercentile], 'width': '100%', 'height': '400px'});
+            comp_distribution_chart = new LLScoreDistributionChart({'id': 'score_chart', 'series': [calResult.naivePercentile], 'width': '100%', 'height': '400px'});
         } else {
             comp_distribution_chart.addSeries(calResult.naivePercentile);
+        }
+        if (!comp_survive_chart) {
+            comp_survive_chart = new LLSurviveChart({'id': 'survive_chart', 'series': [calResult.simulateSurvivePercentile || []], 'width': '100%', 'height': '400px' });
+        } else {
+            comp_survive_chart.addSeries(calResult.simulateSurvivePercentile || []);
         }
     } else {
         document.getElementById('distributionresult').style.display = 'none';
