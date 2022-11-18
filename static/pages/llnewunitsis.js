@@ -1,11 +1,13 @@
 var import_unit_json = undefined;
 
-var data_mapnote = 0;
+/** @type {LLMapNoteData} */
+var data_mapnote;
 /** @type {LLH.Selector.LLCardSelectorComponent} */
 var comp_cardselector;
 /** @type {LLH.Selector.LLSongSelectorComponent} */
 var comp_songselector;
-var comp_gemselector = 0;
+/** @type {LLH.Selector.LLGemSelectorComponent} */
+var comp_gemselector;
 /** @type {LLH.Selector.LLAccessorySelectorComponent} */
 var comp_accessory_selector;
 /** @type {LLH.Layout.GemStock.LLGemStockComponent} */
@@ -18,11 +20,14 @@ var comp_survive_chart;
 var comp_distribution_param;
 /** @type {LLH.Layout.Team.LLTeamComponent} */
 var comp_team;
-var comp_result = 0;
+/** @type {LLH.Layout.UnitResult.LLUnitResultComponent} */
+var comp_result;
 /** @type {LLH.Layout.Language.LLLanguageComponent} */
 var comp_language;
 /** @type {LLH.Persistence.LLSaveLoadJsonGroup} */
 var persister;
+
+var enable_make_test_case = 0;
 
 function clearall(){
     persister.clearAll();
@@ -98,6 +103,16 @@ function check(){
 }
 
 function docalculate(cards, accessoryDetails, extraData) {
+    /** @type {LLH.Test.TestCaseData} */
+    var test_case = {};
+    if (enable_make_test_case) {
+        test_case.saveData = JSON.parse(makeSaveData().serializeV104());
+        test_case.songId = comp_songselector.getSelectedSongId();
+        test_case.songSettingId = comp_songselector.getSelectedSongSettingId();
+        test_case.version = LLCardData.getVersion();
+        test_case.page = 'llnewunitsis';
+    }
+    
     var member = comp_team.getMembers();
     var llmembers = [];
 
@@ -120,8 +135,11 @@ function docalculate(cards, accessoryDetails, extraData) {
     }
     var llmapSaveData = llmap.saveData();
     if (document.getElementById('autoarm0').checked){
+        if (enable_make_test_case) {
+            test_case.autoArmGem = true;
+        }
         // autoarm
-        llteam.autoArmGem(llmapSaveData, comp_gemstock.saveData());  //TODO: member gem
+        llteam.autoArmGem(llmapSaveData, comp_gemstock.saveData());
         for (var i = 0; i < 9; i++) {
             comp_team.setMemberGem(i, llteam.members[i].gems);
         }
@@ -179,6 +197,12 @@ function docalculate(cards, accessoryDetails, extraData) {
         comp_result.hideError();
     }
 
+    if (enable_make_test_case) {
+        test_case.type = distParam.type;
+        test_case.map = llmapSaveData;
+        test_case.result = llteam.getResults();
+        console.log(test_case);
+    }
     comp_team.setResult(llteam);
     comp_result.showResult(llteam);
 }

@@ -6,6 +6,7 @@
 {% set jsPage=url_for('static', filename='pages/test.js', v=config.PAGE_VERSION.test) %}
 
 {% block main %}
+<button id='test-run-all' class="btn btn-default">执行全部</button>
 <table class='table table-hover'>
    <thead>
       <tr>

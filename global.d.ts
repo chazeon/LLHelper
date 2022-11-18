@@ -270,6 +270,9 @@ declare namespace LLH {
     }
 
     namespace Internal {
+        /** cn, latest */
+        type DataVersionType = string;
+
         /** LLConstValue.SONG_DEFAULT_SET_... */
         type DefaultSongSetIdType = number;
 
@@ -1527,6 +1530,7 @@ declare namespace LLH {
             raw: LLMember_Options;
 
             accessoryAttr: Internal.AttributesValue;
+            withAccessoryAttr?: Internal.AttributesValue;
 
             /** set after calcDisplayAttr() */
             displayAttr: Internal.AttributesValue;
@@ -1559,6 +1563,7 @@ declare namespace LLH {
             getGrade(): Core.GradeType;
             getSkillDetail(levelBoost?: number): API.SkillDetailDataType | undefined;
             getAccessoryDetail(levelBoost?: number): API.AccessoryLevelDataType | undefined;
+            getAttrWithAccessory(): Internal.AttributesValue;
         }
 
         class LLTeam {
@@ -2368,7 +2373,7 @@ declare namespace LLH {
     }
 
     class LLData<DataT> {
-        constructor(brief_url: string, detail_url: string, brief_keys: string[], version?: string);
+        constructor(brief_url: string, detail_url: string, brief_keys: string[], version?: Internal.DataVersionType);
 
         briefKeys: string[];
 
@@ -2377,8 +2382,8 @@ declare namespace LLH {
         getAllCachedBriefData(): {[id: string]: DataT};
         getCachedDetailedData(index: string): DataT;
 
-        setVersion(version?: string): void;
-        getVersion(): string;
+        setVersion(version?: Internal.DataVersionType): void;
+        getVersion(): Internal.DataVersionType;
     }
 
     class LLSimpleKeyData<T> {
@@ -2407,12 +2412,13 @@ declare namespace LLH {
     }
 
     namespace Test {
+        type TestCaseStateType = 'initial' | 'pending' | 'running' | 'success' | 'fail' | 'skip';
         interface TestItemOptions {
             name: string;
             url?: string;
             after?: Depends.Promise<any, void> | AcceptedTestItem | AcceptedTestItem[];
             cardConfigs?: Core.CardIdType[][];
-            version?: "cn" | "latest";
+            version?: Internal.DataVersionType;
             songId?: Core.SongIdType;
             songSettingId?: Core.SongSettingIdType;
             accessoryIds?: Core.AccessoryIdStringType[];
@@ -2427,18 +2433,20 @@ declare namespace LLH {
             startTime: number;
             finishTime: number;
             start(): Depends.Promise<any, any>;
+            state?: TestCaseStateType;
         }
 
         interface TestCaseData {
             name: string;
             page: 'llnewunit' | 'llnewunitsis' | 'llnewautounit' | 'llnewunitla';
             type: Layout.ScoreDistParam.ScoreDistType;
-            version: 'cn' | 'latest';
+            version: Internal.DataVersionType;
             songId: Core.SongIdType;
             songSettingId: Core.SongSettingIdType;
             saveData: Internal.UnitSaveDataType;
             map: Model.LLMap_SaveData;
             result: Internal.CalculateResultType;
+            autoArmGem?: boolean;
         }
     }
 }

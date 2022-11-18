@@ -6,7 +6,8 @@ var data_mapnote;
 var comp_cardselector;
 /** @type {LLH.Selector.LLSongSelectorComponent} */
 var comp_songselector;
-var comp_gemselector = 0;
+/** @type {LLH.Selector.LLGemSelectorComponent} */
+var comp_gemselector;
 /** @type {LLH.Selector.LLAccessorySelectorComponent} */
 var comp_accessory_selector;
 /** @type {LLH.Layout.ScoreDistParam.LLScoreDistributionParameter} */
@@ -87,6 +88,7 @@ function check() {
 }
 
 function docalculate(cards, accessoryDetails, extraData) {
+    /** @type {LLH.Test.TestCaseData} */
     var test_case = {};
     if (enable_make_test_case) {
         test_case.saveData = JSON.parse(makeSaveData().serializeV104());
