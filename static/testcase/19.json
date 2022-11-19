@@ -1,0 +1,609 @@
+{
+    "name": "自动配饰带饰品",
+    "saveData": {
+        "version": 104,
+        "team": [
+            {
+                "hp": 6,
+                "smile": 13810,
+                "pure": 9930,
+                "cool": 16840,
+                "skilllevel": 8,
+                "gemlist": [
+                    "SADD_200",
+                    "SMUL_16",
+                    "MEMBER_29"
+                ],
+                "cardid": 3360,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "227",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 13810,
+                "pure": 9930,
+                "cool": 16840,
+                "skilllevel": 8,
+                "gemlist": [
+                    "SADD_200",
+                    "SMUL_16",
+                    "MEMBER_29"
+                ],
+                "cardid": 3360,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "227",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 13810,
+                "pure": 9930,
+                "cool": 16840,
+                "skilllevel": 8,
+                "gemlist": [
+                    "SADD_200",
+                    "SMUL_16",
+                    "MEMBER_29"
+                ],
+                "cardid": 3360,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "227",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 13810,
+                "pure": 9930,
+                "cool": 16840,
+                "skilllevel": 8,
+                "gemlist": [
+                    "SADD_200",
+                    "SMUL_16",
+                    "MEMBER_29"
+                ],
+                "cardid": 3360,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "227",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 13430,
+                "pure": 13210,
+                "cool": 14870,
+                "skilllevel": 8,
+                "gemlist": [
+                    "MEMBER_29",
+                    "SMUL_16",
+                    "SADD_200"
+                ],
+                "cardid": 3538,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "311",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 13430,
+                "pure": 13210,
+                "cool": 14870,
+                "skilllevel": 8,
+                "gemlist": [
+                    "MEMBER_29",
+                    "SMUL_16",
+                    "SADD_200"
+                ],
+                "cardid": 3582,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "155",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 13430,
+                "pure": 13210,
+                "cool": 14870,
+                "skilllevel": 1,
+                "gemlist": [
+                    "MEMBER_29",
+                    "SMUL_16",
+                    "SADD_200"
+                ],
+                "cardid": 3582,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "329",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 6280,
+                "pure": 4380,
+                "cool": 4160,
+                "skilllevel": 1,
+                "gemlist": [
+                    "SADD_450",
+                    "AMUL_40"
+                ],
+                "cardid": 3053,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {
+                    "id": "348",
+                    "level": 8
+                }
+            },
+            {
+                "hp": 6,
+                "smile": 3250,
+                "pure": 8660,
+                "cool": 3650,
+                "skilllevel": 8,
+                "gemlist": [
+                    "AMUL_24",
+                    "SCORE_250"
+                ],
+                "cardid": 3692,
+                "mezame": 1,
+                "maxcost": 8,
+                "accessory": {}
+            }
+        ],
+        "gemstock": {
+            "SADD_200": {
+                "ALL": 9
+            },
+            "SADD_450": {
+                "ALL": 9
+            },
+            "SMUL_10": {
+                "ALL": 9
+            },
+            "SMUL_16": {
+                "ALL": 9
+            },
+            "AMUL_18": {
+                "ALL": 9
+            },
+            "AMUL_24": {
+                "ALL": 9
+            },
+            "SCORE_250": {
+                "ALL": 9
+            },
+            "HEAL_480": {
+                "ALL": 9
+            },
+            "EMUL_33": {
+                "ALL": 9
+            },
+            "SADD_1400": {
+                "ALL": 9
+            },
+            "SMUL_28": {
+                "ALL": 9
+            },
+            "AMUL_40": {
+                "ALL": 9
+            },
+            "MEMBER_29": {
+                "ALL": 9
+            },
+            "NONET_42": {
+                "ALL": 9
+            },
+            "MEMBER_13": {
+                "ALL": 0
+            },
+            "MEMBER_21": {
+                "ALL": 0
+            },
+            "MEMBER_53": {
+                "ALL": 0
+            },
+            "NONET_15": {
+                "ALL": 9
+            }
+        },
+        "submember": []
+    },
+    "songId": "3",
+    "songSettingId": "1548",
+    "version": "latest",
+    "page": "llnewunitsis",
+    "autoArmGem": true,
+    "type": "sim",
+    "map": {
+        "attribute": "cool",
+        "weights": [
+            65.75,
+            63.5,
+            64.25,
+            69.5,
+            23,
+            65.25,
+            71.25,
+            65.25,
+            68.25
+        ],
+        "totalWeight": 556,
+        "friendCSkill": {
+            "attribute": "cool",
+            "Cskillattribute": "cool",
+            "Cskillpercentage": 0,
+            "Csecondskilllimit": 1,
+            "Csecondskillattribute": 0
+        },
+        "combo": 525,
+        "star": 70,
+        "time": 109,
+        "perfect": 446,
+        "starPerfect": 70,
+        "tapup": 0,
+        "skillup": 0,
+        "songUnit": 4,
+        "missCount": 0,
+        "speed": 9,
+        "combo_fever_pattern": 2,
+        "combo_fever_limit": 2147483647,
+        "over_heal_pattern": 1,
+        "perfect_accuracy_pattern": 1,
+        "trigger_limit_pattern": 1,
+        "simMode": "sim"
+    },
+    "result": {
+        "attrStrength": [
+            34843,
+            34843,
+            34843,
+            34843,
+            29911,
+            28643,
+            33299,
+            16625,
+            7904
+        ],
+        "finalAttr": {
+            "smile": 116921,
+            "pure": 106684,
+            "cool": 255754
+        },
+        "bonusAttr": {
+            "smile": 0,
+            "pure": 0,
+            "cool": 44396
+        },
+        "totalAttrStrength": 250171,
+        "totalHP": 54,
+        "minScore": 11051260,
+        "maxScore": 28572898,
+        "averageHeal": 3031.60745,
+        "totalSkillStrength": 14854,
+        "totalStrength": 265025,
+        "naivePercentile": [
+            11051260,
+            13990953,
+            14553246,
+            14889239,
+            15170732,
+            15375252,
+            15554094,
+            15722778,
+            15887864,
+            16022607,
+            16133625,
+            16255023,
+            16369028,
+            16483642,
+            16585699,
+            16681795,
+            16779685,
+            16878182,
+            16967075,
+            17041033,
+            17123557,
+            17202240,
+            17267016,
+            17341490,
+            17413914,
+            17483214,
+            17551583,
+            17618866,
+            17690760,
+            17761186,
+            17831250,
+            17891022,
+            17964407,
+            18032539,
+            18098132,
+            18158968,
+            18221175,
+            18284349,
+            18338540,
+            18391312,
+            18446546,
+            18501640,
+            18568314,
+            18623860,
+            18678714,
+            18738153,
+            18799790,
+            18861835,
+            18917736,
+            18970612,
+            19024375,
+            19086358,
+            19142454,
+            19195057,
+            19252214,
+            19303499,
+            19360572,
+            19420434,
+            19482084,
+            19537176,
+            19592374,
+            19656025,
+            19716306,
+            19774219,
+            19829739,
+            19894826,
+            19960138,
+            20027458,
+            20090019,
+            20153137,
+            20223104,
+            20293393,
+            20361166,
+            20425257,
+            20499665,
+            20580117,
+            20653732,
+            20722445,
+            20803440,
+            20887184,
+            20960959,
+            21057576,
+            21145920,
+            21241984,
+            21344276,
+            21448548,
+            21559591,
+            21666489,
+            21770592,
+            21886638,
+            22034235,
+            22170280,
+            22307498,
+            22451406,
+            22671540,
+            22868710,
+            23084447,
+            23420153,
+            23831629,
+            24579270,
+            28572898
+        ],
+        "simulateSurvivePercentile": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+        ],
+        "naiveExpection": 19060461,
+        "probabilityForMinScore": 0.00005,
+        "probabilityForMaxScore": 0.00005,
+        "averageSkillsActiveCount": [
+            13.6727,
+            13.72135,
+            13.98165,
+            16.5316,
+            7.699,
+            31.47195,
+            7.40395,
+            4.30405,
+            2.5489
+        ],
+        "averageSkillsActiveChanceCount": [
+            32,
+            32,
+            32,
+            32,
+            12,
+            58,
+            32.3431,
+            32,
+            6
+        ],
+        "averageSkillsActiveNoEffectCount": [
+            3.68455,
+            3.6846,
+            3.68265,
+            3.67935,
+            0,
+            2.3957,
+            0.0483,
+            0,
+            0
+        ],
+        "averageSkillsActiveHalfEffectCount": [
+            4.7569,
+            4.6886,
+            4.44755,
+            1.89125,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "averageAccessoryActiveCount": [
+            3.33765,
+            3.379,
+            3.58135,
+            5.11535,
+            1.7166,
+            11.72015,
+            19.67735,
+            16.81315,
+            0
+        ],
+        "averageAccessoryActiveChanceCount": [
+            9.88585,
+            9.90545,
+            9.88815,
+            9.8978,
+            4.301,
+            24.13235,
+            24.89085,
+            27.69595,
+            0
+        ],
+        "averageAccessoryActiveNoEffectCount": [
+            0.9282,
+            0.93105,
+            0.9262,
+            0.9228,
+            0,
+            0.68655,
+            0.0053,
+            0,
+            0
+        ],
+        "averageAccessoryActiveHalfEffectCount": [
+            3.04505,
+            3.0044,
+            2.79165,
+            1.25855,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "averageDamage": 0,
+        "averageOverHealLevel": 55.6427,
+        "averageAccuracyNCoverage": 0,
+        "averageLABonus": 1,
+        "failRate": 0,
+        "micNumber": 9,
+        "equivalentURLevel": 58
+    }
+}

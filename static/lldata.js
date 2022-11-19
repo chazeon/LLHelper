@@ -5211,6 +5211,8 @@ var LLMember = (function() {
                console.info('Accessory ' + v.accessoryData.id + ' cannot be equipped to ' + v.cardid);
             }
          }
+         /** @type {LLH.Internal.AttributesValue=} */
+         this.withAccessoryAttr = undefined;
          this.raw = v;
       }
       hasSkillGem() {
@@ -5233,10 +5235,7 @@ var LLMember = (function() {
       }
       calcDisplayAttr() {
          //显示属性=(基本属性+绊+饰品属性)*单体百分比宝石加成+数值宝石加成
-         var withAccessory = LLConst.Attributes.copyAttributes(this);
-         if (this.accessory && this.accessoryAttr) {
-            LLConst.Attributes.addToAttributes(withAccessory, this.accessoryAttr);
-         }
+         var withAccessory = this.getAttrWithAccessory();
          var ret = LLConst.Attributes.copyAttributes(withAccessory);
          for (var i = 0; i < this.gems.length; i++) {
             var gem = this.gems[i];
@@ -5409,6 +5408,16 @@ var LLMember = (function() {
          var lv = (this.accessoryLevel || 1) + levelBoost;
          if (lv > this.accessory.levels.length) lv = this.accessory.levels.length;
          return this.accessory.levels[lv-1];
+      }
+      getAttrWithAccessory() {
+         if (this.withAccessoryAttr === undefined) {
+            var withAccessory = LLConst.Attributes.copyAttributes(this);
+            if (this.accessory && this.accessoryAttr) {
+               LLConst.Attributes.addToAttributes(withAccessory, this.accessoryAttr);
+            }
+            this.withAccessoryAttr = withAccessory;
+         }
+         return this.withAccessoryAttr;
       }
    }
 
@@ -7036,7 +7045,8 @@ var LLTeam = (function() {
                   } else if (curGem.isAttrMultiple()) {
                      if (curGem.isEffectRangeSelf()) {
                         if (curGem.getAttributeType() == mapcolor) {
-                           curStrengthBuff = (curGem.getEffectValue() / 100) * (1 + cskillPercentages[i]/100) * curMember[mapcolor];
+                           // 饰品属性受单体宝石加成
+                           curStrengthBuff = (curGem.getEffectValue() / 100) * (1 + cskillPercentages[i]/100) * curMember.getAttrWithAccessory()[mapcolor];
                         }
                         // TODO: 个人宝石和歌曲颜色不同的情况下, 增加强度为12%主唱技能加成带来的强度
                      } else if (curGem.isEffectRangeAll()) {
@@ -7050,6 +7060,7 @@ var LLTeam = (function() {
                         }
                         if (takeEffect) {
                            for (k = 0; k < 9; k++) {
+                              // 饰品属性不受单体宝石加成
                               curStrengthBuff += Math.ceil( (curGem.getEffectValue() / 100) * this.members[k][mapcolor] ) * (1 + cskillPercentages[k]/100);
                            }
                         }

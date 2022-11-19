@@ -130,10 +130,22 @@ function renderPage(loadDeferred) {
         /** @type {LLH.Test.AcceptedTestItem} */
         var acceptedItem = item;
         testSet.push(acceptedItem);
-        testStatusSummary.update(undefined, 'initial');
+
+        /** @param {LLH.Test.TestCaseStateType} newState */
+        var updateState = function(newState) {
+            testStatusSummary.update(acceptedItem.state, newState);
+            acceptedItem.state = newState;
+        }
+        updateState('initial');
 
         var resultElement = LLUnit.createElement('td', { 'innerHTML': 'Not started' });
-        var performanceElement = LLUnit.createElement('td');
+        var performanceElement = LLUnit.createElement('td', undefined, [
+            new LLButtonComponent({'text': 'Run', 'click': function() {
+                if (acceptedItem.state == 'initial') {
+                    acceptedItem.start();
+                }
+            }}).element
+        ]);
         var defer = LLDepends.createDeferred();
         acceptedItem.defer = defer;
 
@@ -142,11 +154,11 @@ function renderPage(loadDeferred) {
             if (result == 'Skipped') {
                 resultElement.innerHTML = result;
                 resultElement.className = 'warning';
-                testStatusSummary.update('pending', 'skip');
+                updateState('skip');
             } else if (result) {
                 resultElement.innerHTML = 'Fail: ' + result;
                 resultElement.className = 'danger';
-                testStatusSummary.update('running', 'fail');
+                updateState('fail');
             } else {
                 var maxDiff = acceptedItem.maxDiff;
                 var resultInfo = 'Success';
@@ -158,7 +170,7 @@ function renderPage(loadDeferred) {
                 }
                 resultElement.innerHTML = resultInfo;
                 resultElement.className = 'success';
-                testStatusSummary.update('running', 'success');
+                updateState('success');
             }
             LLUnit.updateSubElements(performanceElement, [
                 (acceptedItem.finishTime - acceptedItem.startTime).toFixed(3),
@@ -168,11 +180,11 @@ function renderPage(loadDeferred) {
                         addTestItem(itemCopy).start();
                     }
                 })
-            ]);
+            ], true);
         };
 
         acceptedItem.start = function () {
-            testStatusSummary.update('initial', 'pending');
+            updateState('pending');
             resultElement.innerHTML = 'Pending';
             resultElement.className = 'info';
             /** @type {LLH.Depends.Promise<any, any>[]} */
@@ -191,7 +203,7 @@ function renderPage(loadDeferred) {
                 }
             }
             LLDepends.whenAllByArray(afters).then(function () {
-                testStatusSummary.update('pending', 'running');
+                updateState('running');
                 var cardDefer, songDefer, accessoryDefer;
                 if (acceptedItem.cardConfigs) {
                     var cardIds = acceptedItem.cardConfigs.map(function (c) { return c[0]; });
@@ -999,6 +1011,10 @@ function renderPage(loadDeferred) {
             }
 
             var llteam = new LLTeam(llmembers);
+            if (caseData.autoArmGem) {
+                // autoarm
+                llteam.autoArmGem(caseData.map, saveData.gemStock);
+            }
             llteam.calculateAttributeStrength(caseData.map);
             llteam.calculateSkillStrength(caseData.map);
             caseData.logData = {'result': llteam, 'expected': caseData.result};
@@ -1082,7 +1098,7 @@ function renderPage(loadDeferred) {
                 testOptions.name = testOptions.name + ' (' + caseFileId + '.json)';
                 testOptions.accessoryIds = accessoryIds;
                 caseData.url = '/' + caseData.page + '?unit=' + encodeURI(JSON.stringify(caseData.saveData));
-                addTestItem(caseData).start();
+                addTestItem(caseData);
                 return 0;
             });
         }
@@ -1091,17 +1107,21 @@ function renderPage(loadDeferred) {
             'after': test1,
             'run': function () {
                 var runs = [];
-                for (var i = 1; i <= 18; i++) {
+                for (var i = 1; i <= 19; i++) {
                     runs.push(loadAndRunTestCase(i + ''));
                 }
                 return $.when.apply($, runs);
             }
         });
-        // run tests
-        var defers = [];
-        for (var i = 1; i < testSet.length; i++) {
-            defers.push(testSet[i].start());
-        }
+
+        var runAllButton = new LLButtonComponent({'id': 'test-run-all', 'click': function() {
+            for (var i = 0; i < testSet.length; i++) {
+                if (testSet[i].state == 'initial') {
+                    testSet[i].start();
+                }
+            }
+        }});
+    
     }
 
     g_page_load_case = function () {
