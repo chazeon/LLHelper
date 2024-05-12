@@ -28,7 +28,7 @@ newsongsjson.txt
 .idea
 .DS_Store
 
-*.db_
+# *.db_
 live
 venv
 static/live

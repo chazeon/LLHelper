@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 do_download_livedb=
 do_download_unitdb=
 do_cleanup=
